@@ -1,8 +1,11 @@
 const axios = require('axios');
 const fs = require('fs');
+const moment = require('moment-timezone');
 
 const BUNDLES_FILE = 'bundles.json';
 const BUNDLES_DETAILED_FILE = 'bundleDetailed.json';
+const LAST_CHECK_FILE = 'last_check.json';
+const TIMEZONE = 'America/Sao_Paulo';
 
 const fetchBundleDetails = async (bundleId, language = 'english') => {
     const url = `https://store.steampowered.com/actions/ajaxresolvebundles?bundleids=${bundleId}&cc=NL&l=${language}&origin=https:%2F%2Fstore.steampowered.com`;
@@ -72,25 +75,47 @@ const updateBundlesWithDetails = async (language = 'english') => {
         const bundlesData = fs.readFileSync(BUNDLES_FILE, 'utf-8');
         const bundlesJson = JSON.parse(bundlesData);
 
-        console.log('Iniciando atualização dos detalhes das bundles...');
-        const updatedBundles = [];
-        for (const bundle of bundlesJson.bundles) {
-            const bundleId = bundle.Link.split('/bundle/')[1].split('/')[0];
-            const bundleDetails = await fetchBundleDetails(bundleId, language);
-            updatedBundles.push({ ...bundle, ...bundleDetails });
-
-            // Salva os detalhes atualizados das bundles em bundleDetailed.json
-            const result = {
-                totalBundles: updatedBundles.length,
-                bundles: updatedBundles
-            };
-            fs.writeFileSync(BUNDLES_DETAILED_FILE, JSON.stringify(result, null, 2), 'utf-8');
-            console.log(`Detalhes do bundle ID ${bundleId} atualizados e salvos em ${BUNDLES_DETAILED_FILE}`);
-
-            await delay(200); // Delay pra evitar que a API da steam bloqueie as req
+        // Leia a data da última verificação do arquivo last_check.json
+        let lastCheckData = {};
+        if (fs.existsSync(LAST_CHECK_FILE)) {
+            lastCheckData = JSON.parse(fs.readFileSync(LAST_CHECK_FILE, 'utf-8'));
         }
 
-        console.log('Detalhes das bundles atualizados e salvos em bundleDetailed.json');
+        const lastCheckDate = lastCheckData.lastCheck;
+        const currentDate = moment().tz(TIMEZONE).format();
+
+        // Verifique se a data atual é diferente da última verificação
+        if (lastCheckDate !== currentDate) {
+            console.log('Mudanças detectadas na data da última verificação. Atualizando...');
+
+            console.log('Iniciando atualização dos detalhes das bundles...');
+            const updatedBundles = [];
+            for (const bundle of bundlesJson.bundles) {
+                const bundleId = bundle.Link.split('/bundle/')[1].split('/')[0];
+                const bundleDetails = await fetchBundleDetails(bundleId, language);
+                updatedBundles.push({ ...bundle, ...bundleDetails });
+
+                // Salva os detalhes atualizados das bundles em bundleDetailed.json
+                const result = {
+                    totalBundles: updatedBundles.length,
+                    bundles: updatedBundles
+                };
+                fs.writeFileSync(BUNDLES_DETAILED_FILE, JSON.stringify(result, null, 2), 'utf-8');
+                console.log(`Detalhes do bundle ID ${bundleId} atualizados e salvos em ${BUNDLES_DETAILED_FILE}`);
+
+                await delay(200); // Delay pra evitar que a API da steam bloqueie as req
+            }
+
+            console.log('Detalhes das bundles atualizados e salvos em bundleDetailed.json');
+
+            // Salve a nova data da última verificação
+            const lastCheck = {
+                lastCheck: currentDate
+            };
+            fs.writeFileSync(LAST_CHECK_FILE, JSON.stringify(lastCheck, null, 2), 'utf-8');
+        } else {
+            console.log('Nenhuma mudança detectada na data da última verificação.');
+        }
     } catch (error) {
         console.error('Erro ao atualizar os detalhes das bundles:', error);
     }
