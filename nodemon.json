@@ -1,0 +1,3 @@
+{
+    "ignore": ["bundles.json", "bundleDetailed.json"]
+}
