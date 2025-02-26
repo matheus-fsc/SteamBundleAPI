@@ -7,6 +7,8 @@ const BUNDLES_DETAILED_FILE = 'bundleDetailed.json';
 const LAST_CHECK_FILE = 'last_check.json';
 const TIMEZONE = 'America/Sao_Paulo';
 
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
 const fetchBundleDetails = async (bundleId, language = 'english') => {
     const url = `https://store.steampowered.com/actions/ajaxresolvebundles?bundleids=${bundleId}&cc=NL&l=${language}&origin=https:%2F%2Fstore.steampowered.com`;
     console.log(`Buscando detalhes para o bundle ID: ${bundleId} no idioma: ${language}`);
@@ -62,8 +64,6 @@ const fetchBundleDetails = async (bundleId, language = 'english') => {
     }
 };
 
-const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-
 const updateBundlesWithDetails = async (language = 'english') => {
     try {
         if (!fs.existsSync(BUNDLES_FILE)) {
@@ -89,23 +89,21 @@ const updateBundlesWithDetails = async (language = 'english') => {
             console.log('Mudanças detectadas na data da última verificação. Atualizando...');
 
             console.log('Iniciando atualização dos detalhes das bundles...');
-            const updatedBundles = [];
-            for (const bundle of bundlesJson.bundles) {
+            const bundlePromises = bundlesJson.bundles.map(async (bundle, index) => {
                 const bundleId = bundle.Link.split('/bundle/')[1].split('/')[0];
+                await delay(index * 100); // Adiciona um atraso de 100ms entre as solicitações
                 const bundleDetails = await fetchBundleDetails(bundleId, language);
-                updatedBundles.push({ ...bundle, ...bundleDetails });
+                return { ...bundle, ...bundleDetails };
+            });
 
-                // Salva os detalhes atualizados das bundles em bundleDetailed.json
-                const result = {
-                    totalBundles: updatedBundles.length,
-                    bundles: updatedBundles
-                };
-                fs.writeFileSync(BUNDLES_DETAILED_FILE, JSON.stringify(result, null, 2), 'utf-8');
-                console.log(`Detalhes do bundle ID ${bundleId} atualizados e salvos em ${BUNDLES_DETAILED_FILE}`);
+            const updatedBundles = await Promise.all(bundlePromises);
 
-                await delay(200); // Delay pra evitar que a API da steam bloqueie as req
-            }
-
+            // Salva os detalhes atualizados das bundles em bundleDetailed.json
+            const result = {
+                totalBundles: updatedBundles.length,
+                bundles: updatedBundles
+            };
+            fs.writeFileSync(BUNDLES_DETAILED_FILE, JSON.stringify(result, null, 2), 'utf-8');
             console.log('Detalhes das bundles atualizados e salvos em bundleDetailed.json');
 
             // Salve a nova data da última verificação
