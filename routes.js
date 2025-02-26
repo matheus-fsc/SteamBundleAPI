@@ -31,7 +31,7 @@ router.get('/api/bundles-detailed', (req, res) => {
             const page = parseInt(req.query.page) || 1;
             const limit = parseInt(req.query.limit) || 10;
             const startIndex = (page - 1) * limit;
-            const endIndex = page * limit;
+            const endIndex = page * limit + 2;
 
             const result = {
                 totalBundles: data.totalBundles,
