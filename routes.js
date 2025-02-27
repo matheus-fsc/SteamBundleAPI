@@ -7,6 +7,10 @@ const router = express.Router();
 const BUNDLES_FILE = 'bundles.json';
 const BUNDLES_DETAILED_FILE = 'bundleDetailed.json';
 
+router.get('/', (req, res) => {
+    res.json({ message: 'API conectada com sucesso!' });
+});
+
 // Endpoint para servir o JSON salvo
 router.get('/api/bundles', (req, res) => {
     try {
