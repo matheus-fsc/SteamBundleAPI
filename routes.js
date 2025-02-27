@@ -7,6 +7,7 @@ const router = express.Router();
 const BUNDLES_FILE = 'bundles.json';
 const BUNDLES_DETAILED_FILE = 'bundleDetailed.json';
 
+// Rota principal para verificar se a API está funcionando
 router.get('/', (req, res) => {
     res.json({ message: 'API conectada com sucesso!' });
 });
@@ -35,7 +36,7 @@ router.get('/api/bundles-detailed', (req, res) => {
             const page = parseInt(req.query.page) || 1;
             const limit = parseInt(req.query.limit) || 10;
             const startIndex = (page - 1) * limit;
-            const endIndex = page * limit + 2;
+            const endIndex = page * limit;
 
             const result = {
                 totalBundles: data.totalBundles,
