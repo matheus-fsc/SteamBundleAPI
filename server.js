@@ -10,9 +10,8 @@ const app = express();
 app.use(cors());
 app.use(routes);
 
-const PORT = 3000;
 const LAST_CHECK_FILE = 'last_check.json';
-const TIMEZONE = 'America/Sao_Paulo'; // Horário de Brasília
+const TIMEZONE = process.env.TIMEZONE || 'America/Sao_Paulo'; // Horário de Brasília
 
 // Verificar a última verificação ao iniciar o servidor
 const checkLastVerification = () => {
@@ -42,4 +41,4 @@ cron.schedule('0 */6 * * *', fetchAndSaveBundles, {
 // Verificar a última verificação ao iniciar o servidor
 checkLastVerification();
 
-app.listen(PORT, () => console.log(`Servidor rodando em http://localhost:${PORT}`));
+app.listen(process.env.PORT || 3000, () => console.log(`Servidor rodando`));
