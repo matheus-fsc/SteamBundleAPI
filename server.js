@@ -38,7 +38,7 @@ cron.schedule('0 */6 * * *', fetchAndSaveBundles, {
     timezone: TIMEZONE
 });
 
-// Verificar a última verificação ao iniciar o servidor
 checkLastVerification();
 
-app.listen(process.env.PORT || 3000, () => console.log(`Servidor rodando`));
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Servidor rodando no localhost:${PORT}`));
