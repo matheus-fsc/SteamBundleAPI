@@ -40,5 +40,5 @@ cron.schedule('0 */6 * * *', fetchAndSaveBundles, {
 
 checkLastVerification();
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 5005;
 app.listen(PORT, () => console.log(`Servidor rodando no localhost:${PORT}`));
