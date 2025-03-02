@@ -12,6 +12,8 @@
     "start": "nodemon server.js"
   },
   "nodemonConfig": {
-    "ignore": ["bundles.json"]
+    "ignore": [
+      "bundles.json"
+    ]
   }
 }
