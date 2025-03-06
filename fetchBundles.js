@@ -26,9 +26,7 @@ const fetchAndSaveBundles = async () => {
             const { data } = await axios.get(url);
             console.log('Dados recebidos da URL:', data.length);
 
-            // Verifica se os dados da página atual são iguais aos da página anterior
             if (previousPageData && previousPageData === data) {
-                console.log('Dados da página atual são iguais aos da página anterior. Interrompendo a busca.');
                 return null;
             }
 
