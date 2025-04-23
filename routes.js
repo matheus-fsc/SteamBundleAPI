@@ -1,7 +1,7 @@
 const express = require('express');
 const fs = require('fs');
-const { fetchAndSaveBundles, totalBundlesCount } = require('./fetchBundles');
-const { updateBundlesWithDetails } = require('./updateBundles'); // Importar a função updateBundlesWithDetails
+const { fetchAndSaveBundles, totalBundlesCount } = require('./services/fetchBundles');
+const { updateBundlesWithDetails } = require('./services/updateBundles');
 
 const router = express.Router();
 const BUNDLES_FILE = 'bundles.json';
@@ -60,8 +60,13 @@ router.get('/api/bundles-detailed', (req, res) => {
 router.get('/api/force-update', async (req, res) => {
     try {
         await fetchAndSaveBundles();
+        console.log('fetchAndSaveBundles concluído.');
+
+        // Chama updateBundlesWithDetails após salvar os bundles
+        await updateBundlesWithDetails();
+        console.log('updateBundlesWithDetails concluído.');
+
         res.json({ message: 'Atualização forçada concluída com sucesso.', totalBundles: totalBundlesCount });
-        console.log('Atualização forçada concluída com sucesso.');
     } catch (error) {
         console.error('Erro ao forçar a atualização:', error);
         res.status(500).json({ error: 'Erro ao forçar a atualização' });

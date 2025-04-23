@@ -3,7 +3,8 @@ const cors = require('cors');
 const cron = require('node-cron');
 const moment = require('moment-timezone');
 const fs = require('fs');
-const { fetchAndSaveBundles } = require('./fetchBundles');
+const { fetchAndSaveBundles } = require('./services/fetchBundles');
+const { updateBundlesWithDetails } = require('./services/updateBundles');
 const routes = require('./routes');
 
 const app = express();
@@ -41,4 +42,4 @@ cron.schedule('0 */6 * * *', fetchAndSaveBundles, {
 checkLastVerification();
 
 const PORT = process.env.PORT || 5005;
-app.listen(PORT, () => console.log(`Servidor rodando no localhost:${PORT}`));
+app.listen(PORT, () => console.log(`Servidor rodando no localhost:${PORT}`));  
