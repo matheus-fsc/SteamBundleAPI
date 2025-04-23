@@ -9,8 +9,8 @@ const TIMEZONE = 'America/Sao_Paulo';
 
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-const fetchBundleDetails = async (bundleId, language = 'english') => {
-    const url = `https://store.steampowered.com/actions/ajaxresolvebundles?bundleids=${bundleId}&cc=NL&l=${language}&origin=https:%2F%2Fstore.steampowered.com`;
+const fetchBundleDetails = async (bundleId, language = 'portuguese') => {
+    const url = `https://store.steampowered.com/actions/ajaxresolvebundles?bundleids=${bundleId}&cc=BR&l=${language}&origin=https:%2F%2Fstore.steampowered.com`;
     try {
         const response = await axios.get(url);
         console.log(`Resposta da API para o bundle ID ${bundleId}:`, response.data);
