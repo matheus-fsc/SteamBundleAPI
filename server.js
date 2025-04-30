@@ -41,5 +41,7 @@ cron.schedule('0 */6 * * *', fetchAndSaveBundles, {
 
 checkLastVerification();
 
-const PORT = process.env.PORT || 5005;
-app.listen(PORT, () => console.log(`Servidor rodando no localhost:${PORT}`));  
+const PORT = process.env.PORT || 3000; // Porta dinâmica para o Render
+app.listen(PORT, () => {
+    console.log(`Servidor rodando na porta ${PORT}`);
+});

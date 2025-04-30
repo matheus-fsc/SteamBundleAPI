@@ -56,13 +56,27 @@ router.get('/api/bundles-detailed', (req, res) => {
     }
 });
 
+router.get('/api/bundles-detailed-all', (req, res) => {
+    try {
+        if (fs.existsSync(BUNDLES_DETAILED_FILE)) {
+            const data = JSON.parse(fs.readFileSync(BUNDLES_DETAILED_FILE, 'utf-8'));
+            res.json(data);
+            console.log('JSON completo de bundles detalhados enviado ao cliente');
+        } else {
+            res.status(500).json({ error: 'Arquivo de bundles detalhado não encontrado' });
+        }
+    } catch (error) {
+        console.error('Erro ao ler o arquivo de bundles detalhado:', error);
+        res.status(500).json({ error: 'Erro ao ler o arquivo de bundles detalhado' });
+    }
+});
+
 // Endpoint para forçar uma atualização
 router.get('/api/force-update', async (req, res) => {
     try {
         await fetchAndSaveBundles();
         console.log('fetchAndSaveBundles concluído.');
 
-        // Chama updateBundlesWithDetails após salvar os bundles
         await updateBundlesWithDetails();
         console.log('updateBundlesWithDetails concluído.');
 
