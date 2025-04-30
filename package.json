@@ -15,5 +15,6 @@
     "ignore": [
       "bundles.json"
     ]
-  }
+  },
+  "license": "MIT"
 }
