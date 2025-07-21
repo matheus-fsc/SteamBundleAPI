@@ -10,20 +10,20 @@ const TIMEZONE = 'America/Sao_Paulo';
 
 // Configurações CONSERVADORAS com OTIMIZAÇÃO de lote
 const STEAM_API_CONFIG = {
-    DELAY_BETWEEN_REQUESTS: parseInt(process.env.STEAM_API_DELAY) || 2000, // 2s entre lotes de bundles
-    DELAY_BETWEEN_APP_BATCHES: parseInt(process.env.STEAM_APP_DELAY) || 500, // 500ms entre lotes de apps
-    MAX_APPS_PER_BUNDLE: parseInt(process.env.MAX_APPS_PER_BUNDLE) || 20,
+    DELAY_BETWEEN_REQUESTS: parseInt(process.env.STEAM_API_DELAY) || 800, // 800ms entre lotes de bundles (otimizado para Render)
+    DELAY_BETWEEN_APP_BATCHES: parseInt(process.env.STEAM_APP_DELAY) || 200, // 200ms entre lotes de apps
+    MAX_APPS_PER_BUNDLE: parseInt(process.env.MAX_APPS_PER_BUNDLE) || 25, // Aumentado para 25
     REQUEST_TIMEOUT: parseInt(process.env.REQUEST_TIMEOUT) || 15000,
     MAX_RETRIES: parseInt(process.env.MAX_RETRIES) || 3,
-    PARALLEL_BUNDLES: parseInt(process.env.PARALLEL_BUNDLES) || 2,
-    APP_DETAILS_BATCH_SIZE: 20, // NOVO: Tamanho do lote para a API appdetails (20 é um número seguro)
+    PARALLEL_BUNDLES: parseInt(process.env.PARALLEL_BUNDLES) || 3, // 3 threads paralelas
+    APP_DETAILS_BATCH_SIZE: parseInt(process.env.APP_BATCH_SIZE) || 5, // Usa variável de ambiente
     SKIP_DETAILS_THRESHOLD: parseInt(process.env.SKIP_DETAILS_THRESHOLD) || 50
 };
 
-// CONFIGURAÇÕES PARA RENDER FREE (500MB RAM)
-const SAVE_INTERVAL_BATCHES = 20;
-const MEMORY_CHECK_INTERVAL_BATCHES = 5;
-const MAX_MEMORY_USAGE_MB = 350;
+// CONFIGURAÇÕES PARA RENDER FREE (500MB RAM + 0.1 vCPU)
+const SAVE_INTERVAL_BATCHES = 15; // Reduzido para salvar mais frequentemente com mais paralelismo
+const MEMORY_CHECK_INTERVAL_BATCHES = 3; // Verificação mais frequente da memória
+const MAX_MEMORY_USAGE_MB = 300; // Reduzido para dar margem de segurança
 
 console.log('🔧 Configurações da API Steam:', STEAM_API_CONFIG);
 console.log(`💾 Modo Render Free: Salvamento a cada ${SAVE_INTERVAL_BATCHES} lotes`);
