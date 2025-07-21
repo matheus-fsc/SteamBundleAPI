@@ -86,7 +86,7 @@ FETCH_BUNDLES_DELAY=5000
 ```properties
 NODE_ENV=production
 TIMEZONE=America/Sao_Paulo
-API_KEY=be0c9fc4f7b53f7ce69a01f913dad4e0666eceb4e977688b33a7ec244cfb12ec
+API_KEY=SUA_CHAVE_SECRETA_AQUI
 
 FETCH_BUNDLES_CONCURRENT=1
 FETCH_BUNDLES_DELAY=3000
@@ -104,7 +104,8 @@ SKIP_DETAILS_THRESHOLD=50
 
 ⚠️ **IMPORTANTE:** 
 - **NÃO** defina a variável `PORT` - o Render define automaticamente
-- **Gere uma nova API_KEY** para produção: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
+- **GERE UMA API_KEY FORTE** para produção: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
+- **NUNCA compartilhe sua API_KEY** - ela protege seus endpoints administrativos
 
 ### 4. **Deploy:**
    - O Render detectará automaticamente o `package.json`
