@@ -49,6 +49,7 @@ const corsOptions = {
             'http://localhost:3001',
             'https://bundles-set-seven.vercel.app',
             'https://bundles-set.vercel.app',
+            'https://steambundleapi.onrender.com', // API própria (self-requests)
             // Adiciona padrões flexíveis para Render e outros serviços
             /\.render\.com$/,
             /\.vercel\.app$/,
