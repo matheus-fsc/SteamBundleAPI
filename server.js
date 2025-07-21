@@ -18,6 +18,9 @@ const { publicRateLimit } = require('./middleware/auth');
 
 const app = express();
 
+// Configuração para ambientes de produção com proxy reverso (Render, Heroku, etc.)
+app.set('trust proxy', 1); // Confia no primeiro proxy
+
 // Middlewares de segurança (devem vir primeiro)
 app.use(helmet({
     contentSecurityPolicy: {
