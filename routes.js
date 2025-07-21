@@ -12,7 +12,7 @@ const {
 
 const router = express.Router();
 const BUNDLES_FILE = 'bundles.json';
-const BUNDLES_DETAILED_FILE = 'bundleDetailed.json';
+const BUNDLES_DETAILED_FILE = 'bundleDetailed_test.json';
 
 // Rota principal para verificar se a API está funcionando
 router.get('/', (req, res) => {
@@ -230,6 +230,95 @@ router.get('/api/bundles-detailed', validateInput, async (req, res) => {
             error: 'Erro ao ler o arquivo de bundles detalhado',
             technical_error: error.message,
             suggestion: 'Tente novamente em alguns segundos ou use /api/bundles para dados básicos'
+        });
+    }
+});
+
+// 🔍 Endpoint para obter dados únicos dos filtros
+router.get('/api/filter-options', validateInput, (req, res) => {
+    try {
+        const dataFile = fs.existsSync(BUNDLES_DETAILED_FILE) ? BUNDLES_DETAILED_FILE : BUNDLES_FILE;
+        
+        if (!fs.existsSync(dataFile)) {
+            return res.status(500).json({ 
+                error: 'Dados não encontrados',
+                suggestion: 'A API pode estar inicializando'
+            });
+        }
+
+        const data = JSON.parse(fs.readFileSync(dataFile, 'utf-8'));
+        const bundles = data.bundles || [];
+
+        // Extrai valores únicos para os filtros
+        const genres = new Set();
+        const categories = new Set();
+        const platforms = new Set();
+        let minPrice = Infinity;
+        let maxPrice = 0;
+        let minDiscount = 100;
+        let maxDiscount = 0;
+
+        bundles.forEach(bundle => {
+            // Gêneros
+            if (bundle.genres && Array.isArray(bundle.genres)) {
+                bundle.genres.forEach(genre => genres.add(genre));
+            }
+
+            // Categorias
+            if (bundle.categories && Array.isArray(bundle.categories)) {
+                bundle.categories.forEach(category => categories.add(category));
+            }
+
+            // Plataformas
+            if (bundle.available_windows) platforms.add('Windows');
+            if (bundle.available_mac) platforms.add('Mac');
+            if (bundle.available_linux) platforms.add('Linux');
+
+            // Preços (em centavos, converte para reais)
+            if (bundle.final_price && typeof bundle.final_price === 'number') {
+                const priceInReais = bundle.final_price / 100;
+                minPrice = Math.min(minPrice, priceInReais);
+                maxPrice = Math.max(maxPrice, priceInReais);
+            }
+
+            // Descontos
+            if (bundle.discount_percent && typeof bundle.discount_percent === 'number') {
+                minDiscount = Math.min(minDiscount, bundle.discount_percent);
+                maxDiscount = Math.max(maxDiscount, bundle.discount_percent);
+            }
+        });
+
+        // Ajusta valores mínimos caso não encontre nenhum dado
+        if (minPrice === Infinity) minPrice = 0;
+        if (minDiscount === 100) minDiscount = 0;
+
+        const filterOptions = {
+            genres: Array.from(genres).sort(),
+            categories: Array.from(categories).sort(),
+            platforms: Array.from(platforms).sort(),
+            priceRange: {
+                min: Math.floor(minPrice),
+                max: Math.ceil(maxPrice)
+            },
+            discountRange: {
+                min: minDiscount,
+                max: maxDiscount
+            },
+            metadata: {
+                totalBundles: bundles.length,
+                dataSource: dataFile.includes('Detailed') ? 'detailed' : 'basic',
+                lastUpdate: data.last_update || null
+            }
+        };
+
+        res.json(filterOptions);
+        console.log(`🔍 Opções de filtro enviadas (${bundles.length} bundles analisados)`);
+        
+    } catch (error) {
+        console.error('Erro ao gerar opções de filtro:', error);
+        res.status(500).json({ 
+            error: 'Erro ao gerar opções de filtro',
+            technical_error: error.message
         });
     }
 });
