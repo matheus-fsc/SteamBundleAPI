@@ -45,14 +45,17 @@ GET /api/force-update?api_key=sua_api_key_aqui
 ### Públicos
 - `GET /` - Status da API
 - `GET /health` - Health check detalhado
-- `GET /api/bundles` - Lista todas as bundles (básico)
-- `GET /api/bundles-detailed` - Lista bundles com detalhes (paginado)
+- `GET /api/bundles` - Lista todas as bundles (básico) com informações de upgrade
+- `GET /api/bundles-detailed` - 🚀 **PRINCIPAL:** Endpoint inteligente com atualização automática em segundo plano
 - `GET /api/bundles-detailed-all` - Todas as bundles detalhadas
+- `GET /api/bundles-detailed-legacy` - Comportamento antigo sem inteligência (para debug)
+- `GET /api/bundles-smart` - Alias para `/api/bundles-detailed` (compatibilidade)
 
 ### Administrativos (Requer API Key)
 - `GET /api/force-update` - Força atualização completa
 - `GET /api/update-details` - Atualiza apenas os detalhes
 - `GET /api/test-update?limit=50` - 🧪 **NOVO:** Atualiza apenas X bundles para teste (max: 200)
+- `GET /api/clean-duplicates` - 🧹 **NOVO:** Remove duplicatas manualmente
 
 ### Monitoramento
 - `GET /api/steam-stats` - 📊 **NOVO:** Estatísticas da API Steam e configurações
@@ -103,7 +106,55 @@ Acesse `/health` para verificar:
    npm start
    ```
 
-## ⚡ Otimizações da API Steam
+## 🎯 Endpoint Principal: `/api/bundles-detailed`
+
+**Agora é inteligente!** Seu frontend não precisa de mudanças, mas ganha todos os benefícios:
+
+### ✨ Funcionalidades Inteligentes (Transparentes)
+- **Resposta imediata:** Sempre retorna dados atuais sem delay
+- **Atualização automática:** Se dados > 8h, atualiza em segundo plano
+- **Compatibilidade total:** Mesma estrutura JSON do endpoint antigo
+- **Indicador de atualização:** Campo `updateTriggered` informa se update foi iniciado
+- **Fallback inteligente:** Se não tem dados detalhados, retorna básicos
+
+### 📋 Estrutura de Resposta (Compatível)
+```json
+{
+  "totalBundles": 4903,
+  "bundles": [...],
+  "page": 1,
+  "totalPages": 491,
+  "hasNext": true,
+  "hasPrev": false,
+  "lastUpdate": "2025-07-21T11:23:57-03:00",
+  "updateTriggered": false  // ← NOVO: indica se update foi iniciado
+}
+```
+
+### 🔧 Uso no Frontend (Sem Mudanças!)
+```javascript
+// Seu código atual continua funcionando exatamente igual
+const response = await fetch('/api/bundles-detailed?page=1&limit=20');
+const data = await response.json();
+
+// Novo: opcionalmente você pode mostrar status de atualização
+if (data.updateTriggered) {
+  console.log('Dados sendo atualizados em segundo plano...');
+}
+```
+
+### 🧹 Sistema de Limpeza Automática
+
+- **Detecção de duplicatas:** Verifica automaticamente após cada atualização
+- **Limpeza automática:** Remove duplicatas nas bundles básicas e detalhadas
+- **Endpoint manual:** `/api/clean-duplicates` para limpeza forçada
+- **Logs detalhados:** Mostra quantas duplicatas foram removidas
+
+### 📊 Monitoramento Avançado
+
+- **Status dos dados:** Idade, quantidade, necessidade de atualização
+- **Detecção de descompasso:** Verifica diferenças entre dados básicos e detalhados
+- **Métricas de duplicatas:** Quantas duplicatas foram detectadas/removidas
 
 ### Configurações Avançadas
 Para acelerar o processamento, configure estas variáveis de ambiente:

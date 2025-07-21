@@ -3,6 +3,7 @@ const cheerio = require('cheerio');
 const fs = require('fs');
 const moment = require('moment-timezone');
 const { updateBundlesWithDetails } = require('./updateBundles');
+const { removeDuplicatesFromBasicBundles } = require('../middleware/dataValidation');
 
 const BUNDLES_FILE = 'bundles.json';
 const LAST_CHECK_FILE = 'last_check.json';
@@ -21,24 +22,26 @@ const fetchAndSaveBundles = async () => {
 
         const fetchPage = async (page) => {
             const url = `https://store.steampowered.com/search/?term=bundle&ignore_preferences=1&hidef2p=1&ndl=1&page=${page}`;
-            console.log('Buscando dados da URL:', url);
 
             const { data } = await axios.get(url);
-            console.log('Dados recebidos da URL:', data.length);
 
             if (previousPageData && previousPageData === data) {
                 return null;
             }
 
             const $ = cheerio.load(data);
-            console.log('Dados carregados no cheerio');
-
             const bundleElements = $('a[href*="/bundle/"]');
-            console.log(`Encontrados ${bundleElements.length} elementos de bundle na página ${page}`);
-
+            
+            // Log apenas se não encontrar elementos (indica fim das páginas)
             if (bundleElements.length === 0) {
+                console.log(`📄 Página ${page}: Não há mais bundles - fim da busca`);
                 return null;
             } else {
+                // Log de progresso a cada 10 páginas
+                if (page % 10 === 0) {
+                    console.log(`📄 Processando página ${page} (${bundleElements.length} bundles encontradas)`);
+                }
+                
                 const bundlePromises = bundleElements.map(async (_, el) => {
                     const title = $(el).find('.title').text().trim();
                     const link = $(el).attr('href');
@@ -69,46 +72,61 @@ const fetchAndSaveBundles = async () => {
                 }
             }
 
-            // Adiciona o contador de bundles
-            const result = {
-                totalBundles: bundles.length,
-                bundles: bundles
-            };
+            // Log de progresso geral a cada 50 páginas ou quando encontrar muitos bundles
+            if (page % 50 === 0 || bundles.length % 1000 === 0) {
+                console.log(`📊 Progresso: ${bundles.length} bundles encontradas (página ~${page})`);
+            }
 
-            // Log the bundles before saving
-            console.log('Tentando gravar o seguinte JSON com os links e nomes das bundles:', JSON.stringify(result, null, 2));
-
-            // Save bundles to bundles.json
-            fs.writeFileSync(BUNDLES_FILE, JSON.stringify(result, null, 2), 'utf-8');
-            console.log(`JSON gravado em bundles.json após a página ${page - MAX_CONCURRENT_REQUESTS}`);
+            // Salva o arquivo a cada 100 bundles para não perder progresso
+            if (bundles.length % 100 === 0) {
+                const result = {
+                    totalBundles: bundles.length,
+                    bundles: bundles
+                };
+                fs.writeFileSync(BUNDLES_FILE, JSON.stringify(result, null, 2), 'utf-8');
+            }
 
             // Atualiza os dados da página anterior
             previousPageData = pageResults[pageResults.length - 1];
         }
 
-        console.log('Bundles extraídos:', JSON.stringify(bundles, null, 2));
+        console.log(`✅ Busca concluída: ${bundles.length} bundles encontradas`);
+
+        // Salva o resultado final
+        const result = {
+            totalBundles: bundles.length,
+            bundles: bundles
+        };
+        fs.writeFileSync(BUNDLES_FILE, JSON.stringify(result, null, 2), 'utf-8');
+        console.log(`💾 Arquivo bundles.json salvo com ${bundles.length} bundles`);
+
+        // 🧹 Remove duplicatas após a coleta
+        console.log('🔍 Verificando duplicatas nas bundles básicas...');
+        const deduplication = removeDuplicatesFromBasicBundles();
+        if (deduplication.removed > 0) {
+            totalBundlesCount = deduplication.total;
+            console.log(`🧹 ${deduplication.removed} duplicatas removidas. Total final: ${totalBundlesCount}`);
+        } else {
+            totalBundlesCount = bundles.length;
+        }
 
         // Save the last check time
         const lastCheck = { lastCheck: moment().tz(TIMEZONE).format() };
         fs.writeFileSync(LAST_CHECK_FILE, JSON.stringify(lastCheck, null, 2), 'utf-8');
-        console.log('Última verificação gravada em last_check.json');
 
-        // Atualiza a variável global com a quantidade de bundles
-        totalBundlesCount = bundles.length;
-        console.log(`Total de bundles catalogadas: ${totalBundlesCount}`);
+        console.log(`🎯 Total de bundles catalogadas: ${totalBundlesCount}`);
 
         // Atualiza os detalhes das bundles
-        console.log('Chamando updateBundlesWithDetails...');
+        console.log('🔄 Iniciando atualização de detalhes das bundles...');
         await updateBundlesWithDetails();
-        console.log('updateBundlesWithDetails foi executado.');
-        console.log('Detalhes das bundles atualizados.');
+        console.log('✅ Detalhes das bundles atualizados com sucesso.');
     } catch (error) {
         if (error.response) {
-            console.error('Erro na resposta da solicitação:', error.response.status, error.response.statusText);
+            console.error('❌ Erro na resposta da solicitação:', error.response.status, error.response.statusText);
         } else if (error.request) {
-            console.error('Nenhuma resposta recebida:', error.request);
+            console.error('❌ Nenhuma resposta recebida:', error.request);
         } else {
-            console.error('Erro ao configurar a solicitação:', error.message);
+            console.error('❌ Erro ao configurar a solicitação:', error.message);
         }
     }
 };

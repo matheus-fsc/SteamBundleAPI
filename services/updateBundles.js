@@ -1,6 +1,7 @@
 const axios = require('axios');
 const fs = require('fs');
 const moment = require('moment-timezone');
+const { removeDuplicatesFromDetailedBundles } = require('../middleware/dataValidation');
 
 const BUNDLES_FILE = 'bundles.json';
 const BUNDLES_DETAILED_FILE = './bundleDetailed.json';
@@ -69,9 +70,9 @@ const getDetailsForApps = async (appids) => {
             }
         });
         
-        // Log de progresso
-        if (limitedAppids.length > 10) {
-            console.log(`   ⏳ Progresso apps: ${processedApps}/${limitedAppids.length} (${successfulApps} sucessos)`);
+        // Log de progresso apenas para bundles com muitos apps
+        if (limitedAppids.length > 20 && i % 15 === 0) {
+            console.log(`   ⏳ Apps: ${processedApps}/${limitedAppids.length}`);
         }
         
         // Delay entre lotes
@@ -80,7 +81,9 @@ const getDetailsForApps = async (appids) => {
         }
     }
 
-    console.log(`   ✅ Apps processados: ${successfulApps}/${limitedAppids.length} sucessos`);
+    if (successfulApps > 0) {
+        console.log(`   ✅ ${successfulApps}/${limitedAppids.length} apps processados`);
+    }
 
     return {
         genres: Array.from(allGenres),
@@ -117,12 +120,10 @@ const fetchAppDetailsWithRetry = async (appid, retryCount = 0) => {
         
     } catch (error) {
         if (retryCount < STEAM_API_CONFIG.MAX_RETRIES) {
-            console.log(`   🔄 Retry ${retryCount + 1}/${STEAM_API_CONFIG.MAX_RETRIES} para app ${appid}`);
             await delay(1000 * (retryCount + 1)); // Delay progressivo
             return await fetchAppDetailsWithRetry(appid, retryCount + 1);
         }
         
-        // console.log(`   ❌ Falha definitiva para app ${appid}`);
         return null;
     }
 };
@@ -148,7 +149,7 @@ const fetchBundleDetails = async (bundleId, language = 'brazilian') => {
             const bundleData = response.data[0];
             
             // Log para acompanhar progresso
-            console.log(`   🔍 Bundle ${bundleId}: ${bundleData.name} (${bundleData.appids?.length || 0} apps)`);
+            console.log(`   🔍 ${bundleData.name} (${bundleData.appids?.length || 0} apps)`);
 
             // *** NOVA LÓGICA OTIMIZADA ***
             // Busca os gêneros e categorias de todos os apps na bundle
@@ -184,10 +185,8 @@ const fetchBundleDetails = async (bundleId, language = 'brazilian') => {
             };
             
         } catch (error) {
-            console.error(`❌ Tentativa ${attempt}/${STEAM_API_CONFIG.MAX_RETRIES} falhou para bundle ${bundleId}:`, error.message);
-            
             if (attempt === STEAM_API_CONFIG.MAX_RETRIES) {
-                console.error(`💀 Falha definitiva para bundle ${bundleId} após ${STEAM_API_CONFIG.MAX_RETRIES} tentativas`);
+                console.error(`💀 Falha definitiva para bundle ${bundleId}`);
                 return null;
             }
             
@@ -238,15 +237,19 @@ const updateBundlesWithDetails = async (language = 'brazilian', limitForTesting 
                 if (bundleDetails) {
                     bundleDetails.link = bundle.Link;
                     detailedBundles.push(bundleDetails);
-                    console.log(`   ✅ Concluído em ${endTime - startTime}ms (${bundleDetails.total_apps} apps, ${bundleDetails.genres.length} gêneros)`);
+                    console.log(`   ✅ Concluído em ${endTime - startTime}ms (${bundleDetails.genres.length} gêneros)`);
                 } else {
                     console.log(`   ❌ Falha ao processar bundle ${bundleId}`);
                 }
 
                 // Delay configurável entre bundles
                 if (i < bundlesToProcess.length - 1) {
-                    console.log(`   ⏳ Aguardando ${STEAM_API_CONFIG.DELAY_BETWEEN_REQUESTS}ms...`);
                     await delay(STEAM_API_CONFIG.DELAY_BETWEEN_REQUESTS);
+                }
+
+                // Log de progresso a cada 50 bundles
+                if ((i + 1) % 50 === 0) {
+                    console.log(`📊 Progresso: ${i + 1}/${bundlesToProcess.length} bundles processadas (${detailedBundles.length} sucessos)`);
                 } 
 
             } catch (error) {
@@ -265,17 +268,28 @@ const updateBundlesWithDetails = async (language = 'brazilian', limitForTesting 
         // Se for modo teste, salva em arquivo diferente
         const outputFile = limitForTesting ? './bundleDetailed_test.json' : BUNDLES_DETAILED_FILE;
         fs.writeFileSync(outputFile, JSON.stringify(result, null, 2), 'utf-8');
-        console.log(`Detalhes de ${detailedBundles.length} bundles salvos em ${outputFile}`);
+        console.log(`💾 ${detailedBundles.length} bundles salvos em ${outputFile}`);
+        
+        // 🧹 Remove duplicatas após salvar (apenas para arquivo principal)
+        if (!limitForTesting) {
+            console.log('🔍 Verificando duplicatas...');
+            const deduplication = removeDuplicatesFromDetailedBundles();
+            if (deduplication.removed > 0) {
+                result.totalBundles = deduplication.total;
+                result.duplicatesRemoved = deduplication.removed;
+            }
+        }
         
         return {
             success: true,
             processedBundles: detailedBundles.length,
             totalRequested: bundlesToProcess.length,
             isTestMode: !!limitForTesting,
-            outputFile: outputFile
+            outputFile: outputFile,
+            duplicatesRemoved: result.duplicatesRemoved || 0
         };
     } catch (error) {
-        console.error('Erro geral em updateBundlesWithDetails:', error);
+        console.error('❌ Erro geral em updateBundlesWithDetails:', error);
         return {
             success: false,
             error: error.message

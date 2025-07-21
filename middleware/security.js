@@ -8,11 +8,13 @@ const requestLogger = (req, res, next) => {
 
     res.send = function(data) {
         const duration = Date.now() - start;
-        console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl} - ${res.statusCode} - ${duration}ms - IP: ${req.ip}`);
         
-        // Log de endpoints administrativos
-        if (req.originalUrl.includes('/force-update') || req.originalUrl.includes('/update-details')) {
-            console.log(`[ADMIN] Endpoint administrativo acessado: ${req.originalUrl} - IP: ${req.ip}`);
+        // Log simplificado para requisições normais
+        console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl} - ${res.statusCode} - ${duration}ms`);
+        
+        // Log especial apenas para endpoints administrativos
+        if (req.originalUrl.includes('/force-update') || req.originalUrl.includes('/update-details') || req.originalUrl.includes('/test-update')) {
+            console.log(`🔧 [ADMIN] Endpoint administrativo: ${req.originalUrl} - IP: ${req.ip}`);
         }
 
         originalSend.call(this, data);

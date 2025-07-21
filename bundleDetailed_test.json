@@ -1,8 +1,8 @@
 {
-  "last_update": "2025-07-21T11:04:16-03:00",
-  "totalBundles": 5,
+  "last_update": "2025-07-21T11:23:57-03:00",
+  "totalBundles": 3,
   "isTestMode": true,
-  "processedCount": 5,
+  "processedCount": 3,
   "bundles": [
     {
       "bundleid": 35839,
@@ -45,7 +45,7 @@
       "available_linux": true,
       "coming_soon": false,
       "library_asset": "https://shared.fastly.steamstatic.com/store_item_assets/steam/bundles/35839/1t5grj6xld0vb7et/library_600x900.jpg?t=1733323586",
-      "processed_at": "2025-07-21T14:04:07.953Z",
+      "processed_at": "2025-07-21T14:23:53.241Z",
       "api_version": "2.0",
       "link": "https://store.steampowered.com/bundle/35839/Mediterranean_Bundle/?snr=1_7_7_151_150_1"
     },
@@ -97,7 +97,7 @@
       "available_linux": true,
       "coming_soon": false,
       "library_asset": "https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/588650/library_600x900.jpg?t=1752025839",
-      "processed_at": "2025-07-21T14:04:10.063Z",
+      "processed_at": "2025-07-21T14:23:55.252Z",
       "api_version": "2.0",
       "link": "https://store.steampowered.com/bundle/30317/Dead_Cells_Medley_of_Pain_Bundle/?snr=1_7_7_151_150_1"
     },
@@ -143,121 +143,9 @@
       "available_linux": false,
       "coming_soon": false,
       "library_asset": "https://shared.fastly.steamstatic.com/store_item_assets/steam/bundles/54629/f7ap3fnlt0nytsea/cf07457f7039d3cc1ab37ef78c127467d582f476/library_600x900.jpg?t=1749247091",
-      "processed_at": "2025-07-21T14:04:12.190Z",
+      "processed_at": "2025-07-21T14:23:57.243Z",
       "api_version": "2.0",
       "link": "https://store.steampowered.com/bundle/54629/Lies_of_P_Overture_Bundle/?snr=1_7_7_151_150_1"
-    },
-    {
-      "bundleid": 35840,
-      "name": "Balkans Bundle",
-      "header_image": "https://shared.fastly.steamstatic.com/store_item_assets/steam/bundles/35840/rzlzleot2nrqtraj/92dbc3bef7de007b4934703db02d09bceb69637d/header_ratio.jpg?t=1733335452",
-      "capsule_image": "https://shared.fastly.steamstatic.com/store_item_assets/steam/bundles/35840/rzlzleot2nrqtraj/62c063363806075749b3fdf093198ea74f8f322e/capsule_616x353.jpg?t=1733335452",
-      "final_price": 7857,
-      "initial_price": 15347,
-      "formatted_orig_price": "R$ 122,78",
-      "formatted_final_price": "R$ 78,57",
-      "discount_percent": 36,
-      "genres": [
-        "Indie",
-        "Simulação"
-      ],
-      "categories": [
-        "Um jogador",
-        "Multijogador",
-        "Cooperativo",
-        "Cooperativo on-line",
-        "Conteúdo adicional",
-        "Conquistas Steam",
-        "Cartas Colecionáveis Steam",
-        "Oficina Steam",
-        "Compat. parcial com controle",
-        "Nuvem Steam",
-        "Inclui editor de níveis",
-        "Remote Play no celular",
-        "Remote Play no tablet",
-        "Remote Play Together",
-        "Compartilhamento em família"
-      ],
-      "total_apps": 3,
-      "appids": [
-        2004210,
-        1056760,
-        2604420
-      ],
-      "packageids": [
-        723598,
-        352935,
-        934575
-      ],
-      "available_windows": true,
-      "available_mac": true,
-      "available_linux": true,
-      "coming_soon": false,
-      "library_asset": "https://shared.fastly.steamstatic.com/store_item_assets/steam/bundles/35840/rzlzleot2nrqtraj/library_600x900.jpg?t=1733335452",
-      "processed_at": "2025-07-21T14:04:14.173Z",
-      "api_version": "2.0",
-      "link": "https://store.steampowered.com/bundle/35840/Balkans_Bundle/?snr=1_7_7_151_150_1"
-    },
-    {
-      "bundleid": 28881,
-      "name": "Northwest Bundle",
-      "header_image": "https://shared.fastly.steamstatic.com/store_item_assets/steam/bundles/28881/a9713oanjvn02b3c/header_ratio.jpg?t=1701262376",
-      "capsule_image": "https://shared.fastly.steamstatic.com/store_item_assets/steam/bundles/28881/a9713oanjvn02b3c/capsule_616x353.jpg?t=1701262376",
-      "final_price": 8835,
-      "initial_price": 29151,
-      "formatted_orig_price": "R$ 233,21",
-      "formatted_final_price": "R$ 88,35",
-      "discount_percent": 62,
-      "genres": [
-        "Indie",
-        "Simulação"
-      ],
-      "categories": [
-        "Um jogador",
-        "Multijogador",
-        "Cooperativo",
-        "Cooperativo on-line",
-        "Conquistas Steam",
-        "Cartas Colecionáveis Steam",
-        "Oficina Steam",
-        "Compat. parcial com controle",
-        "Nuvem Steam",
-        "Inclui editor de níveis",
-        "Remote Play Together",
-        "Compartilhamento em família",
-        "Conteúdo adicional"
-      ],
-      "total_apps": 9,
-      "appids": [
-        270880,
-        800370,
-        1015160,
-        1209470,
-        1415692,
-        1811080,
-        1076080,
-        450550,
-        1784890
-      ],
-      "packageids": [
-        36006,
-        243397,
-        336429,
-        417959,
-        496861,
-        651183,
-        361070,
-        384003,
-        640956
-      ],
-      "available_windows": true,
-      "available_mac": true,
-      "available_linux": true,
-      "coming_soon": false,
-      "library_asset": "https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/270880/library_600x900.jpg?t=1752167624",
-      "processed_at": "2025-07-21T14:04:16.594Z",
-      "api_version": "2.0",
-      "link": "https://store.steampowered.com/bundle/28881/Northwest_Bundle/?snr=1_7_7_151_150_1"
     }
   ]
 }
