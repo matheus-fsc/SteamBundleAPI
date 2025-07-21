@@ -5,6 +5,7 @@ const { removeDuplicatesFromDetailedBundles } = require('../middleware/dataValid
 
 const BUNDLES_FILE = 'bundles.json';
 const BUNDLES_DETAILED_FILE = './bundleDetailed.json';
+const UPDATE_STATE_FILE = './updateState.json'; // NOVO: Arquivo de estado
 const TIMEZONE = 'America/Sao_Paulo';
 
 // Configurações CONSERVADORAS com OTIMIZAÇÃO de lote
@@ -29,6 +30,67 @@ console.log(`💾 Modo Render Free: Salvamento a cada ${SAVE_INTERVAL_BATCHES} l
 
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
+/**
+ * SISTEMA DE CHECKPOINT/RESUMO
+ * Permite continuar atualizações após reinicializações da API
+ */
+
+// Carrega o estado de atualização do arquivo
+const loadUpdateState = () => {
+    try {
+        if (fs.existsSync(UPDATE_STATE_FILE)) {
+            const state = JSON.parse(fs.readFileSync(UPDATE_STATE_FILE, 'utf-8'));
+            console.log(`📋 Estado de atualização encontrado: ${state.status} (${state.completed}/${state.total})`);
+            return state;
+        }
+    } catch (error) {
+        console.warn('⚠️ Erro ao carregar estado de atualização:', error.message);
+    }
+    return null;
+};
+
+// Salva o estado atual da atualização
+const saveUpdateState = (state) => {
+    try {
+        const stateWithTimestamp = {
+            ...state,
+            lastSaved: new Date().toISOString(),
+            lastActivity: new Date().toISOString()
+        };
+        fs.writeFileSync(UPDATE_STATE_FILE, JSON.stringify(stateWithTimestamp, null, 2), 'utf-8');
+    } catch (error) {
+        console.error('❌ Erro ao salvar estado de atualização:', error.message);
+    }
+};
+
+// Limpa o estado de atualização (quando completa)
+const clearUpdateState = () => {
+    try {
+        if (fs.existsSync(UPDATE_STATE_FILE)) {
+            fs.unlinkSync(UPDATE_STATE_FILE);
+            console.log('🗑️ Estado de atualização limpo');
+        }
+    } catch (error) {
+        console.warn('⚠️ Erro ao limpar estado de atualização:', error.message);
+    }
+};
+
+// Cria estado inicial de atualização
+const createInitialUpdateState = (bundlesToProcess, limitForTesting, language) => {
+    return {
+        status: 'in_progress',
+        startTime: Date.now(),
+        total: bundlesToProcess.length,
+        completed: 0,
+        lastProcessedIndex: -1,
+        language: language,
+        isTestMode: !!limitForTesting,
+        processedBundles: [],
+        errors: [],
+        resumeCount: 0
+    };
+};
+
 const getMemoryUsage = () => {
     const used = process.memoryUsage();
     return {
@@ -38,7 +100,7 @@ const getMemoryUsage = () => {
     };
 };
 
-const saveDetailedBundlesData = (detailedBundles, bundlesToProcess, isComplete = false, isTestMode = false, startTime) => {
+const saveDetailedBundlesData = (detailedBundles, bundlesToProcess, isComplete = false, isTestMode = false, startTime, updateState = null) => {
     const memory = getMemoryUsage();
     const totalTime = (Date.now() - startTime) / 1000;
     const result = {
@@ -51,7 +113,16 @@ const saveDetailedBundlesData = (detailedBundles, bundlesToProcess, isComplete =
         bundles: detailedBundles,
         isComplete: isComplete,
         lastSaved: new Date().toISOString(),
-        memoryUsage: memory
+        memoryUsage: memory,
+        // NOVO: Informações de estado para resumo
+        updateStatus: updateState ? {
+            status: updateState.status,
+            completed: updateState.completed,
+            total: updateState.total,
+            lastProcessedIndex: updateState.lastProcessedIndex,
+            resumeCount: updateState.resumeCount,
+            canResume: !isComplete
+        } : null
     };
     const outputFile = isTestMode ? './bundleDetailed_test.json' : BUNDLES_DETAILED_FILE;
     fs.writeFileSync(outputFile, JSON.stringify(result, null, 2), 'utf-8');
@@ -59,7 +130,7 @@ const saveDetailedBundlesData = (detailedBundles, bundlesToProcess, isComplete =
     if (isComplete) {
         console.log(`💾 ✅ Salvamento final: ${detailedBundles.length} bundles (${memory.heapUsed}MB)`);
     } else {
-        console.log(`💾 🔄 Salvamento parcial: ${detailedBundles.length} bundles (${memory.heapUsed}MB)`);
+        console.log(`💾 🔄 Salvamento parcial: ${detailedBundles.length} bundles (${memory.heapUsed}MB) - Checkpoint: ${updateState?.completed}/${updateState?.total}`);
     }
     return result;
 };
@@ -249,29 +320,66 @@ const processBundleBatch = async (bundleBatch, language, batchIndex, totalBatche
 };
 
 const updateBundlesWithDetails = async (language = 'brazilian', limitForTesting = null) => {
-    console.log('🚀 VERSÃO OTIMIZADA - Iniciando atualização...');
+    console.log('🚀 VERSÃO OTIMIZADA COM RESUMO - Iniciando atualização...');
     if (limitForTesting) console.log(`🧪 MODO TESTE: Processando apenas ${limitForTesting} bundles`);
-    
-    const startTime = Date.now();
     
     try {
         if (!fs.existsSync(BUNDLES_FILE)) {
             console.error('Arquivo bundles.json não encontrado.');
-            return;
+            return { success: false, error: 'Arquivo bundles.json não encontrado' };
         }
-        const bundlesJson = JSON.parse(fs.readFileSync(BUNDLES_FILE, 'utf-8'));
         
+        const bundlesJson = JSON.parse(fs.readFileSync(BUNDLES_FILE, 'utf-8'));
         const bundlesToProcess = limitForTesting ? bundlesJson.bundles.slice(0, limitForTesting) : bundlesJson.bundles;
         
-        console.log(`📊 Total de bundles para processar: ${bundlesToProcess.length}`);
-        
+        // SISTEMA DE RESUMO: Verifica se há uma atualização incompleta
+        let updateState = loadUpdateState();
         let detailedBundles = [];
-        let batchesProcessed = 0;
+        let startIndex = 0;
+        let actualStartTime = Date.now();
         
+        if (updateState && updateState.status === 'in_progress' && !limitForTesting) {
+            console.log(`� RESUMINDO atualização anterior:`);
+            console.log(`   �📊 Progresso anterior: ${updateState.completed}/${updateState.total}`);
+            console.log(`   📅 Iniciado em: ${new Date(updateState.startTime).toLocaleString()}`);
+            
+            // Tenta carregar bundles já processados
+            try {
+                if (fs.existsSync(BUNDLES_DETAILED_FILE)) {
+                    const existingData = JSON.parse(fs.readFileSync(BUNDLES_DETAILED_FILE, 'utf-8'));
+                    if (existingData.bundles && !existingData.isComplete) {
+                        detailedBundles = existingData.bundles;
+                        startIndex = updateState.lastProcessedIndex + 1;
+                        updateState.resumeCount++;
+                        console.log(`   ✅ ${detailedBundles.length} bundles já processados carregados`);
+                        console.log(`   🎯 Continuando do índice ${startIndex}`);
+                    }
+                }
+            } catch (error) {
+                console.warn('⚠️ Erro ao carregar progresso anterior, reiniciando:', error.message);
+                updateState = null;
+                detailedBundles = [];
+                startIndex = 0;
+            }
+        }
+        
+        // Se não há estado válido, cria um novo
+        if (!updateState) {
+            updateState = createInitialUpdateState(bundlesToProcess, limitForTesting, language);
+            actualStartTime = updateState.startTime;
+            console.log(`📊 Nova atualização iniciada: ${bundlesToProcess.length} bundles`);
+        }
+        
+        // Salva estado inicial/resumido
+        saveUpdateState(updateState);
+        
+        let batchesProcessed = Math.floor(startIndex / STEAM_API_CONFIG.PARALLEL_BUNDLES);
         const batchSize = STEAM_API_CONFIG.PARALLEL_BUNDLES;
         const totalBatches = Math.ceil(bundlesToProcess.length / batchSize);
         
-        for (let i = 0; i < bundlesToProcess.length; i += batchSize) {
+        console.log(`🚀 Processando de ${startIndex} até ${bundlesToProcess.length} (${totalBatches - batchesProcessed} lotes restantes)`);
+        
+        for (let i = startIndex; i < bundlesToProcess.length; i += batchSize) {
             const batch = bundlesToProcess.slice(i, i + batchSize);
             const batchIndex = Math.floor(i / batchSize);
             
@@ -282,12 +390,17 @@ const updateBundlesWithDetails = async (language = 'brazilian', limitForTesting 
             detailedBundles.push(...batchResults);
             batchesProcessed++;
             
-            const elapsed = (batchEndTime - startTime) / 1000;
+            // Atualiza estado
+            updateState.completed = i + batch.length;
+            updateState.lastProcessedIndex = Math.min(i + batch.length - 1, bundlesToProcess.length - 1);
+            updateState.lastActivity = new Date().toISOString();
+            
+            const elapsed = (batchEndTime - actualStartTime) / 1000;
             const batchTime = (batchEndTime - batchStartTime) / 1000;
             const remaining = totalBatches - batchIndex - 1;
             const estimatedTimeLeft = remaining * batchTime;
             
-            console.log(`📈 Progresso: ${detailedBundles.length}/${bundlesToProcess.length} | Tempo: ${elapsed.toFixed(1)}s | ETA: ${estimatedTimeLeft.toFixed(1)}s`);
+            console.log(`📈 Progresso: ${updateState.completed}/${bundlesToProcess.length} | Tempo: ${elapsed.toFixed(1)}s | ETA: ${estimatedTimeLeft.toFixed(1)}s | Resumos: ${updateState.resumeCount}`);
 
             const memory = getMemoryUsage();
             const shouldSaveByInterval = batchesProcessed % SAVE_INTERVAL_BATCHES === 0;
@@ -297,7 +410,8 @@ const updateBundlesWithDetails = async (language = 'brazilian', limitForTesting 
                 if (shouldSaveByMemory) console.log(`🚨 Memória alta (${memory.heapUsed}MB) - forçando salvamento`);
                 
                 const uniqueDetailedBundles = Array.from(new Map(detailedBundles.map(bundle => [bundle.bundleid, bundle])).values());
-                saveDetailedBundlesData(uniqueDetailedBundles, bundlesToProcess, false, limitForTesting, startTime);
+                saveDetailedBundlesData(uniqueDetailedBundles, bundlesToProcess, false, limitForTesting, actualStartTime, updateState);
+                saveUpdateState(updateState); // Salva checkpoint
                 
                 if (global.gc) {
                     global.gc();
@@ -307,7 +421,7 @@ const updateBundlesWithDetails = async (language = 'brazilian', limitForTesting 
             }
 
             if (batchesProcessed % MEMORY_CHECK_INTERVAL_BATCHES === 0) {
-                console.log(`📊 Memória: ${memory.heapUsed}MB | Detalhadas: ${detailedBundles.length} | Lotes: ${batchesProcessed}/${totalBatches}`);
+                console.log(`📊 Memória: ${memory.heapUsed}MB | Detalhadas: ${detailedBundles.length} | Lotes: ${batchIndex + 1}/${totalBatches} | Checkpoint: ${updateState.completed}/${updateState.total}`);
             }
 
             if (i + batchSize < bundlesToProcess.length) {
@@ -315,13 +429,18 @@ const updateBundlesWithDetails = async (language = 'brazilian', limitForTesting 
             }
         }
 
-        console.log(`🎉 Processamento concluído em ${(Date.now() - startTime) / 1000}s`);
+        console.log(`🎉 Processamento concluído em ${(Date.now() - actualStartTime) / 1000}s`);
         
         console.log('🔍 Removendo duplicatas das bundles detalhadas...');
         const uniqueDetailedBundles = Array.from(new Map(detailedBundles.map(bundle => [bundle.bundleid, bundle])).values());
         console.log(`📊 Bundles detalhadas: ${detailedBundles.length} processadas → ${uniqueDetailedBundles.length} únicas`);
 
-        const result = saveDetailedBundlesData(uniqueDetailedBundles, bundlesToProcess, true, limitForTesting, startTime);
+        // Marca como completo
+        updateState.status = 'completed';
+        updateState.completed = bundlesToProcess.length;
+        updateState.endTime = Date.now();
+        
+        const result = saveDetailedBundlesData(uniqueDetailedBundles, bundlesToProcess, true, limitForTesting, actualStartTime, updateState);
         
         if (!limitForTesting) {
             console.log('🔍 Verificação final de duplicatas...');
@@ -334,13 +453,58 @@ const updateBundlesWithDetails = async (language = 'brazilian', limitForTesting 
             } else {
                 console.log(`✅ Nenhuma duplicata adicional encontrada.`);
             }
+            
+            // Limpa estado de atualização quando completa
+            clearUpdateState();
+            console.log(`🏁 Atualização COMPLETA com ${updateState.resumeCount} resumos`);
         }
         
-        return { success: true, ...result };
+        return { success: true, ...result, resumeCount: updateState.resumeCount };
     } catch (error) {
         console.error('❌ Erro geral em updateBundlesWithDetails:', error);
+        
+        // Salva estado de erro para análise
+        try {
+            const errorState = loadUpdateState();
+            if (errorState) {
+                errorState.status = 'error';
+                errorState.lastError = error.message;
+                errorState.errorTime = new Date().toISOString();
+                saveUpdateState(errorState);
+            }
+        } catch (stateError) {
+            console.error('❌ Erro ao salvar estado de erro:', stateError.message);
+        }
+        
         return { success: false, error: error.message };
     }
 };
 
-module.exports = { updateBundlesWithDetails };
+module.exports = { 
+    updateBundlesWithDetails,
+    // NOVO: Funções para gerenciamento de estado
+    loadUpdateState,
+    saveUpdateState,
+    clearUpdateState,
+    // NOVO: Função para verificar e resumir na inicialização
+    checkAndResumeUpdate: async () => {
+        const state = loadUpdateState();
+        if (state && state.status === 'in_progress') {
+            console.log('🔄 Atualização incompleta detectada na inicialização!');
+            console.log(`   📊 Progresso: ${state.completed}/${state.total}`);
+            console.log(`   📅 Iniciado: ${new Date(state.startTime).toLocaleString()}`);
+            console.log(`   🔄 Resumos anteriores: ${state.resumeCount}`);
+            
+            const timeSinceStart = (Date.now() - state.startTime) / (1000 * 60); // minutos
+            if (timeSinceStart > 60) { // Se passou mais de 1 hora
+                console.log('⏰ Atualização muito antiga, limpando estado...');
+                clearUpdateState();
+                return false;
+            }
+            
+            console.log('✅ Estado válido encontrado - a próxima atualização continuará automaticamente');
+            return true;
+        }
+        return false;
+    }
+};

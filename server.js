@@ -7,7 +7,7 @@ const moment = require('moment-timezone');
 const fs = require('fs');
 
 const { fetchAndSaveBundles } = require('./services/fetchBundles');
-const { updateBundlesWithDetails } = require('./services/updateBundles');
+const { updateBundlesWithDetails, checkAndResumeUpdate } = require('./services/updateBundles');
 const routes = require('./routes');
 const { requestLogger, corsOptions } = require('./middleware/security');
 const { healthCheck, errorHandler, notFoundHandler } = require('./middleware/monitoring');
@@ -84,6 +84,15 @@ cron.schedule('0 */6 * * *', fetchAndSaveBundles, {
 });
 
 checkLastVerification();
+
+// NOVO: Verifica se há atualizações incompletas na inicialização
+checkAndResumeUpdate().then(hasIncompleteUpdate => {
+    if (hasIncompleteUpdate) {
+        console.log('📋 Sistema pronto para continuar atualização incompleta');
+    }
+}).catch(error => {
+    console.error('❌ Erro ao verificar atualização incompleta:', error.message);
+});
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {

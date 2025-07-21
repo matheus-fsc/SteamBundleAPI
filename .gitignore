@@ -18,6 +18,9 @@ node_modules/
 # dotenv environment variables file
 .env
 .env.test
+
+# Estado de atualizações (sistema de resumo)
+updateState.json
 .env.local
 .env.production
 

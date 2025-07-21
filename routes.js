@@ -1,7 +1,7 @@
 const express = require('express');
 const fs = require('fs');
 const { fetchAndSaveBundles, totalBundlesCount } = require('./services/fetchBundles');
-const { updateBundlesWithDetails } = require('./services/updateBundles');
+const { updateBundlesWithDetails, loadUpdateState, clearUpdateState } = require('./services/updateBundles');
 const { authenticateApiKey, adminRateLimit } = require('./middleware/auth');
 const { validateInput } = require('./middleware/security');
 const { 
@@ -55,7 +55,8 @@ router.get('/', (req, res) => {
             admin: [
                 '/api/force-update - Atualização completa (requer API key)',
                 '/api/force-stop - Para todas as atualizações (requer API key)',
-                '/api/clean-duplicates - Limpeza de duplicatas (requer API key)'
+                '/api/clean-duplicates - Limpeza de duplicatas (requer API key)',
+                '/api/update-resume-status - Status de resumo de atualizações (requer API key)'
             ]
         }
     });
@@ -732,6 +733,152 @@ router.get('/api/clean-duplicates', authenticateApiKey, adminRateLimit, async (r
         console.error('❌ Erro na limpeza de duplicatas:', error);
         res.status(500).json({ 
             error: 'Erro na limpeza de duplicatas',
+            technical_error: error.message,
+            suggestion: 'Verifique os logs do servidor para mais detalhes'
+        });
+    }
+});
+
+// NOVA ROTA: Verifica status de resumo de atualizações
+router.get('/api/update-resume-status', 
+    authenticateApiKey, 
+    adminRateLimit, 
+    updateLoggingMiddleware('update-resume-status'),
+    (req, res) => {
+    try {
+        console.log('[ADMIN] 📋 Verificando status de resumo...');
+        
+        const updateState = loadUpdateState();
+        const hasResumableUpdate = updateState && updateState.status === 'in_progress';
+        
+        if (!hasResumableUpdate) {
+            return res.json({
+                message: 'Nenhuma atualização incompleta encontrada',
+                status: 'no_resume_needed',
+                current_state: 'idle',
+                recommendations: [
+                    'Nenhuma ação necessária',
+                    'Use /api/force-update para iniciar nova atualização',
+                    'Use /api/update-status para monitorar operações atuais'
+                ],
+                timestamp: new Date().toISOString()
+            });
+        }
+        
+        const progressPercent = Math.round((updateState.completed / updateState.total) * 100);
+        const timeSinceStart = Math.round((Date.now() - updateState.startTime) / 1000 / 60); // minutos
+        const timeSinceLastActivity = updateState.lastActivity ? 
+            Math.round((Date.now() - new Date(updateState.lastActivity).getTime()) / 1000 / 60) : null;
+        
+        res.set({
+            'X-Operation': 'update-resume-status',
+            'X-Resume-Available': hasResumableUpdate ? 'yes' : 'no',
+            'X-Progress-Percent': progressPercent.toString(),
+            'X-Time-Since-Start': `${timeSinceStart}m`
+        });
+
+        res.json({
+            message: 'Atualização incompleta detectada',
+            status: 'resume_available',
+            update_state: {
+                status: updateState.status,
+                progress: {
+                    completed: updateState.completed,
+                    total: updateState.total,
+                    percentage: progressPercent,
+                    remaining: updateState.total - updateState.completed
+                },
+                timing: {
+                    started_at: new Date(updateState.startTime).toISOString(),
+                    minutes_since_start: timeSinceStart,
+                    minutes_since_last_activity: timeSinceLastActivity,
+                    last_activity: updateState.lastActivity
+                },
+                resume_info: {
+                    resume_count: updateState.resumeCount,
+                    last_processed_index: updateState.lastProcessedIndex,
+                    language: updateState.language,
+                    is_test_mode: updateState.isTestMode
+                }
+            },
+            recommendations: [
+                progressPercent > 50 ? 
+                    'Atualização já passou da metade - recomenda-se continuar' : 
+                    'Atualização no início - pode reiniciar se necessário',
+                timeSinceStart > 60 ? 
+                    'Atualização muito antiga - considere limpar estado' : 
+                    'Atualização recente - pode ser retomada normalmente',
+                'Use /api/force-update para continuar automaticamente',
+                'Use /api/force-stop + /api/update-resume-clear para cancelar e limpar'
+            ],
+            actions: {
+                resume: '/api/force-update - Continua automaticamente de onde parou',
+                clear: '/api/update-resume-clear - Limpa estado e força reinício',
+                monitor: '/api/update-status - Monitora progresso atual'
+            },
+            timestamp: new Date().toISOString()
+        });
+
+        console.log(`📋 Status de resumo enviado: ${progressPercent}% completo (${updateState.resumeCount} resumos)`);
+        
+    } catch (error) {
+        console.error('❌ Erro ao verificar status de resumo:', error);
+        res.status(500).json({ 
+            error: 'Erro ao verificar status de resumo',
+            technical_error: error.message,
+            suggestion: 'Verifique os logs do servidor para mais detalhes'
+        });
+    }
+});
+
+// NOVA ROTA: Limpa estado de resumo forçadamente
+router.get('/api/update-resume-clear', 
+    authenticateApiKey, 
+    adminRateLimit, 
+    updateLoggingMiddleware('update-resume-clear'),
+    (req, res) => {
+    try {
+        console.log('[ADMIN] 🗑️ Limpando estado de resumo...');
+        
+        const updateState = loadUpdateState();
+        const hadState = !!updateState;
+        
+        clearUpdateState();
+        
+        res.set({
+            'X-Operation': 'update-resume-clear',
+            'X-Previous-State': hadState ? 'had-state' : 'no-state',
+            'X-State-Cleared': 'yes'
+        });
+
+        res.json({
+            message: 'Estado de resumo limpo com sucesso',
+            operation_summary: {
+                had_previous_state: hadState,
+                previous_progress: hadState ? 
+                    `${updateState.completed}/${updateState.total} (${Math.round((updateState.completed / updateState.total) * 100)}%)` : 
+                    'N/A',
+                resume_count: hadState ? updateState.resumeCount : 0
+            },
+            current_state: {
+                resume_available: false,
+                next_update_behavior: 'Próxima atualização iniciará do zero',
+                files_preserved: 'Arquivos de dados mantidos intactos'
+            },
+            recommendations: [
+                'Estado limpo - próxima atualização será completa',
+                'Use /api/force-update para iniciar nova atualização',
+                'Use /api/update-resume-status para verificar se limpeza foi efetiva'
+            ],
+            timestamp: new Date().toISOString()
+        });
+
+        console.log(`🗑️ Estado de resumo limpo. Tinha estado anterior: ${hadState}`);
+        
+    } catch (error) {
+        console.error('❌ Erro ao limpar estado de resumo:', error);
+        res.status(500).json({ 
+            error: 'Erro ao limpar estado de resumo',
             technical_error: error.message,
             suggestion: 'Verifique os logs do servidor para mais detalhes'
         });

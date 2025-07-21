@@ -198,26 +198,49 @@ const updateStatusMiddleware = (req, res, next) => {
 
 /**
  * Middleware para proteger endpoints administrativos contra execução simultânea
+ * Agora usa sistema de fila em vez de bloquear completamente
  */
-const preventSimultaneousUpdates = (req, res, next) => {
+const preventSimultaneousUpdates = async (req, res, next) => {
+    const status = updateController.getStatus();
+    
+    // Se há atualização em andamento, adiciona à fila em vez de bloquear
     if (updateController.isUpdateInProgress()) {
-        const status = updateController.getStatus();
+        const queueStatus = operationQueue.getStatus();
         
-        return res.status(409).json({
-            error: 'Atualização já em andamento',
-            message: 'Uma atualização está sendo executada no momento. Aguarde sua conclusão antes de iniciar uma nova.',
-            current_update: {
-                type: status.updateType,
-                started_at: status.startTime,
-                duration_seconds: status.duration,
-                request_count: status.requestCount
+        // Adiciona headers informativos sobre a fila
+        res.set({
+            'X-Queue-Position': (queueStatus.queueLength + 1).toString(),
+            'X-Current-Update': status.updateType,
+            'X-Estimated-Wait': `${(queueStatus.queueLength + 1) * 30}s`,
+            'X-Queue-System': 'enabled'
+        });
+        
+        console.log(`📋 [QUEUE] Adicionando operação à fila. Posição: ${queueStatus.queueLength + 1}`);
+        
+        // Envia resposta imediata informando sobre o enfileiramento
+        return res.json({
+            message: 'Operação adicionada à fila de execução',
+            queue_info: {
+                position: queueStatus.queueLength + 1,
+                estimated_wait_seconds: (queueStatus.queueLength + 1) * 30,
+                current_operation: {
+                    type: status.updateType,
+                    duration: status.duration,
+                    started_at: status.startTime
+                }
             },
-            suggestions: [
-                'Use /api/update-status para monitorar o progresso',
-                'Aguarde a conclusão da atualização atual',
-                status.duration > 600 ? 'Se a atualização estiver travada por mais de 10 minutos, contate o administrador' : null
-            ].filter(Boolean),
-            retry_after: 30 // Sugere tentar novamente em 30 segundos
+            status: 'queued',
+            recommendations: [
+                'A operação será executada automaticamente quando a atual terminar',
+                'Use /api/operation-queue-status para monitorar a fila',
+                'Use /api/update-status para acompanhar o progresso da operação atual'
+            ],
+            next_steps: [
+                'Aguarde a execução automática',
+                'Monitore /api/operation-queue-status',
+                'Não envie requisições duplicadas'
+            ],
+            timestamp: new Date().toISOString()
         });
     }
     
@@ -226,9 +249,21 @@ const preventSimultaneousUpdates = (req, res, next) => {
 
 /**
  * Wrapper para executar atualizações de forma controlada
+ * Agora integrado com sistema de fila
  */
 const executeControlledUpdate = async (updateFunction, type) => {
-    return updateController.executeControlledUpdate(updateFunction, type);
+    // Se não há atualização em andamento, executa diretamente
+    if (!updateController.isUpdateInProgress()) {
+        return updateController.executeControlledUpdate(updateFunction, type);
+    }
+    
+    // Se há atualização em andamento, adiciona à fila
+    console.log(`📋 [QUEUE] Adicionando "${type}" à fila de operações`);
+    
+    return operationQueue.add(async () => {
+        console.log(`🚀 [QUEUE] Executando "${type}" da fila`);
+        return updateController.executeControlledUpdate(updateFunction, type);
+    }, 5); // Prioridade alta para operações de atualização
 };
 
 /**
