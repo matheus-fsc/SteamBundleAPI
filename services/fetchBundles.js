@@ -4,15 +4,16 @@ const fs = require('fs');
 const moment = require('moment-timezone');
 const { updateBundlesWithDetails } = require('./updateBundles');
 const { removeDuplicatesFromBasicBundles } = require('../middleware/dataValidation');
+const keepAlive = require('./keepAlive');
 
 const BUNDLES_FILE = 'bundles.json';
 const LAST_CHECK_FILE = 'last_check.json';
 const TIMEZONE = 'America/Sao_Paulo'; // Horário de Brasília
 
 // Configurações baseadas na lógica original com melhorias conservadoras
-const MAX_CONCURRENT_REQUESTS = parseInt(process.env.FETCH_BUNDLES_CONCURRENT) || 3;
-const DELAY_BETWEEN_BATCHES = parseInt(process.env.FETCH_BUNDLES_DELAY) || 1500;
-const REQUEST_TIMEOUT = parseInt(process.env.FETCH_BUNDLES_TIMEOUT) || 10000;
+const MAX_CONCURRENT_REQUESTS = parseInt(process.env.FETCH_BUNDLES_CONCURRENT) || 2; // 2 requisições paralelas (otimizado)
+const DELAY_BETWEEN_BATCHES = parseInt(process.env.FETCH_BUNDLES_DELAY) || 1500; // 1.5s entre lotes (otimizado)
+const REQUEST_TIMEOUT = parseInt(process.env.FETCH_BUNDLES_TIMEOUT) || 15000;
 
 // CONFIGURAÇÕES PARA RENDER FREE (500MB RAM)
 const SAVE_INTERVAL_PAGES = 50;
@@ -55,8 +56,15 @@ const saveBundlesData = (bundles, isComplete = false) => {
 };
 
 const fetchAndSaveBundles = async () => {
+    let keepAliveStarted = false;
+    
     try {
         console.log('🚀 Iniciando busca por bundles');
+        
+        // Iniciar keep-alive para prevenir que o Render durma
+        console.log('💓 Iniciando keep-alive durante fetch de bundles...');
+        keepAlive.start();
+        keepAliveStarted = true;
         
         const BUNDLES_OLD_FILE = 'bundles-old.json';
         
@@ -194,6 +202,12 @@ const fetchAndSaveBundles = async () => {
         console.log('🔄 Iniciando atualização de detalhes...');
         await updateBundlesWithDetails();
         console.log('✅ Detalhes das bundles atualizados.');
+        
+        // Parar keep-alive após conclusão bem-sucedida
+        if (keepAliveStarted) {
+            console.log('💓 Parando keep-alive - fetch concluído com sucesso');
+            keepAlive.stop();
+        }
     } catch (error) {
         console.error('❌ ERRO durante a busca de bundles!');
         
@@ -219,6 +233,12 @@ const fetchAndSaveBundles = async () => {
             console.error('Nenhuma resposta recebida:', error.request);
         } else {
             console.error('Erro ao configurar a solicitação:', error.message);
+        }
+        
+        // Parar keep-alive em caso de erro
+        if (keepAliveStarted) {
+            console.log('💓 Parando keep-alive devido a erro no fetch');
+            keepAlive.stop();
         }
         
         throw error;

@@ -597,10 +597,10 @@ router.get('/api/steam-stats', (req, res) => {
                 version: require('./package.json').version || '1.0.0'
             },
             steam_api_config: {
-                delay_between_requests: `${process.env.STEAM_API_DELAY || 1500}ms`,
-                delay_between_app_requests: `${process.env.STEAM_APP_DELAY || 100}ms`,
-                max_apps_per_bundle: parseInt(process.env.MAX_APPS_PER_BUNDLE) || 50,
-                request_timeout: `${process.env.REQUEST_TIMEOUT || 10000}ms`,
+                delay_between_requests: `${process.env.STEAM_API_DELAY || 1000}ms`,
+                delay_between_app_requests: `${process.env.STEAM_APP_DELAY || 300}ms`,
+                max_apps_per_bundle: parseInt(process.env.MAX_APPS_PER_BUNDLE) || 30,
+                request_timeout: `${process.env.REQUEST_TIMEOUT || 15000}ms`,
                 max_retries: parseInt(process.env.MAX_RETRIES) || 3,
                 performance_mode: process.env.STEAM_API_DELAY < 1000 ? 'fast' : 'balanced'
             },

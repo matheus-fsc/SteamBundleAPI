@@ -11,14 +11,14 @@ const TIMEZONE = 'America/Sao_Paulo';
 
 // Configurações CONSERVADORAS com OTIMIZAÇÃO de lote
 const STEAM_API_CONFIG = {
-    DELAY_BETWEEN_REQUESTS: parseInt(process.env.STEAM_API_DELAY) || 800, // 800ms entre lotes de bundles (otimizado para Render)
-    DELAY_BETWEEN_APP_BATCHES: parseInt(process.env.STEAM_APP_DELAY) || 200, // 200ms entre lotes de apps
-    MAX_APPS_PER_BUNDLE: parseInt(process.env.MAX_APPS_PER_BUNDLE) || 25, // Aumentado para 25
+    DELAY_BETWEEN_REQUESTS: parseInt(process.env.STEAM_API_DELAY) || 1000, // 1s entre lotes de bundles (otimizado para alta performance)
+    DELAY_BETWEEN_APP_BATCHES: parseInt(process.env.STEAM_APP_DELAY) || 300, // 300ms entre lotes de apps
+    MAX_APPS_PER_BUNDLE: parseInt(process.env.MAX_APPS_PER_BUNDLE) || 30, // Aumentado para 30
     REQUEST_TIMEOUT: parseInt(process.env.REQUEST_TIMEOUT) || 15000,
     MAX_RETRIES: parseInt(process.env.MAX_RETRIES) || 3,
-    PARALLEL_BUNDLES: parseInt(process.env.PARALLEL_BUNDLES) || 3, // 3 threads paralelas
-    APP_DETAILS_BATCH_SIZE: parseInt(process.env.APP_BATCH_SIZE) || 5, // Usa variável de ambiente
-    SKIP_DETAILS_THRESHOLD: parseInt(process.env.SKIP_DETAILS_THRESHOLD) || 50
+    PARALLEL_BUNDLES: parseInt(process.env.PARALLEL_BUNDLES) || 4, // 4 threads paralelas (alta performance)
+    APP_DETAILS_BATCH_SIZE: parseInt(process.env.APP_BATCH_SIZE) || 5, // 5 apps por lote
+    SKIP_DETAILS_THRESHOLD: parseInt(process.env.SKIP_DETAILS_THRESHOLD) || 60 // Pula bundles com +60 apps
 };
 
 // CONFIGURAÇÕES PARA RENDER FREE (500MB RAM + 0.1 vCPU)

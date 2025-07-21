@@ -60,45 +60,48 @@ A versão atual inclui otimizações específicas para **Render Free (500MB RAM)
 
 ```bash
 # Teste as otimizações primeiro (pequeno lote)
-curl "https://sua-api.render.com/api/test-update?limit=10&api_key=SUA_KEY"
+curl "https://steambundleapi.onrender.com/api/test-update?limit=10&api_key=SUA_KEY"
 
 # Verificar configurações e status
-curl "https://sua-api.render.com/api/steam-stats"
+curl "https://steambundleapi.onrender.com/api/steam-stats"
 ```
 
-### Configurações de Velocidade (Otimizadas para Render Free)
+### Configurações de Velocidade (Performance Otimizada para Render Free)
 
 Copie estas configurações para as variáveis de ambiente no Render:
 
 ```bash
-# RENDER FREE - CONFIGURAÇÃO RECOMENDADA (Máxima Estabilidade)
+# RENDER FREE - CONFIGURAÇÃO ALTA PERFORMANCE (Recomendada)
 NODE_ENV=production
 TIMEZONE=America/Sao_Paulo
 
-# Fetch Bundles (coleta da lista básica)
-FETCH_BUNDLES_CONCURRENT=1      # 1 requisição por vez (seguro)
-FETCH_BUNDLES_DELAY=3000        # 3 segundos entre lotes
+# Fetch Bundles (coleta da lista básica) - OTIMIZADO
+FETCH_BUNDLES_CONCURRENT=2      # 2 requisições paralelas (era 1)
+FETCH_BUNDLES_DELAY=1500        # 1.5 segundos entre lotes (era 3000)
 FETCH_BUNDLES_TIMEOUT=15000     # 15s timeout
 
-# Update Bundles (detalhes das bundles)
-STEAM_API_DELAY=2000            # 2 segundos entre bundles
-STEAM_APP_DELAY=500             # 500ms entre apps
-MAX_APPS_PER_BUNDLE=20          # Máximo 20 apps por bundle
+# Update Bundles (detalhes das bundles) - ALTA PERFORMANCE
+STEAM_API_DELAY=1000            # 1 segundo entre bundles (era 2000)
+STEAM_APP_DELAY=300             # 300ms entre apps (era 500)
+MAX_APPS_PER_BUNDLE=30          # Máximo 30 apps por bundle (era 20)
 REQUEST_TIMEOUT=15000           # 15s timeout
 MAX_RETRIES=3                   # 3 tentativas por erro
-PARALLEL_BUNDLES=2              # 2 bundles paralelas
-APP_BATCH_SIZE=3                # 3 apps por lote
-SKIP_DETAILS_THRESHOLD=50       # Pula bundles com +50 apps
+PARALLEL_BUNDLES=4              # 4 bundles paralelas (era 2)
+APP_BATCH_SIZE=5                # 5 apps por lote (era 3)
+SKIP_DETAILS_THRESHOLD=60       # Pula bundles com +60 apps (era 50)
 
-# DESENVOLVIMENTO LOCAL - MAIS RÁPIDO (se tiver boa conexão)
-PARALLEL_BUNDLES=5
-STEAM_API_DELAY=1000
+# CONFIGURAÇÃO CONSERVADORA - FALLBACK SE HOUVER PROBLEMAS
+PARALLEL_BUNDLES=2
+STEAM_API_DELAY=2000
+FETCH_BUNDLES_DELAY=3000
+SKIP_DETAILS_THRESHOLD=50
+
+# CONFIGURAÇÃO AGRESSIVA - MÁXIMA VELOCIDADE (USE COM CUIDADO)
+PARALLEL_BUNDLES=6
+STEAM_API_DELAY=800
+STEAM_APP_DELAY=200
+FETCH_BUNDLES_DELAY=1000
 SKIP_DETAILS_THRESHOLD=80
-
-# CONSERVADOR EXTREMO - SE HOUVER BLOQUEIOS
-PARALLEL_BUNDLES=1
-STEAM_API_DELAY=5000
-FETCH_BUNDLES_DELAY=5000
 ```
 
 ### 📊 Performance Esperada no Render Free

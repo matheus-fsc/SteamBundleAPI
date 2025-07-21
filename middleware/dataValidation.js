@@ -55,8 +55,8 @@ const getCurrentDataStatus = () => {
                 const now = moment().tz(TIMEZONE);
                 status.dataAge = now.diff(lastUpdate, 'hours');
                 
-                // Considera que precisa atualizar se os dados têm mais de 8 horas
-                status.needsUpdate = status.dataAge > 8;
+                // Considera que precisa atualizar se os dados têm mais de 1 semana (168 horas)
+                status.needsUpdate = status.dataAge > 168;
             }
         } else {
             // Se não tem dados detalhados, definitivamente precisa atualizar
