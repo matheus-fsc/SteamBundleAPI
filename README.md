@@ -2,6 +2,47 @@
 
 Uma API segura e robusta para buscar e gerenciar bundles da Steam Store.
 
+## ⚡ OTIMIZAÇÕES DE PERFORMANCE
+
+### Processamento Ultra Rápido
+A versão atual inclui otimizações massivas que **reduzem de horas para minutos** o tempo de atualização:
+
+- **🚀 Processamento Paralelo**: Processa múltiplas bundles simultaneamente
+- **🎯 Skip Inteligente**: Pula detalhes de bundles gigantes para acelerar
+- **⚡ Delays Otimizados**: Configurações balanceadas entre velocidade e rate limits
+- **📊 Monitoramento**: Logs detalhados com ETA e velocidade em tempo real
+
+### Scripts de Performance
+
+```bash
+# Teste as otimizações primeiro (50 bundles)
+node test-performance.js
+
+# Atualização completa otimizada
+node update-all-bundles.js
+```
+
+### Configurações de Velocidade
+
+Copie `.env.example` para `.env` e ajuste conforme sua necessidade:
+
+```bash
+# RÁPIDO (2-3 horas para 9000 bundles)
+PARALLEL_BUNDLES=15
+STEAM_API_DELAY=200
+SKIP_DETAILS_THRESHOLD=100
+
+# BALANCEADO (3-4 horas, mais seguro)
+PARALLEL_BUNDLES=10
+STEAM_API_DELAY=300
+SKIP_DETAILS_THRESHOLD=150
+
+# CONSERVADOR (4-6 horas, máxima segurança)
+PARALLEL_BUNDLES=5
+STEAM_API_DELAY=500
+SKIP_DETAILS_THRESHOLD=200
+```
+
 ## 🚀 Deploy no Render
 
 1. **Configuração do repositório:**

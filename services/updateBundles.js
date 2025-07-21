@@ -9,16 +9,22 @@ const TIMEZONE = 'America/Sao_Paulo';
 
 // Configurações otimizadas para a API da Steam
 const STEAM_API_CONFIG = {
-    // Delay entre requisições (ms) - Steam permite ~200 req/5min, então 1.5s é seguro
-    DELAY_BETWEEN_REQUESTS: parseInt(process.env.STEAM_API_DELAY) || 1500,
+    // Delay entre requisições (ms) - Reduzido para acelerar
+    DELAY_BETWEEN_REQUESTS: parseInt(process.env.STEAM_API_DELAY) || 300,
     // Delay entre chamadas de app details (ms) - mais agressivo para app details
-    DELAY_BETWEEN_APP_REQUESTS: parseInt(process.env.STEAM_APP_DELAY) || 100,
+    DELAY_BETWEEN_APP_REQUESTS: parseInt(process.env.STEAM_APP_DELAY) || 50,
     // Quantidade máxima de apps por bundle para buscar detalhes (evita bundles gigantes)
-    MAX_APPS_PER_BUNDLE: parseInt(process.env.MAX_APPS_PER_BUNDLE) || 50,
+    MAX_APPS_PER_BUNDLE: parseInt(process.env.MAX_APPS_PER_BUNDLE) || 30,
     // Timeout para requisições
-    REQUEST_TIMEOUT: parseInt(process.env.REQUEST_TIMEOUT) || 10000,
+    REQUEST_TIMEOUT: parseInt(process.env.REQUEST_TIMEOUT) || 8000,
     // Número de tentativas em caso de erro
-    MAX_RETRIES: parseInt(process.env.MAX_RETRIES) || 3
+    MAX_RETRIES: parseInt(process.env.MAX_RETRIES) || 2,
+    // Processamento paralelo de bundles
+    PARALLEL_BUNDLES: parseInt(process.env.PARALLEL_BUNDLES) || 10,
+    // Tamanho do lote para app details
+    APP_BATCH_SIZE: parseInt(process.env.APP_BATCH_SIZE) || 8,
+    // Skip detalhes para bundles com muitos apps (acelera muito)
+    SKIP_DETAILS_THRESHOLD: parseInt(process.env.SKIP_DETAILS_THRESHOLD) || 100
 };
 
 console.log('🔧 Configurações da API Steam:', STEAM_API_CONFIG);
@@ -26,14 +32,20 @@ console.log('🔧 Configurações da API Steam:', STEAM_API_CONFIG);
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 /**
- * VERSÃO OTIMIZADA da função para buscar detalhes.
- * Processa em lotes e com configurações avançadas para melhor performance.
+ * VERSÃO ULTRA OTIMIZADA da função para buscar detalhes.
+ * Skip automático para bundles muito grandes + processamento paralelo melhorado.
  * @param {number[]} appids - Um array de IDs de aplicativos da Steam.
  * @returns {Promise<{genres: string[], categories: string[]}>} - Um objeto contendo listas de gêneros e categorias únicos.
  */
 const getDetailsForApps = async (appids) => {
     const allGenres = new Set();
     const allCategories = new Set();
+    
+    // Skip detalhes para bundles gigantes (economia massiva de tempo)
+    if (appids.length > STEAM_API_CONFIG.SKIP_DETAILS_THRESHOLD) {
+        console.log(`   ⏭️  Pulando detalhes - bundle com ${appids.length} apps (limite: ${STEAM_API_CONFIG.SKIP_DETAILS_THRESHOLD})`);
+        return { genres: [], categories: [] };
+    }
     
     // Limita a quantidade de apps para evitar bundles gigantes que demoram muito
     const limitedAppids = appids.slice(0, STEAM_API_CONFIG.MAX_APPS_PER_BUNDLE);
@@ -46,8 +58,8 @@ const getDetailsForApps = async (appids) => {
     let processedApps = 0;
     let successfulApps = 0;
 
-    // Processamento em lotes de 5 apps simultâneos para acelerar
-    const BATCH_SIZE = 5;
+    // Processamento em lotes maiores para acelerar
+    const BATCH_SIZE = STEAM_API_CONFIG.APP_BATCH_SIZE;
     for (let i = 0; i < limitedAppids.length; i += BATCH_SIZE) {
         const batch = limitedAppids.slice(i, i + BATCH_SIZE);
         
@@ -70,12 +82,12 @@ const getDetailsForApps = async (appids) => {
             }
         });
         
-        // Log de progresso apenas para bundles com muitos apps
-        if (limitedAppids.length > 20 && i % 15 === 0) {
+        // Log de progresso reduzido
+        if (limitedAppids.length > 30 && i % 24 === 0) {
             console.log(`   ⏳ Apps: ${processedApps}/${limitedAppids.length}`);
         }
         
-        // Delay entre lotes
+        // Delay menor entre lotes
         if (i + BATCH_SIZE < limitedAppids.length) {
             await delay(STEAM_API_CONFIG.DELAY_BETWEEN_APP_REQUESTS);
         }
@@ -92,7 +104,7 @@ const getDetailsForApps = async (appids) => {
 };
 
 /**
- * Busca detalhes de um app com retry automático
+ * Busca detalhes de um app com retry automático e timeout reduzido
  */
 const fetchAppDetailsWithRetry = async (appid, retryCount = 0) => {
     const url = `https://store.steampowered.com/api/appdetails?appids=${appid}&cc=BR&l=brazilian`;
@@ -120,7 +132,7 @@ const fetchAppDetailsWithRetry = async (appid, retryCount = 0) => {
         
     } catch (error) {
         if (retryCount < STEAM_API_CONFIG.MAX_RETRIES) {
-            await delay(1000 * (retryCount + 1)); // Delay progressivo
+            await delay(500 * (retryCount + 1)); // Delay menor e mais progressivo
             return await fetchAppDetailsWithRetry(appid, retryCount + 1);
         }
         
@@ -142,11 +154,23 @@ const fetchBundleDetails = async (bundleId, language = 'brazilian') => {
                 }
             });
 
-            if (response.status !== 200 || !response.data[0]) {
-                throw new Error(`Resposta inválida da API Steam para bundle ${bundleId}`);
+            if (response.status !== 200) {
+                throw new Error(`HTTP ${response.status} para bundle ${bundleId}`);
+            }
+            
+            if (!response.data || !Array.isArray(response.data) || !response.data[0]) {
+                // Bundle não existe ou foi removida
+                console.log(`   ⚠️  Bundle ${bundleId} não encontrada (removida?)`);
+                return null;
             }
 
             const bundleData = response.data[0];
+            
+            // Verifica se a bundle tem dados válidos
+            if (!bundleData.bundleid || !bundleData.name) {
+                console.log(`   ❌ Bundle ${bundleId} com dados inválidos`);
+                return null;
+            }
             
             // Log para acompanhar progresso
             console.log(`   🔍 ${bundleData.name} (${bundleData.appids?.length || 0} apps)`);
@@ -186,7 +210,16 @@ const fetchBundleDetails = async (bundleId, language = 'brazilian') => {
             
         } catch (error) {
             if (attempt === STEAM_API_CONFIG.MAX_RETRIES) {
-                console.error(`💀 Falha definitiva para bundle ${bundleId}`);
+                // Diferencia tipos de erro
+                if (error.code === 'ECONNABORTED' || error.code === 'ENOTFOUND') {
+                    console.log(`   🌐 Erro de conectividade bundle ${bundleId}`);
+                } else if (error.response?.status === 429) {
+                    console.log(`   ⏰ Rate limit bundle ${bundleId} - aguarde`);
+                } else if (error.response?.status >= 400 && error.response?.status < 500) {
+                    console.log(`   ❌ Bundle ${bundleId} não encontrada/inválida`);
+                } else {
+                    console.log(`   💀 Erro bundle ${bundleId}: ${error.message}`);
+                }
                 return null;
             }
             
@@ -198,11 +231,48 @@ const fetchBundleDetails = async (bundleId, language = 'brazilian') => {
     return null;
 };
 
+/**
+ * Processa um lote de bundles em paralelo
+ */
+const processBundleBatch = async (bundleBatch, language, batchIndex, totalBatches) => {
+    console.log(`🚀 Lote ${batchIndex + 1}/${totalBatches}: Processando ${bundleBatch.length} bundles em paralelo...`);
+    
+    const batchPromises = bundleBatch.map(async (bundle, index) => {
+        try {
+            const bundleIdMatch = bundle.Link.match(/\/bundle\/(\d+)/);
+            if (!bundleIdMatch) return null;
+
+            const bundleId = bundleIdMatch[1];
+            const bundleDetails = await fetchBundleDetails(bundleId, language);
+            
+            if (bundleDetails) {
+                bundleDetails.link = bundle.Link;
+                return bundleDetails;
+            }
+            
+            return null;
+        } catch (error) {
+            console.error(`❌ Erro no bundle ${bundle.Link}:`, error.message);
+            return null;
+        }
+    });
+    
+    const results = await Promise.allSettled(batchPromises);
+    const successfulBundles = results
+        .filter(result => result.status === 'fulfilled' && result.value !== null)
+        .map(result => result.value);
+    
+    console.log(`✅ Lote ${batchIndex + 1}: ${successfulBundles.length}/${bundleBatch.length} bundles processados`);
+    return successfulBundles;
+};
+
 const updateBundlesWithDetails = async (language = 'brazilian', limitForTesting = null) => {
-    console.log('Iniciando a atualização detalhada das bundles...');
+    console.log('🚀 VERSÃO ULTRA OTIMIZADA - Iniciando atualização com processamento paralelo...');
     if (limitForTesting) {
         console.log(`🧪 MODO TESTE: Processando apenas ${limitForTesting} bundles`);
     }
+    
+    const startTime = Date.now();
     
     try {
         if (!fs.existsSync(BUNDLES_FILE)) {
@@ -217,51 +287,50 @@ const updateBundlesWithDetails = async (language = 'brazilian', limitForTesting 
             ? bundlesJson.bundles.slice(0, limitForTesting)
             : bundlesJson.bundles;
         
-        console.log(`Total de bundles a processar: ${bundlesToProcess.length}`);
+        console.log(`📊 Total de bundles: ${bundlesToProcess.length}`);
+        console.log(`⚙️  Processamento paralelo: ${STEAM_API_CONFIG.PARALLEL_BUNDLES} bundles simultâneas`);
+        console.log(`⚙️  Delay entre requisições: ${STEAM_API_CONFIG.DELAY_BETWEEN_REQUESTS}ms`);
         
         const detailedBundles = [];
+        
+        // Divide em lotes para processamento paralelo
+        const batchSize = STEAM_API_CONFIG.PARALLEL_BUNDLES;
+        const totalBatches = Math.ceil(bundlesToProcess.length / batchSize);
+        
+        for (let i = 0; i < bundlesToProcess.length; i += batchSize) {
+            const batch = bundlesToProcess.slice(i, i + batchSize);
+            const batchIndex = Math.floor(i / batchSize);
+            
+            const batchStartTime = Date.now();
+            const batchResults = await processBundleBatch(batch, language, batchIndex, totalBatches);
+            const batchEndTime = Date.now();
+            
+            detailedBundles.push(...batchResults);
+            
+            // Log de progresso com estatísticas
+            const elapsed = (batchEndTime - startTime) / 1000;
+            const batchTime = (batchEndTime - batchStartTime) / 1000;
+            const remaining = totalBatches - batchIndex - 1;
+            const estimatedTimeLeft = remaining * batchTime;
+            
+            console.log(`📈 Progresso: ${detailedBundles.length}/${bundlesToProcess.length} | Tempo: ${elapsed.toFixed(1)}s | ETA: ${estimatedTimeLeft.toFixed(1)}s`);
 
-        for (let i = 0; i < bundlesToProcess.length; i++) {
-            const bundle = bundlesToProcess[i];
-            try {
-                const bundleIdMatch = bundle.Link.match(/\/bundle\/(\d+)/);
-                if (!bundleIdMatch) continue;
-
-                const bundleId = bundleIdMatch[1];
-                console.log(`📦 (${i + 1}/${bundlesToProcess.length}) Processando bundle ID: ${bundleId}`);
-
-                const startTime = Date.now();
-                const bundleDetails = await fetchBundleDetails(bundleId, language);
-                const endTime = Date.now();
-                
-                if (bundleDetails) {
-                    bundleDetails.link = bundle.Link;
-                    detailedBundles.push(bundleDetails);
-                    console.log(`   ✅ Concluído em ${endTime - startTime}ms (${bundleDetails.genres.length} gêneros)`);
-                } else {
-                    console.log(`   ❌ Falha ao processar bundle ${bundleId}`);
-                }
-
-                // Delay configurável entre bundles
-                if (i < bundlesToProcess.length - 1) {
-                    await delay(STEAM_API_CONFIG.DELAY_BETWEEN_REQUESTS);
-                }
-
-                // Log de progresso a cada 50 bundles
-                if ((i + 1) % 50 === 0) {
-                    console.log(`📊 Progresso: ${i + 1}/${bundlesToProcess.length} bundles processadas (${detailedBundles.length} sucessos)`);
-                } 
-
-            } catch (error) {
-                console.error(`Erro ao processar o bundle ${bundle.Link}:`, error);
+            // Delay configurável entre lotes (não entre bundles individuais)
+            if (i + batchSize < bundlesToProcess.length) {
+                await delay(STEAM_API_CONFIG.DELAY_BETWEEN_REQUESTS);
             }
         }
+
+        const totalTime = (Date.now() - startTime) / 1000;
+        console.log(`🎉 Processamento concluído em ${totalTime.toFixed(2)}s (${(detailedBundles.length / totalTime).toFixed(2)} bundles/s)`);
 
         const result = {
             last_update: moment().tz(TIMEZONE).format(),
             totalBundles: detailedBundles.length,
             isTestMode: !!limitForTesting,
             processedCount: bundlesToProcess.length,
+            processingTimeSeconds: totalTime,
+            bundlesPerSecond: detailedBundles.length / totalTime,
             bundles: detailedBundles
         };
 
@@ -286,7 +355,9 @@ const updateBundlesWithDetails = async (language = 'brazilian', limitForTesting 
             totalRequested: bundlesToProcess.length,
             isTestMode: !!limitForTesting,
             outputFile: outputFile,
-            duplicatesRemoved: result.duplicatesRemoved || 0
+            duplicatesRemoved: result.duplicatesRemoved || 0,
+            processingTimeSeconds: totalTime,
+            bundlesPerSecond: detailedBundles.length / totalTime
         };
     } catch (error) {
         console.error('❌ Erro geral em updateBundlesWithDetails:', error);

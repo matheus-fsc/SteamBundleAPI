@@ -61,13 +61,6 @@ router.get('/', (req, res) => {
     });
 });
 
-// 🚀 Endpoint smart (agora é um alias para compatibilidade)
-router.get('/api/bundles-smart', async (req, res) => {
-    // Redireciona internamente para o endpoint principal
-    req.url = '/api/bundles-detailed';
-    router.handle(req, res, () => {});
-});
-
 // Endpoint para servir o JSON básico (com verificação inteligente)
 router.get('/api/bundles', async (req, res) => {
     try {
@@ -376,37 +369,6 @@ router.get('/api/update-status', validateInput, updateLoggingMiddleware('update-
             error: 'Erro ao verificar status de atualização',
             technical_error: error.message
         });
-    }
-});
-
-// 📜 Endpoint legacy (comportamento antigo sem inteligência)
-router.get('/api/bundles-detailed-legacy', validateInput, (req, res) => {
-    try {
-        if (fs.existsSync(BUNDLES_DETAILED_FILE)) {
-            const data = JSON.parse(fs.readFileSync(BUNDLES_DETAILED_FILE, 'utf-8'));
-            const page = parseInt(req.query.page) || 1;
-            const limit = parseInt(req.query.limit) || 10;
-            const startIndex = (page - 1) * limit;
-            const endIndex = page * limit;
-
-            const result = {
-                totalBundles: data.totalBundles,
-                bundles: data.bundles.slice(startIndex, endIndex),
-                page: page,
-                totalPages: Math.ceil(data.bundles.length / limit),
-                hasNext: endIndex < data.bundles.length,
-                hasPrev: page > 1,
-                lastUpdate: data.last_update
-            };
-
-            res.json(result);
-            console.log(`📄 [LEGACY] Página ${page} enviada (${result.bundles.length} itens)`);
-        } else {
-            res.status(500).json({ error: 'Arquivo de bundles detalhado não encontrado' });
-        }
-    } catch (error) {
-        console.error('Erro ao ler o arquivo de bundles detalhado:', error);
-        res.status(500).json({ error: 'Erro ao ler o arquivo de bundles detalhado' });
     }
 });
 
