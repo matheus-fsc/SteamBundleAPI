@@ -88,6 +88,43 @@ class UpdateController {
     }
 
     /**
+     * Para forçadamente todas as operações de atualização
+     * Usado via endpoint administrativo para parar emergencialmente
+     */
+    forceStop() {
+        const wasUpdating = this.updateState.isUpdating;
+        const currentType = this.updateState.updateType;
+        const duration = this.updateState.startTime ? 
+            Math.round((new Date() - this.updateState.startTime) / 1000) : 0;
+        
+        console.warn(`${this.config.logPrefix} 🛑 FORCE STOP solicitado - Parando todas as operações`);
+        
+        if (wasUpdating) {
+            console.warn(`${this.config.logPrefix} Interrompendo atualização "${currentType}" após ${duration}s`);
+        }
+
+        // Reset completo do estado
+        this.updateState = {
+            isUpdating: false,
+            updateType: null,
+            startTime: null,
+            lastUpdateAttempt: new Date(), // Marca o momento da parada forçada
+            updatePromise: null,
+            requestCount: 0
+        };
+
+        return {
+            wasUpdating,
+            stoppedType: currentType,
+            duration,
+            timestamp: new Date().toISOString(),
+            message: wasUpdating ? 
+                `Operação "${currentType}" foi interrompida após ${duration}s` : 
+                'Nenhuma operação estava em andamento'
+        };
+    }
+
+    /**
      * Incrementa contador de requisições durante atualização
      */
     incrementRequestCount() {

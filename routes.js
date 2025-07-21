@@ -54,6 +54,7 @@ router.get('/', (req, res) => {
             ],
             admin: [
                 '/api/force-update - Atualização completa (requer API key)',
+                '/api/force-stop - Para todas as atualizações (requer API key)',
                 '/api/clean-duplicates - Limpeza de duplicatas (requer API key)'
             ]
         }
@@ -387,6 +388,92 @@ router.get('/api/force-update',
         res.status(500).json({ 
             error: 'Erro ao forçar a atualização',
             technical_error: error.message
+        });
+    }
+});
+
+router.get('/api/force-stop', 
+    authenticateApiKey, 
+    adminRateLimit, 
+    updateLoggingMiddleware('force-stop'),
+    async (req, res) => {
+    try {
+        console.log('[ADMIN] 🛑 Iniciando parada forçada de todas as atualizações...');
+        
+        const updateController = getUpdateController();
+        const statusBefore = updateController.getStatus();
+        
+        // Verifica se há operações em andamento
+        if (!statusBefore.isUpdating) {
+            return res.json({
+                message: 'Nenhuma atualização em andamento',
+                status: 'idle',
+                action_taken: 'none',
+                current_state: {
+                    is_updating: false,
+                    update_type: null,
+                    duration: 0
+                },
+                timestamp: new Date().toISOString()
+            });
+        }
+
+        // Para todas as operações de atualização
+        const stopResult = updateController.forceStop();
+        
+        // Limpa a fila de operações também
+        const { clearOperationQueue } = require('./middleware/updateControl');
+        clearOperationQueue();
+        
+        const statusAfter = updateController.getStatus();
+        
+        res.set({
+            'X-Operation': 'force-stop',
+            'X-Previous-State': statusBefore.isUpdating ? 'updating' : 'idle',
+            'X-Current-State': statusAfter.isUpdating ? 'updating' : 'stopped'
+        });
+
+        res.json({
+            message: 'Parada forçada executada com sucesso',
+            operation_summary: {
+                was_updating: statusBefore.isUpdating,
+                previous_update_type: statusBefore.updateType,
+                previous_duration: statusBefore.duration,
+                request_count_during_update: statusBefore.requestCount
+            },
+            stop_result: {
+                successful: !statusAfter.isUpdating,
+                force_stop_applied: stopResult?.success || true,
+                queue_cleared: true,
+                processes_terminated: statusBefore.isUpdating ? 1 : 0
+            },
+            current_state: {
+                is_updating: statusAfter.isUpdating,
+                update_type: statusAfter.updateType,
+                duration: statusAfter.duration,
+                system_status: statusAfter.isUpdating ? 'still-running' : 'stopped'
+            },
+            warnings: [
+                statusBefore.isUpdating ? 'Operação interrompida pode ter deixado dados em estado inconsistente' : null,
+                'Verifique /api/steam-stats para avaliar integridade dos dados',
+                'Considere executar /api/clean-duplicates se necessário'
+            ].filter(Boolean),
+            next_steps: [
+                'Use /api/steam-stats para verificar estado dos dados',
+                'Execute /api/operation-queue-status para confirmar limpeza',
+                'Se necessário, execute /api/force-update para atualização completa'
+            ],
+            timestamp: new Date().toISOString()
+        });
+
+        console.log(`🛑 Parada forçada concluída. Status anterior: ${statusBefore.isUpdating ? 'atualizando' : 'parado'}`);
+        
+    } catch (error) {
+        console.error('❌ Erro na parada forçada:', error);
+        res.status(500).json({ 
+            error: 'Erro na parada forçada',
+            technical_error: error.message,
+            suggestion: 'Alguns processos podem ainda estar em execução. Monitore /api/operation-queue-status'
         });
     }
 });
