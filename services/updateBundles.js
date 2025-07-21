@@ -2,6 +2,7 @@ const axios = require('axios');
 const fs = require('fs');
 const moment = require('moment-timezone');
 const { removeDuplicatesFromDetailedBundles } = require('../middleware/dataValidation');
+const { keepAlive } = require('./keepAlive'); // NOVO: Sistema keep-alive
 
 const BUNDLES_FILE = 'bundles.json';
 const BUNDLES_DETAILED_FILE = './bundleDetailed.json';
@@ -323,6 +324,11 @@ const updateBundlesWithDetails = async (language = 'brazilian', limitForTesting 
     console.log('🚀 VERSÃO OTIMIZADA COM RESUMO - Iniciando atualização...');
     if (limitForTesting) console.log(`🧪 MODO TESTE: Processando apenas ${limitForTesting} bundles`);
     
+    // NOVO: Inicia keep-alive para atualizações longas (não para testes)
+    if (!limitForTesting) {
+        keepAlive.start('bundle-update');
+    }
+    
     try {
         if (!fs.existsSync(BUNDLES_FILE)) {
             console.error('Arquivo bundles.json não encontrado.');
@@ -457,11 +463,19 @@ const updateBundlesWithDetails = async (language = 'brazilian', limitForTesting 
             // Limpa estado de atualização quando completa
             clearUpdateState();
             console.log(`🏁 Atualização COMPLETA com ${updateState.resumeCount} resumos`);
+            
+            // NOVO: Para keep-alive quando completa
+            keepAlive.stop('update-completed');
         }
         
         return { success: true, ...result, resumeCount: updateState.resumeCount };
     } catch (error) {
         console.error('❌ Erro geral em updateBundlesWithDetails:', error);
+        
+        // NOVO: Para keep-alive em caso de erro
+        if (!limitForTesting) {
+            keepAlive.stop('update-error');
+        }
         
         // Salva estado de erro para análise
         try {

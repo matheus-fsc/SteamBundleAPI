@@ -2,6 +2,7 @@ const express = require('express');
 const fs = require('fs');
 const { fetchAndSaveBundles, totalBundlesCount } = require('./services/fetchBundles');
 const { updateBundlesWithDetails, loadUpdateState, clearUpdateState } = require('./services/updateBundles');
+const { keepAlive } = require('./services/keepAlive'); // NOVO: Sistema keep-alive
 const { authenticateApiKey, adminRateLimit } = require('./middleware/auth');
 const { validateInput } = require('./middleware/security');
 const { 
@@ -56,7 +57,8 @@ router.get('/', (req, res) => {
                 '/api/force-update - Atualização completa (requer API key)',
                 '/api/force-stop - Para todas as atualizações (requer API key)',
                 '/api/clean-duplicates - Limpeza de duplicatas (requer API key)',
-                '/api/update-resume-status - Status de resumo de atualizações (requer API key)'
+                '/api/update-resume-status - Status de resumo de atualizações (requer API key)',
+                '/api/keep-alive-status - Status do sistema anti-sono (requer API key)'
             ]
         }
     });
@@ -353,9 +355,17 @@ router.get('/api/force-update',
             'X-Update-Control': 'enabled'
         });
 
+        // Força reset do controller para garantir execução sequencial
+        const updateController = getUpdateController();
+        updateController.forceReset();
+        
         // Executa sequencialmente para evitar sobrecarga
         await executeControlledUpdate(() => fetchAndSaveBundles(), 'force-basic');
         console.log('✅ fetchAndSaveBundles concluído.');
+        
+        // Aguarda um momento e força reset novamente para a segunda operação
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        updateController.forceReset();
         
         await executeControlledUpdate(() => updateBundlesWithDetails(), 'force-detailed');
         console.log('✅ updateBundlesWithDetails concluído.');
@@ -827,6 +837,191 @@ router.get('/api/update-resume-status',
             error: 'Erro ao verificar status de resumo',
             technical_error: error.message,
             suggestion: 'Verifique os logs do servidor para mais detalhes'
+        });
+    }
+});
+
+// NOVA ROTA: Status do sistema keep-alive
+router.get('/api/keep-alive-status', 
+    authenticateApiKey, 
+    adminRateLimit, 
+    updateLoggingMiddleware('keep-alive-status'),
+    (req, res) => {
+    try {
+        console.log('[ADMIN] 💓 Verificando status do keep-alive...');
+        
+        const status = keepAlive.getStatus();
+        
+        res.set({
+            'X-Operation': 'keep-alive-status',
+            'X-Keep-Alive-Active': status.active ? 'yes' : 'no',
+            'X-Ping-Count': status.ping_count?.toString() || '0'
+        });
+
+        if (!status.active) {
+            return res.json({
+                message: 'Sistema keep-alive não está ativo',
+                status: 'inactive',
+                description: 'O sistema anti-sono só é ativado durante atualizações longas',
+                recommendations: [
+                    'Inicie uma atualização com /api/force-update para ativar',
+                    'O sistema ativa automaticamente para prevenir sono do Render',
+                    'Use /api/keep-alive-start para ativação manual se necessário'
+                ],
+                manual_control: {
+                    start: '/api/keep-alive-start - Ativa manualmente (requer API key)',
+                    stop: '/api/keep-alive-stop - Para manualmente (requer API key)',
+                    ping: '/api/keep-alive-ping - Força um ping (requer API key)'
+                },
+                timestamp: new Date().toISOString()
+            });
+        }
+
+        res.json({
+            message: 'Sistema keep-alive está ativo',
+            status: 'active',
+            keep_alive_info: {
+                ping_count: status.ping_count,
+                max_pings: status.max_pings,
+                duration_minutes: status.duration_minutes,
+                next_ping_in_minutes: status.next_ping_in_minutes,
+                efficiency: status.efficiency,
+                estimated_remaining_hours: status.estimated_remaining_hours
+            },
+            render_protection: {
+                purpose: 'Previne que o Render Free durma durante atualizações longas',
+                method: 'Auto-ping a cada 8 minutos em endpoints leves',
+                coverage: 'Até 24 horas de proteção contínua',
+                cost: 'Zero - usa endpoints públicos existentes'
+            },
+            recommendations: [
+                status.ping_count > status.max_pings * 0.8 ? 
+                    'Próximo do limite máximo - sistema parará automaticamente' : 
+                    'Sistema funcionando normalmente',
+                status.duration_minutes > 300 ? 
+                    'Ativo há mais de 5 horas - monitore progresso da atualização' : 
+                    'Tempo de ativação normal',
+                'Use /api/update-status para verificar progresso da atualização principal'
+            ],
+            controls: {
+                manual_stop: '/api/keep-alive-stop',
+                force_ping: '/api/keep-alive-ping',
+                update_status: '/api/update-status'
+            },
+            timestamp: new Date().toISOString()
+        });
+
+        console.log(`💓 Status keep-alive enviado: ${status.active ? 'ATIVO' : 'INATIVO'} (${status.ping_count || 0} pings)`);
+        
+    } catch (error) {
+        console.error('❌ Erro ao verificar status keep-alive:', error);
+        res.status(500).json({ 
+            error: 'Erro ao verificar status keep-alive',
+            technical_error: error.message,
+            suggestion: 'Verifique os logs do servidor para mais detalhes'
+        });
+    }
+});
+
+// NOVA ROTA: Controle manual do keep-alive
+router.get('/api/keep-alive-start', 
+    authenticateApiKey, 
+    adminRateLimit, 
+    updateLoggingMiddleware('keep-alive-start'),
+    (req, res) => {
+    try {
+        console.log('[ADMIN] 🔄 Iniciando keep-alive manualmente...');
+        
+        const reason = req.query.reason || 'manual-admin';
+        keepAlive.start(reason);
+        
+        res.json({
+            message: 'Keep-alive iniciado manualmente',
+            status: 'started',
+            reason: reason,
+            protection_info: {
+                ping_interval_minutes: 8,
+                max_duration_hours: 24,
+                purpose: 'Prevenir sono do Render durante operações longas'
+            },
+            recommendations: [
+                'Use /api/keep-alive-status para monitorar',
+                'Sistema parará automaticamente após 24h',
+                'Use /api/keep-alive-stop para parar manualmente'
+            ],
+            timestamp: new Date().toISOString()
+        });
+        
+    } catch (error) {
+        console.error('❌ Erro ao iniciar keep-alive:', error);
+        res.status(500).json({ 
+            error: 'Erro ao iniciar keep-alive',
+            technical_error: error.message
+        });
+    }
+});
+
+router.get('/api/keep-alive-stop', 
+    authenticateApiKey, 
+    adminRateLimit, 
+    updateLoggingMiddleware('keep-alive-stop'),
+    (req, res) => {
+    try {
+        console.log('[ADMIN] 🛑 Parando keep-alive manualmente...');
+        
+        const reason = req.query.reason || 'manual-admin-stop';
+        const wasBefore = keepAlive.getStatus();
+        keepAlive.stop(reason);
+        
+        res.json({
+            message: 'Keep-alive parado manualmente',
+            status: 'stopped',
+            reason: reason,
+            previous_status: {
+                was_active: wasBefore.active,
+                ping_count: wasBefore.ping_count || 0,
+                duration_minutes: wasBefore.duration_minutes || 0
+            },
+            result: {
+                render_can_sleep: true,
+                protection_removed: true,
+                resources_freed: true
+            },
+            timestamp: new Date().toISOString()
+        });
+        
+    } catch (error) {
+        console.error('❌ Erro ao parar keep-alive:', error);
+        res.status(500).json({ 
+            error: 'Erro ao parar keep-alive',
+            technical_error: error.message
+        });
+    }
+});
+
+router.get('/api/keep-alive-ping', 
+    authenticateApiKey, 
+    adminRateLimit, 
+    updateLoggingMiddleware('keep-alive-ping'),
+    async (req, res) => {
+    try {
+        console.log('[ADMIN] 💓 Ping manual solicitado...');
+        
+        await keepAlive.forcePing();
+        const status = keepAlive.getStatus();
+        
+        res.json({
+            message: 'Ping manual executado',
+            ping_result: 'success',
+            current_status: status,
+            timestamp: new Date().toISOString()
+        });
+        
+    } catch (error) {
+        console.error('❌ Erro no ping manual:', error);
+        res.status(500).json({ 
+            error: 'Erro no ping manual',
+            technical_error: error.message
         });
     }
 });

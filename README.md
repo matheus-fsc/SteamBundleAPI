@@ -4,6 +4,48 @@ Uma API segura e robusta para buscar e gerenciar bundles da Steam Store.
 
 ## ⚡ OTIMIZAÇÕES DE PERFORMANCE E MEMÓRIA
 
+### 🔄 Sistema Keep-Alive Anti-Sono (NOVO!)
+**Problema**: Render Free dorme após 15 minutos de inatividade, interrompendo atualizações longas.
+**Solução**: Sistema automático de keep-alive que mantém a API acordada durante operações.
+
+**Como funciona:**
+- ✅ **Ativação automática** durante atualizações longas (`/api/force-update`)
+- ✅ **Auto-ping** a cada 8 minutos em endpoints leves (`/api/steam-stats`, `/`)
+- ✅ **Proteção de 24h** - máximo 180 pings (suficiente para qualquer atualização)
+- ✅ **Zero impacto** - usa endpoints públicos existentes
+- ✅ **Parada automática** quando atualização completa ou atinge limite
+
+**Controles administrativos:**
+```bash
+# Verificar status do anti-sono
+GET /api/keep-alive-status?api_key=SUA_CHAVE
+
+# Controle manual (emergência)
+GET /api/keep-alive-start?api_key=SUA_CHAVE
+GET /api/keep-alive-stop?api_key=SUA_CHAVE
+GET /api/keep-alive-ping?api_key=SUA_CHAVE
+```
+
+### 📋 Sistema de Resumo Automático (NOVO!)
+**Problema**: Se a API dormir/reiniciar, perde todo progresso da atualização.
+**Solução**: Sistema de checkpoint que salva progresso e continua de onde parou.
+
+**Como funciona:**
+- ✅ **Checkpoint automático** a cada lote processado
+- ✅ **Detecção na inicialização** - verifica se há trabalho incompleto  
+- ✅ **Resumo seamless** - continua exatamente de onde parou
+- ✅ **Estado persistente** - arquivo `updateState.json` com progresso
+- ✅ **Logs informativos** - mostra resumos, tempo total, progresso
+
+**Monitoramento:**
+```bash
+# Verificar se há atualizações incompletas
+GET /api/update-resume-status?api_key=SUA_CHAVE
+
+# Limpar estado (forçar reinício do zero)
+GET /api/update-resume-clear?api_key=SUA_CHAVE
+```
+
 ### Processamento Otimizado para Render Free
 A versão atual inclui otimizações específicas para **Render Free (500MB RAM)** que garantem estabilidade e performance:
 
