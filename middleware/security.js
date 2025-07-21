@@ -40,26 +40,43 @@ const validateInput = (req, res, next) => {
     next();
 };
 
-// Middleware para CORS personalizado (mais restritivo)
+// Middleware para CORS personalizado (flexível para Render)
 const corsOptions = {
     origin: function (origin, callback) {
         // Lista de domínios permitidos 
         const allowedOrigins = [
             'http://localhost:3000',
             'http://localhost:3001',
-            'https://bundles-set-seven.vercel.app/',
-            'https://bundles-set.vercel.app/'
+            'https://bundles-set-seven.vercel.app',
+            'https://bundles-set.vercel.app',
+            // Adiciona padrões flexíveis para Render e outros serviços
+            /\.render\.com$/,
+            /\.vercel\.app$/,
+            /\.netlify\.app$/,
+            /localhost:\d+$/
         ];
 
-        // Permite requisições sem origin (aplicativos mobile, Postman, etc.)
+        // Permite requisições sem origin (aplicativos mobile, Postman, curl, etc.)
         if (!origin) return callback(null, true);
         
-        // Em produção, só permite origins da lista
-        if (process.env.NODE_ENV === 'production' && allowedOrigins.indexOf(origin) === -1) {
+        // Verifica se o origin está na lista ou corresponde aos padrões
+        const isAllowed = allowedOrigins.some(allowedOrigin => {
+            if (typeof allowedOrigin === 'string') {
+                return origin === allowedOrigin;
+            }
+            if (allowedOrigin instanceof RegExp) {
+                return allowedOrigin.test(origin);
+            }
+            return false;
+        });
+        
+        if (process.env.NODE_ENV === 'production' && !isAllowed) {
+            console.log(`🚫 CORS bloqueado para origin: ${origin}`);
             const msg = 'A política CORS não permite acesso deste origin.';
             return callback(new Error(msg), false);
         }
         
+        console.log(`✅ CORS permitido para origin: ${origin || 'sem origin'}`);
         return callback(null, true);
     },
     credentials: true,
