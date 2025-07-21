@@ -15,6 +15,9 @@ const {
     executeControlledUpdate,
     updateLoggingMiddleware,
     updateHealthCheckMiddleware,
+    bundleFetchProtectionMiddleware,
+    bundleDetailedFetchProtectionMiddleware,
+    emergencyQueueClearMiddleware,
     getUpdateController
 } = require('./middleware/updateControl');
 
@@ -24,6 +27,7 @@ const BUNDLES_DETAILED_FILE = 'bundleDetailed.json';
 
 router.use(updateStatusMiddleware);
 router.use(updateHealthCheckMiddleware);
+router.use(emergencyQueueClearMiddleware);
 
 router.get('/', (req, res) => {
     const status = getCurrentDataStatus();
@@ -56,7 +60,7 @@ router.get('/', (req, res) => {
     });
 });
 
-router.get('/api/bundles', async (req, res) => {
+router.get('/api/bundles', bundleFetchProtectionMiddleware, async (req, res) => {
     try {
         if (fs.existsSync(BUNDLES_FILE)) {
             const data = fs.readFileSync(BUNDLES_FILE, 'utf-8');
@@ -97,7 +101,7 @@ router.get('/api/bundles', async (req, res) => {
     }
 });
 
-router.get('/api/bundles-detailed', validateInput, async (req, res) => {
+router.get('/api/bundles-detailed', bundleDetailedFetchProtectionMiddleware, validateInput, async (req, res) => {
     try {
         const status = getCurrentDataStatus();
         let responseData = {
@@ -336,22 +340,28 @@ router.get('/api/force-update',
     updateLoggingMiddleware('force-update'),
     async (req, res) => {
     try {
-        console.log('[ADMIN] Iniciando atualização forçada...');
+        console.log('[ADMIN] ⚠️  Iniciando atualização forçada...');
+        
         const startTime = Date.now();
         const statusBefore = getCurrentDataStatus();
+        
         res.set({
             'X-Operation': 'force-update-controlled',
             'X-Estimated-Duration': '5-15 minutes',
-            'X-Background-Process': 'false',
             'X-Update-Control': 'enabled'
         });
+
+        // Executa sequencialmente para evitar sobrecarga
         await executeControlledUpdate(() => fetchAndSaveBundles(), 'force-basic');
         console.log('✅ fetchAndSaveBundles concluído.');
+        
         await executeControlledUpdate(() => updateBundlesWithDetails(), 'force-detailed');
         console.log('✅ updateBundlesWithDetails concluído.');
+        
         const endTime = Date.now();
         const duration = Math.round((endTime - startTime) / 1000);
         const statusAfter = getCurrentDataStatus();
+
         res.json({ 
             message: 'Atualização forçada concluída com sucesso',
             operation_summary: {
@@ -368,30 +378,15 @@ router.get('/api/force-update',
             after_update: {
                 basic_bundles: statusAfter.basicBundlesCount,
                 detailed_bundles: statusAfter.detailedBundlesCount,
-                data_age_hours: statusAfter.dataAge,
-                duplicates_detected: statusAfter.duplicatesDetected
+                data_age_hours: statusAfter.dataAge
             },
-            improvements: {
-                new_bundles_added: Math.max(0, statusAfter.basicBundlesCount - statusBefore.basicBundlesCount),
-                details_added: Math.max(0, statusAfter.detailedBundlesCount - statusBefore.detailedBundlesCount),
-                recommendation: statusAfter.duplicatesDetected > 0 ? 
-                    'Execute /api/clean-duplicates para otimizar os dados' : 
-                    'Dados atualizados e otimizados'
-            },
-            next_steps: [
-                'Verifique /api/steam-stats para monitorar a qualidade dos dados',
-                'Configure atualizações automáticas para manter os dados frescos',
-                statusAfter.duplicatesDetected > 10 ? 'Execute limpeza de duplicatas regularmente' : null
-            ].filter(Boolean),
             timestamp: new Date().toISOString()
         });
     } catch (error) {
         console.error('❌ Erro ao forçar a atualização:', error);
         res.status(500).json({ 
             error: 'Erro ao forçar a atualização',
-            technical_error: error.message,
-            partial_success: 'Alguns dados podem ter sido atualizados',
-            suggestion: 'Verifique /api/steam-stats para avaliar o estado atual dos dados'
+            technical_error: error.message
         });
     }
 });
@@ -654,6 +649,38 @@ router.get('/api/clean-duplicates', authenticateApiKey, adminRateLimit, async (r
             suggestion: 'Verifique os logs do servidor para mais detalhes'
         });
     }
+});
+
+// Rota para monitoramento da fila de operações (proteção contra sobrecarga)
+router.get('/api/operation-queue-status', (req, res) => {
+    const { getOperationQueueStatus } = require('./middleware/updateControl');
+    const queueStatus = getOperationQueueStatus();
+    const updateController = getUpdateController();
+    const updateStatus = updateController.getStatus();
+    
+    res.json({
+        queue: {
+            length: queueStatus.queueLength,
+            running: queueStatus.running,
+            current_operation: queueStatus.currentOperation,
+            estimated_wait_time: queueStatus.queueLength * 3 // segundos
+        },
+        update_system: {
+            is_updating: updateStatus.isUpdating,
+            update_type: updateStatus.updateType,
+            duration: updateStatus.duration,
+            request_count: updateStatus.requestCount
+        },
+        server_health: {
+            protection_active: queueStatus.running || queueStatus.queueLength > 0,
+            load_level: queueStatus.queueLength > 2 ? 'high' : 
+                       queueStatus.queueLength > 0 ? 'medium' : 'low',
+            recommendation: queueStatus.queueLength > 3 ? 
+                'Sistema sob alta carga. Aguarde alguns minutos antes de fazer novas requisições.' :
+                'Sistema funcionando normalmente.'
+        },
+        timestamp: new Date().toISOString()
+    });
 });
 
 module.exports = router;
