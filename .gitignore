@@ -1,5 +1,43 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# node-wjs dependency directory
 node_modules/
+
+# dotenv environment variables file
 .env
-last_check.json
-bundleDetailed.json
+.env.test
+.env.local
+.env.production
+
+# Arquivos específicos do projeto
 bundles.json
+bundleDetailed.json
+last_check.json
+
+# Logs personalizados
+access.log
+error.log
+
+# Backup files
+*.bak
+*.tmp
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db

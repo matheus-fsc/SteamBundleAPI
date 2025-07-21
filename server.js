@@ -1,15 +1,55 @@
 const express = require('express');
+const helmet = require('helmet');
+const compression = require('compression');
 const cors = require('cors');
 const cron = require('node-cron');
 const moment = require('moment-timezone');
 const fs = require('fs');
+
+// Importar serviços
 const { fetchAndSaveBundles } = require('./services/fetchBundles');
 const { updateBundlesWithDetails } = require('./services/updateBundles');
+
+// Importar rotas e middlewares
 const routes = require('./routes');
+const { requestLogger, corsOptions } = require('./middleware/security');
+const { healthCheck, errorHandler, notFoundHandler } = require('./middleware/monitoring');
+const { publicRateLimit } = require('./middleware/auth');
 
 const app = express();
-app.use(cors());
-app.use(routes);
+
+// Middlewares de segurança (devem vir primeiro)
+app.use(helmet({
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            styleSrc: ["'self'", "'unsafe-inline'"],
+            scriptSrc: ["'self'"],
+            imgSrc: ["'self'", "data:", "https:"],
+        },
+    },
+    hsts: {
+        maxAge: 31536000,
+        includeSubDomains: true,
+        preload: true
+    }
+}));
+
+app.use(compression()); // Compressão gzip
+app.use(cors(corsOptions)); // CORS personalizado
+app.use(express.json({ limit: '10mb' })); // Limitar tamanho do body
+app.use(requestLogger); // Logger personalizado
+app.use(publicRateLimit); // Rate limiting
+
+// Health check endpoint (sem rate limiting)
+app.get('/health', healthCheck);
+
+// Rotas principais
+app.use('/', routes);
+
+// Middlewares de erro (devem vir por último)
+app.use(notFoundHandler);
+app.use(errorHandler);
 
 const LAST_CHECK_FILE = 'last_check.json';
 const TIMEZONE = process.env.TIMEZONE || 'America/Sao_Paulo'; // Horário de Brasília
