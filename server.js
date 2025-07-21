@@ -6,11 +6,8 @@ const cron = require('node-cron');
 const moment = require('moment-timezone');
 const fs = require('fs');
 
-// Importar serviços
 const { fetchAndSaveBundles } = require('./services/fetchBundles');
 const { updateBundlesWithDetails } = require('./services/updateBundles');
-
-// Importar rotas e middlewares
 const routes = require('./routes');
 const { requestLogger, corsOptions } = require('./middleware/security');
 const { healthCheck, errorHandler, notFoundHandler } = require('./middleware/monitoring');
@@ -18,10 +15,8 @@ const { publicRateLimit } = require('./middleware/auth');
 
 const app = express();
 
-// Configuração para ambientes de produção com proxy reverso (Render, Heroku, etc.)
-app.set('trust proxy', 1); // Confia no primeiro proxy
+app.set('trust proxy', 1);
 
-// Middlewares de segurança (devem vir primeiro)
 app.use(helmet({
     contentSecurityPolicy: {
         directives: {
@@ -38,53 +33,59 @@ app.use(helmet({
     }
 }));
 
-app.use(compression()); // Compressão gzip
-app.use(cors(corsOptions)); // CORS personalizado
-app.use(express.json({ limit: '10mb' })); // Limitar tamanho do body
-app.use(requestLogger); // Logger personalizado
-app.use(publicRateLimit); // Rate limiting
+app.use(compression());
+app.use(cors(corsOptions));
+app.use(express.json({ limit: '10mb' }));
+app.use(requestLogger);
+app.use(publicRateLimit);
 
-// Health check endpoint (sem rate limiting)
 app.get('/health', healthCheck);
-
-// Rotas principais
 app.use('/', routes);
-
-// Middlewares de erro (devem vir por último)
 app.use(notFoundHandler);
 app.use(errorHandler);
 
 const LAST_CHECK_FILE = 'last_check.json';
-const TIMEZONE = process.env.TIMEZONE || 'America/Sao_Paulo'; // Horário de Brasília
+const BUNDLES_FILE = 'bundles.json';
+const BUNDLES_DETAILED_FILE = 'bundleDetailed.json';
+const TIMEZONE = process.env.TIMEZONE || 'America/Sao_Paulo';
 
-// Verificar a última verificação ao iniciar o servidor
 const checkLastVerification = () => {
+    console.log('🔍 Verificando status dos arquivos de bundles...');
+    const bundlesExists = fs.existsSync(BUNDLES_FILE);
+    const bundlesDetailedExists = fs.existsSync(BUNDLES_DETAILED_FILE);
+    console.log(`📋 bundles.json: ${bundlesExists ? '✅ Existe' : '❌ Não encontrado'}`);
+    console.log(`📄 bundleDetailed.json: ${bundlesDetailedExists ? '✅ Existe' : '❌ Não encontrado'}`);
+    if (!bundlesExists || !bundlesDetailedExists) {
+        console.log('🚨 Arquivos essenciais ausentes - iniciando nova coleta de dados...');
+        fetchAndSaveBundles();
+        return;
+    }
     if (fs.existsSync(LAST_CHECK_FILE)) {
         const lastCheckData = fs.readFileSync(LAST_CHECK_FILE, 'utf-8');
         const lastCheck = JSON.parse(lastCheckData).lastCheck;
         const now = moment().tz(TIMEZONE);
         const lastCheckMoment = moment.tz(lastCheck, TIMEZONE);
-
-        // Se a última verificação foi há mais de 6 horas, faça uma nova verificação
-        if (now.diff(lastCheckMoment, 'hours') >= 6) {
+        const hoursSinceLastCheck = now.diff(lastCheckMoment, 'hours');
+        console.log(`⏰ Última verificação: ${lastCheckMoment.format('DD/MM/YYYY HH:mm:ss')} (${hoursSinceLastCheck}h atrás)`);
+        if (hoursSinceLastCheck >= 6) {
+            console.log('🔄 Mais de 6 horas desde a última verificação - iniciando atualização...');
             fetchAndSaveBundles();
         } else {
-            console.log('A última verificação foi realizada há menos de 6 horas.');
+            console.log(`✅ Dados atualizados - próxima verificação em ${6 - hoursSinceLastCheck}h`);
         }
     } else {
-        // Se o arquivo não existir, faça uma nova verificação
+        console.log('📝 Arquivo de timestamp não encontrado - iniciando verificação inicial...');
         fetchAndSaveBundles();
     }
 };
 
-// Agendar a verificação para ocorrer a cada 6 horas
 cron.schedule('0 */6 * * *', fetchAndSaveBundles, {
     timezone: TIMEZONE
 });
 
 checkLastVerification();
 
-const PORT = process.env.PORT || 3000; // Porta dinâmica para o Render
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`Servidor rodando na porta ${PORT}`);
 });

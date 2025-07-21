@@ -22,21 +22,16 @@ const router = express.Router();
 const BUNDLES_FILE = 'bundles.json';
 const BUNDLES_DETAILED_FILE = 'bundleDetailed.json';
 
-// Aplica middleware de controle de atualizações globalmente nas rotas
 router.use(updateStatusMiddleware);
 router.use(updateHealthCheckMiddleware);
 
-// Rota principal para verificar se a API está funcionando
 router.get('/', (req, res) => {
     const status = getCurrentDataStatus();
-    
-    // Adiciona headers informativos
     res.set({
         'X-API-Status': 'online',
         'X-Data-Freshness': status.dataAge ? `${status.dataAge}h old` : 'fresh',
         'X-Update-Needed': status.needsUpdate ? 'yes' : 'no'
     });
-    
     res.json({ 
         message: 'API conectada com sucesso!',
         status: 'online',
@@ -61,23 +56,18 @@ router.get('/', (req, res) => {
     });
 });
 
-// Endpoint para servir o JSON básico (com verificação inteligente)
 router.get('/api/bundles', async (req, res) => {
     try {
         if (fs.existsSync(BUNDLES_FILE)) {
             const data = fs.readFileSync(BUNDLES_FILE, 'utf-8');
             const basicData = JSON.parse(data);
             const status = getCurrentDataStatus();
-            
-            // Adiciona headers informativos
             res.set({
                 'X-Data-Type': 'basic',
                 'X-Total-Count': basicData.totalBundles?.toString() || '0',
                 'X-Has-Detailed': status.hasDetailedBundles ? 'yes' : 'no',
                 'X-Recommended-Endpoint': '/api/bundles-detailed'
             });
-            
-            // Adiciona informações de status
             const response = {
                 ...basicData,
                 metadata: {
@@ -92,7 +82,6 @@ router.get('/api/bundles', async (req, res) => {
                         'Nenhuma duplicata detectada'
                 }
             };
-            
             res.json(response);
             console.log(`📦 Bundles básicas enviadas (${basicData.totalBundles} total)`);
         } else {
@@ -108,27 +97,18 @@ router.get('/api/bundles', async (req, res) => {
     }
 });
 
-// Endpoint principal para bundles detalhadas com sistema inteligente
 router.get('/api/bundles-detailed', validateInput, async (req, res) => {
     try {
         const status = getCurrentDataStatus();
-        
-        // Sempre retorna os dados atuais primeiro
         let responseData = {
             updateTriggered: false
         };
-
-        // Se tem dados detalhados, retorna eles
         if (status.hasDetailedBundles && fs.existsSync(BUNDLES_DETAILED_FILE)) {
             const detailedData = JSON.parse(fs.readFileSync(BUNDLES_DETAILED_FILE, 'utf-8'));
-            
-            // Paginação (mantém compatibilidade com o frontend)
             const page = parseInt(req.query.page) || 1;
             const limit = parseInt(req.query.limit) || 10;
             const startIndex = (page - 1) * limit;
             const endIndex = page * limit;
-
-            // Adiciona headers informativos
             res.set({
                 'X-Data-Type': 'detailed',
                 'X-Total-Count': detailedData.totalBundles?.toString() || '0',
@@ -138,8 +118,6 @@ router.get('/api/bundles-detailed', validateInput, async (req, res) => {
                 'X-Background-Update': status.needsUpdate ? 'triggered' : 'not-needed',
                 'X-Last-Update': detailedData.last_update || 'unknown'
             });
-
-            // Estrutura compatível com o endpoint antigo
             responseData = {
                 totalBundles: detailedData.totalBundles,
                 bundles: detailedData.bundles.slice(startIndex, endIndex),
@@ -159,14 +137,11 @@ router.get('/api/bundles-detailed', validateInput, async (req, res) => {
                 }
             };
         } else if (status.hasBasicBundles && fs.existsSync(BUNDLES_FILE)) {
-            // Se só tem dados básicos, retorna eles com estrutura compatível
             const basicData = JSON.parse(fs.readFileSync(BUNDLES_FILE, 'utf-8'));
             const page = parseInt(req.query.page) || 1;
             const limit = parseInt(req.query.limit) || 10;
             const startIndex = (page - 1) * limit;
             const endIndex = page * limit;
-
-            // Headers para dados básicos servindo como detalhados
             res.set({
                 'X-Data-Type': 'basic-fallback',
                 'X-Total-Count': basicData.totalBundles?.toString() || '0',
@@ -174,7 +149,6 @@ router.get('/api/bundles-detailed', validateInput, async (req, res) => {
                 'X-Background-Update': 'processing-details',
                 'X-Warning': 'Serving basic data while detailed data is being processed'
             });
-
             responseData = {
                 totalBundles: basicData.totalBundles,
                 bundles: basicData.bundles.slice(startIndex, endIndex),
@@ -203,22 +177,16 @@ router.get('/api/bundles-detailed', validateInput, async (req, res) => {
                 }
             });
         }
-
-        // 🔄 Inicia atualização em segundo plano se necessário (com controle de conflitos)
         if (status.needsUpdate) {
             responseData.updateTriggered = true;
-            
-            // Executa atualização de forma controlada (previne conflitos)
             setImmediate(async () => {
                 try {
                     console.log('🔄 [BACKGROUND] Solicitação de atualização automática...');
-                    
                     const updateController = getUpdateController();
                     if (updateController.isUpdateInProgress()) {
                         console.log('⏳ [BACKGROUND] Atualização já em andamento, ignorando nova solicitação');
                         return;
                     }
-
                     if (!status.hasBasicBundles || status.basicBundlesCount < 100) {
                         console.log('🔄 [BACKGROUND] Atualizando bundles básicas...');
                         await executeControlledUpdate(() => fetchAndSaveBundles(), 'background-basic');
@@ -232,10 +200,8 @@ router.get('/api/bundles-detailed', validateInput, async (req, res) => {
                 }
             });
         }
-
         res.json(responseData);
         console.log(`📄 Página ${responseData.page} enviada (${responseData.bundles.length} itens) - Update: ${responseData.updateTriggered}`);
-        
     } catch (error) {
         console.error('Erro ao ler o arquivo de bundles detalhado:', error);
         res.status(500).json({ 
@@ -246,22 +212,17 @@ router.get('/api/bundles-detailed', validateInput, async (req, res) => {
     }
 });
 
-// 🔍 Endpoint para obter dados únicos dos filtros
 router.get('/api/filter-options', validateInput, (req, res) => {
     try {
         const dataFile = fs.existsSync(BUNDLES_DETAILED_FILE) ? BUNDLES_DETAILED_FILE : BUNDLES_FILE;
-        
         if (!fs.existsSync(dataFile)) {
             return res.status(500).json({ 
                 error: 'Dados não encontrados',
                 suggestion: 'A API pode estar inicializando'
             });
         }
-
         const data = JSON.parse(fs.readFileSync(dataFile, 'utf-8'));
         const bundles = data.bundles || [];
-
-        // Extrai valores únicos para os filtros
         const genres = new Set();
         const categories = new Set();
         const platforms = new Set();
@@ -269,41 +230,28 @@ router.get('/api/filter-options', validateInput, (req, res) => {
         let maxPrice = 0;
         let minDiscount = 100;
         let maxDiscount = 0;
-
         bundles.forEach(bundle => {
-            // Gêneros
             if (bundle.genres && Array.isArray(bundle.genres)) {
                 bundle.genres.forEach(genre => genres.add(genre));
             }
-
-            // Categorias
             if (bundle.categories && Array.isArray(bundle.categories)) {
                 bundle.categories.forEach(category => categories.add(category));
             }
-
-            // Plataformas
             if (bundle.available_windows) platforms.add('Windows');
             if (bundle.available_mac) platforms.add('Mac');
             if (bundle.available_linux) platforms.add('Linux');
-
-            // Preços (em centavos, converte para reais)
             if (bundle.final_price && typeof bundle.final_price === 'number') {
                 const priceInReais = bundle.final_price / 100;
                 minPrice = Math.min(minPrice, priceInReais);
                 maxPrice = Math.max(maxPrice, priceInReais);
             }
-
-            // Descontos
             if (bundle.discount_percent && typeof bundle.discount_percent === 'number') {
                 minDiscount = Math.min(minDiscount, bundle.discount_percent);
                 maxDiscount = Math.max(maxDiscount, bundle.discount_percent);
             }
         });
-
-        // Ajusta valores mínimos caso não encontre nenhum dado
         if (minPrice === Infinity) minPrice = 0;
         if (minDiscount === 100) minDiscount = 0;
-
         const filterOptions = {
             genres: Array.from(genres).sort(),
             categories: Array.from(categories).sort(),
@@ -322,10 +270,8 @@ router.get('/api/filter-options', validateInput, (req, res) => {
                 lastUpdate: data.last_update || null
             }
         };
-
         res.json(filterOptions);
         console.log(`🔍 Opções de filtro enviadas (${bundles.length} bundles analisados)`);
-        
     } catch (error) {
         console.error('Erro ao gerar opções de filtro:', error);
         res.status(500).json({ 
@@ -335,14 +281,12 @@ router.get('/api/filter-options', validateInput, (req, res) => {
     }
 });
 
-// 📊 Endpoint para verificar status de atualizações
 router.get('/api/update-status', validateInput, updateLoggingMiddleware('update-status'), (req, res) => {
     try {
         const dataStatus = getCurrentDataStatus();
         const updateController = getUpdateController();
         const updateStatus = updateController.getStatus();
         const diagnostics = updateController.getDiagnostics();
-        
         const response = {
             ...updateStatus,
             dataStatus: {
@@ -360,9 +304,7 @@ router.get('/api/update-status', validateInput, updateLoggingMiddleware('update-
                 version: '2.0'
             }
         };
-
         res.json(response);
-        
     } catch (error) {
         console.error('Erro ao verificar status de atualização:', error);
         res.status(500).json({ 
@@ -387,7 +329,6 @@ router.get('/api/bundles-detailed-all', (req, res) => {
     }
 });
 
-// Endpoint para forçar uma atualização (PROTEGIDO)
 router.get('/api/force-update', 
     authenticateApiKey, 
     adminRateLimit, 
@@ -396,30 +337,21 @@ router.get('/api/force-update',
     async (req, res) => {
     try {
         console.log('[ADMIN] Iniciando atualização forçada...');
-        
         const startTime = Date.now();
         const statusBefore = getCurrentDataStatus();
-        
-        // Informa o progresso
         res.set({
             'X-Operation': 'force-update-controlled',
             'X-Estimated-Duration': '5-15 minutes',
             'X-Background-Process': 'false',
             'X-Update-Control': 'enabled'
         });
-        
-        // Executa atualização controlada - primeiro bundles básicas
         await executeControlledUpdate(() => fetchAndSaveBundles(), 'force-basic');
         console.log('✅ fetchAndSaveBundles concluído.');
-
-        // Depois atualização detalhada
         await executeControlledUpdate(() => updateBundlesWithDetails(), 'force-detailed');
         console.log('✅ updateBundlesWithDetails concluído.');
-        
         const endTime = Date.now();
         const duration = Math.round((endTime - startTime) / 1000);
         const statusAfter = getCurrentDataStatus();
-
         res.json({ 
             message: 'Atualização forçada concluída com sucesso',
             operation_summary: {
@@ -464,7 +396,6 @@ router.get('/api/force-update',
     }
 });
 
-// Endpoint para atualizar os detalhes das bundles (PROTEGIDO)
 router.get('/api/update-details', 
     authenticateApiKey, 
     adminRateLimit, 
@@ -473,7 +404,6 @@ router.get('/api/update-details',
     async (req, res) => {
     try {
         console.log('[ADMIN] Iniciando atualização de detalhes...');
-        
         const result = await executeControlledUpdate(() => updateBundlesWithDetails(), 'admin-details');
         res.json({ 
             message: 'Detalhes das bundles atualizados com sucesso.',
@@ -487,7 +417,6 @@ router.get('/api/update-details',
     }
 });
 
-// 🧪 NOVO: Endpoint de teste para processar apenas algumas bundles (PROTEGIDO)
 router.get('/api/test-update', 
     authenticateApiKey, 
     adminRateLimit, 
@@ -496,7 +425,6 @@ router.get('/api/test-update',
     async (req, res) => {
     try {
         const limit = parseInt(req.query.limit) || 50;
-        
         if (limit > 200) {
             return res.status(400).json({ 
                 error: 'Limite máximo de 200 bundles para teste',
@@ -506,9 +434,7 @@ router.get('/api/test-update',
                 suggestion: 'Reduza o valor do parâmetro limit ou use /api/force-update para atualização completa'
             });
         }
-
         console.log(`[TEST] Iniciando atualização de teste com ${limit} bundles...`);
-        
         const startTime = Date.now();
         const result = await executeControlledUpdate(
             () => updateBundlesWithDetails('brazilian', limit), 
@@ -516,15 +442,12 @@ router.get('/api/test-update',
         );
         const endTime = Date.now();
         const duration = Math.round((endTime - startTime) / 1000);
-        
-        // Adiciona headers informativos
         res.set({
             'X-Operation': 'test-update',
             'X-Bundles-Processed': result.processedBundles?.toString() || limit.toString(),
             'X-Duration-Seconds': duration.toString(),
             'X-Test-Mode': 'true'
         });
-        
         res.json({ 
             message: `Teste concluído com sucesso`,
             test_summary: {
@@ -554,7 +477,6 @@ router.get('/api/test-update',
             },
             timestamp: new Date().toISOString()
         });
-        
         console.log(`🧪 Teste concluído: ${result.processedBundles} bundles processados em ${duration}s.`);
     } catch (error) {
         console.error('❌ Erro no teste de atualização:', error);
@@ -571,12 +493,9 @@ router.get('/api/test-update',
     }
 });
 
-// 📊 NOVO: Endpoint para obter estatísticas da API Steam
 router.get('/api/steam-stats', (req, res) => {
     try {
         const status = getCurrentDataStatus();
-        
-        // Lê estatísticas dos arquivos se existirem
         let stats = {
             api_status: {
                 online: true,
@@ -623,15 +542,12 @@ router.get('/api/steam-stats', (req, res) => {
                 cache_hit_potential: status.dataAge < 8 ? 'high' : status.dataAge < 24 ? 'medium' : 'low'
             }
         };
-
-        // Adiciona headers informativos
         res.set({
             'X-Health-Score': stats.data_status.health_score.toString(),
             'X-Data-Age': status.dataAge?.toString() || '0',
             'X-Cache-Status': stats.performance_metrics.cache_hit_potential,
             'X-Update-Needed': status.needsUpdate ? 'yes' : 'no'
         });
-
         if (fs.existsSync('bundleDetailed.json')) {
             const data = JSON.parse(fs.readFileSync('bundleDetailed.json', 'utf-8'));
             stats.production = {
@@ -652,7 +568,6 @@ router.get('/api/steam-stats', (req, res) => {
                     'N/A'
             };
         }
-
         if (fs.existsSync('bundleDetailed_test.json')) {
             const testData = JSON.parse(fs.readFileSync('bundleDetailed_test.json', 'utf-8'));
             stats.test = {
@@ -662,7 +577,6 @@ router.get('/api/steam-stats', (req, res) => {
                 purpose: 'Dados de teste para validação de funcionalidade'
             };
         }
-
         res.json(stats);
     } catch (error) {
         console.error('Erro ao obter estatísticas:', error);
@@ -678,20 +592,13 @@ router.get('/api/steam-stats', (req, res) => {
     }
 });
 
-// 🧹 NOVO: Endpoint para remover duplicatas manualmente (PROTEGIDO)
 router.get('/api/clean-duplicates', authenticateApiKey, adminRateLimit, async (req, res) => {
     try {
         console.log('🧹 [ADMIN] Iniciando limpeza de duplicatas...');
-        
-        // Verifica o status antes da limpeza
         const statusBefore = getCurrentDataStatus();
-        
         const basicResult = removeDuplicatesFromBasicBundles();
         const detailedResult = removeDuplicatesFromDetailedBundles();
-        
-        // Verifica o status após a limpeza
         const statusAfter = getCurrentDataStatus();
-        
         const result = {
             message: 'Limpeza de duplicatas concluída com sucesso',
             operation_summary: {
@@ -732,17 +639,13 @@ router.get('/api/clean-duplicates', authenticateApiKey, adminRateLimit, async (r
             ].filter(Boolean),
             timestamp: new Date().toISOString()
         };
-        
-        // Adiciona headers informativos
         res.set({
             'X-Operation': 'duplicate-cleanup',
             'X-Duplicates-Removed': (basicResult.removed + detailedResult.removed).toString(),
             'X-Data-Quality': statusAfter.duplicatesDetected === 0 ? 'clean' : 'has-duplicates'
         });
-        
         res.json(result);
         console.log(`🧹 Limpeza concluída: ${result.operation_summary.total_duplicates_removed} duplicatas removidas`);
-        
     } catch (error) {
         console.error('❌ Erro na limpeza de duplicatas:', error);
         res.status(500).json({ 

@@ -9,180 +9,219 @@ const BUNDLES_FILE = 'bundles.json';
 const LAST_CHECK_FILE = 'last_check.json';
 const TIMEZONE = 'America/Sao_Paulo'; // Horário de Brasília
 
-// Configurações específicas para FETCH BUNDLES (operação mais simples e CONSERVADORA)
-const FETCH_CONFIG = {
-    // Configurações ULTRA CONSERVADORAS para parecer navegação humana
-    DELAY_BETWEEN_PAGES: parseInt(process.env.FETCH_BUNDLES_DELAY) || 3000,
-    REQUEST_TIMEOUT: parseInt(process.env.FETCH_BUNDLES_TIMEOUT) || 15000,
-    MAX_RETRIES: parseInt(process.env.FETCH_BUNDLES_RETRIES) || 1,
-    MAX_CONCURRENT_REQUESTS: 1, // APENAS 1 requisição por vez para parecer humano
-    USER_AGENT: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    // Delay adicional aleatório para parecer mais humano
-    RANDOM_DELAY_MIN: 2000,
-    RANDOM_DELAY_MAX: 5000
-};
+// Configurações baseadas na lógica original com melhorias conservadoras
+const MAX_CONCURRENT_REQUESTS = parseInt(process.env.FETCH_BUNDLES_CONCURRENT) || 3;
+const DELAY_BETWEEN_BATCHES = parseInt(process.env.FETCH_BUNDLES_DELAY) || 1500;
+const REQUEST_TIMEOUT = parseInt(process.env.FETCH_BUNDLES_TIMEOUT) || 10000;
 
-console.log('� Configurações CONSERVADORAS do Fetch Bundles:', FETCH_CONFIG);
+// CONFIGURAÇÕES PARA RENDER FREE (500MB RAM)
+const SAVE_INTERVAL_PAGES = 50;
+const MEMORY_CHECK_INTERVAL = 20;
+const MAX_MEMORY_USAGE_MB = 300;
+
+console.log(`🔧 Fetch Bundles - ${MAX_CONCURRENT_REQUESTS} concurrent, ${DELAY_BETWEEN_BATCHES}ms delay`);
+console.log(`💾 Modo Render Free: Salvamento a cada ${SAVE_INTERVAL_PAGES} páginas`);
 
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-// Função para delay aleatório que simula comportamento humano
-const humanDelay = () => {
-    const randomMs = Math.floor(Math.random() * (FETCH_CONFIG.RANDOM_DELAY_MAX - FETCH_CONFIG.RANDOM_DELAY_MIN + 1)) + FETCH_CONFIG.RANDOM_DELAY_MIN;
-    return delay(randomMs);
+const getMemoryUsage = () => {
+    const used = process.memoryUsage();
+    return {
+        rss: Math.round(used.rss / 1024 / 1024 * 100) / 100, // MB
+        heapUsed: Math.round(used.heapUsed / 1024 / 1024 * 100) / 100, // MB
+        heapTotal: Math.round(used.heapTotal / 1024 / 1024 * 100) / 100 // MB
+    };
 };
 
-let totalBundlesCount = 0;  // Variável global para armazenar a quantidade de bundles
+let totalBundlesCount = 0;
+
+const saveBundlesData = (bundles, isComplete = false) => {
+    const memory = getMemoryUsage();
+    const result = {
+        totalBundles: bundles.length,
+        bundles: bundles,
+        isComplete: isComplete,
+        lastSaved: new Date().toISOString(),
+        memoryUsage: memory
+    };
+    
+    fs.writeFileSync(BUNDLES_FILE, JSON.stringify(result, null, 2), 'utf-8');
+    
+    if (isComplete) {
+        console.log(`💾 ✅ Salvamento final: ${bundles.length} bundles (${memory.heapUsed}MB)`);
+    } else {
+        console.log(`💾 🔄 Salvamento parcial: ${bundles.length} bundles (${memory.heapUsed}MB)`);
+    }
+};
 
 const fetchAndSaveBundles = async () => {
     try {
-        console.log('Iniciando busca por bundles');
+        console.log('🚀 Iniciando busca por bundles');
+        
+        const BUNDLES_OLD_FILE = 'bundles-old.json';
+        
+        if (fs.existsSync(BUNDLES_FILE)) {
+            console.log('📁 Arquivo bundles.json encontrado, criando backup...');
+            if (fs.existsSync(BUNDLES_OLD_FILE)) {
+                console.log('🗑️ Removendo backup antigo...');
+                fs.unlinkSync(BUNDLES_OLD_FILE);
+            }
+            fs.renameSync(BUNDLES_FILE, BUNDLES_OLD_FILE);
+            console.log(`✅ Backup criado: ${BUNDLES_FILE} → ${BUNDLES_OLD_FILE}`);
+        } else {
+            console.log('📝 Primeira execução - nenhum arquivo anterior encontrado');
+        }
+        
         let bundles = [];
         let page = 1;
         let hasMorePages = true;
         let previousPageData = null;
+        let pagesProcessed = 0;
 
-        const fetchPage = async (page, retryCount = 0) => {
+        const fetchPage = async (page) => {
             const url = `https://store.steampowered.com/search/?term=bundle&ignore_preferences=1&hidef2p=1&ndl=1&page=${page}`;
-
-            try {
-                const { data } = await axios.get(url, {
-                    timeout: FETCH_CONFIG.REQUEST_TIMEOUT,
-                    headers: {
-                        'User-Agent': FETCH_CONFIG.USER_AGENT,
-                        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
-                        'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
-                        'Accept-Encoding': 'gzip, deflate, br',
-                        'DNT': '1',
-                        'Connection': 'keep-alive',
-                        'Upgrade-Insecure-Requests': '1',
-                        'Sec-Fetch-Dest': 'document',
-                        'Sec-Fetch-Mode': 'navigate',
-                        'Sec-Fetch-Site': 'none',
-                        'Sec-Fetch-User': '?1',
-                        'Cache-Control': 'max-age=0'
-                    }
-                });
-
-                if (previousPageData && previousPageData === data) {
-                    return null;
+            const { data } = await axios.get(url, {
+                timeout: REQUEST_TIMEOUT,
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
                 }
+            });
 
-                const $ = cheerio.load(data);
-                const bundleElements = $('a[href*="/bundle/"]');
-                
-                // Log apenas se não encontrar elementos (indica fim das páginas)
-                if (bundleElements.length === 0) {
-                    console.log(`📄 Página ${page}: Não há mais bundles - fim da busca`);
-                    return null;
-                } else {
-                    // Log de progresso a cada 10 páginas
-                    if (page % 10 === 0) {
-                        console.log(`📄 Processando página ${page} (${bundleElements.length} bundles encontradas)`);
-                    }
-                    
-                    const bundlePromises = bundleElements.map(async (_, el) => {
-                        const title = $(el).find('.title').text().trim();
-                        const link = $(el).attr('href');
-
-                        if (title && link.includes('/bundle/')) {
-                            return { Nome: title, Link: link };
-                        }
-                    }).get();
-
-                    const bundleResults = await Promise.all(bundlePromises);
-                    return bundleResults.filter(bundle => bundle);
-                }
-            } catch (error) {
-                if (retryCount < FETCH_CONFIG.MAX_RETRIES) {
-                    console.log(`⚠️ Erro página ${page}, tentativa ${retryCount + 1}/${FETCH_CONFIG.MAX_RETRIES}`);
-                    await delay(1000 * (retryCount + 1));
-                    return await fetchPage(page, retryCount + 1);
-                }
-                console.error(`❌ Erro na página ${page}:`, error.message);
+            if (previousPageData && previousPageData === data) {
                 return null;
+            }
+
+            const $ = cheerio.load(data);
+            const bundleElements = $('a[href*="/bundle/"]');
+            console.log(`📄 Página ${page}: ${bundleElements.length} bundles encontradas`);
+
+            if (bundleElements.length === 0) {
+                return null;
+            } else {
+                const bundlePromises = bundleElements.map(async (_, el) => {
+                    const title = $(el).find('.title').text().trim();
+                    const link = $(el).attr('href');
+                    if (title && link.includes('/bundle/')) {
+                        return { Nome: title, Link: link };
+                    }
+                }).get();
+
+                const bundleResults = await Promise.all(bundlePromises);
+                return bundleResults.filter(bundle => bundle);
             }
         };
 
         while (hasMorePages) {
             const pagePromises = [];
-            for (let i = 0; i < FETCH_CONFIG.MAX_CONCURRENT_REQUESTS && hasMorePages; i++) {
+            for (let i = 0; i < MAX_CONCURRENT_REQUESTS && hasMorePages; i++) {
                 pagePromises.push(fetchPage(page));
                 page++;
             }
 
-            const pageResults = await Promise.all(pagePromises);
-            for (const result of pageResults) {
-                if (result) {
-                    bundles.push(...result);
+            // MODIFICAÇÃO: Usando Promise.allSettled para maior robustez
+            const settledResults = await Promise.allSettled(pagePromises);
+
+            for (const result of settledResults) {
+                if (result.status === 'fulfilled') {
+                    if (result.value) {
+                        bundles.push(...result.value);
+                    } else {
+                        hasMorePages = false;
+                    }
                 } else {
+                    console.error(`❌ Falha ao buscar uma página: ${result.reason.message}`);
                     hasMorePages = false;
+                    break; 
+                }
+            }
+            
+            pagesProcessed += MAX_CONCURRENT_REQUESTS;
+
+            const memory = getMemoryUsage();
+            const shouldSaveByInterval = pagesProcessed % SAVE_INTERVAL_PAGES === 0;
+            const shouldSaveByMemory = memory.heapUsed > MAX_MEMORY_USAGE_MB;
+            
+            if (shouldSaveByInterval || shouldSaveByMemory) {
+                if (shouldSaveByMemory) {
+                    console.log(`🚨 Memória alta (${memory.heapUsed}MB) - forçando salvamento`);
+                }
+                
+                const uniqueBundles = Array.from(new Map(bundles.map(bundle => [bundle.Link, bundle])).values());
+                console.log(`🔄 Salvamento parcial: ${bundles.length} coletadas → ${uniqueBundles.length} únicas`);
+                
+                saveBundlesData(uniqueBundles, false);
+                
+                if (global.gc) {
+                    global.gc();
+                    const memoryAfterGC = getMemoryUsage();
+                    console.log(`🧹 GC executado: ${memory.heapUsed}MB → ${memoryAfterGC.heapUsed}MB`);
                 }
             }
 
-            // Log de progresso geral a cada 50 páginas ou quando encontrar muitos bundles
-            if (page % 50 === 0 || bundles.length % 1000 === 0) {
-                console.log(`📊 Progresso: ${bundles.length} bundles encontradas (página ~${page})`);
+            if (pagesProcessed % MEMORY_CHECK_INTERVAL === 0) {
+                console.log(`📊 Memória: ${memory.heapUsed}MB | Bundles: ${bundles.length} | Páginas: ${pagesProcessed}`);
             }
 
-            // Salva o arquivo a cada 100 bundles para não perder progresso
-            if (bundles.length % 100 === 0) {
-                const result = {
-                    totalBundles: bundles.length,
-                    bundles: bundles
-                };
-                fs.writeFileSync(BUNDLES_FILE, JSON.stringify(result, null, 2), 'utf-8');
-            }
-
-            // Delay configurável entre lotes de páginas + delay humano aleatório
             if (hasMorePages) {
-                await delay(FETCH_CONFIG.DELAY_BETWEEN_PAGES);
-                await humanDelay(); // Delay adicional aleatório
+                console.log(`⏳ Aguardando ${DELAY_BETWEEN_BATCHES}ms antes do próximo lote...`);
+                await delay(DELAY_BETWEEN_BATCHES);
             }
 
-            // Atualiza os dados da página anterior
-            previousPageData = pageResults[pageResults.length - 1];
+            previousPageData = settledResults[settledResults.length - 1]?.value;
         }
 
-        console.log(`✅ Busca concluída: ${bundles.length} bundles encontradas`);
+        console.log('🔍 Removendo duplicatas das bundles coletadas...');
+        const uniqueBundles = Array.from(new Map(bundles.map(bundle => [bundle.Link, bundle])).values());
+        console.log(`📊 Bundles: ${bundles.length} coletadas → ${uniqueBundles.length} únicas`);
+        
+        saveBundlesData(uniqueBundles, true);
 
-        // Salva o resultado final
-        const result = {
-            totalBundles: bundles.length,
-            bundles: bundles
-        };
-        fs.writeFileSync(BUNDLES_FILE, JSON.stringify(result, null, 2), 'utf-8');
-        console.log(`💾 Arquivo bundles.json salvo com ${bundles.length} bundles`);
-
-        // 🧹 Remove duplicatas após a coleta
-        console.log('🔍 Verificando duplicatas nas bundles básicas...');
+        console.log('🔍 Verificação final de duplicatas...');
         const deduplication = removeDuplicatesFromBasicBundles();
         if (deduplication.removed > 0) {
             totalBundlesCount = deduplication.total;
-            console.log(`🧹 ${deduplication.removed} duplicatas removidas. Total final: ${totalBundlesCount}`);
+            console.log(`🧹 ${deduplication.removed} duplicatas adicionais removidas pelo middleware. Total final: ${totalBundlesCount}`);
         } else {
-            totalBundlesCount = bundles.length;
+            totalBundlesCount = uniqueBundles.length;
+            console.log(`✅ Nenhuma duplicata adicional encontrada. Total final: ${totalBundlesCount}`);
         }
 
-        // Save the last check time
         const lastCheck = { lastCheck: moment().tz(TIMEZONE).format() };
         fs.writeFileSync(LAST_CHECK_FILE, JSON.stringify(lastCheck, null, 2), 'utf-8');
 
-        console.log(`🎯 Total de bundles catalogadas: ${totalBundlesCount}`);
+        console.log(`✅ Total de bundles catalogadas: ${totalBundlesCount}`);
 
-        // Atualiza os detalhes das bundles
-        console.log('🔄 Iniciando atualização de detalhes das bundles...');
+        console.log('🔄 Iniciando atualização de detalhes...');
         await updateBundlesWithDetails();
-        console.log('✅ Detalhes das bundles atualizados com sucesso.');
-        
+        console.log('✅ Detalhes das bundles atualizados.');
     } catch (error) {
-        if (error.response) {
-            console.error('❌ Erro na resposta da solicitação:', error.response.status, error.response.statusText);
-        } else if (error.request) {
-            console.error('❌ Nenhuma resposta recebida:', error.request);
-        } else {
-            console.error('❌ Erro ao configurar a solicitação:', error.message);
+        console.error('❌ ERRO durante a busca de bundles!');
+        
+        const BUNDLES_OLD_FILE = 'bundles-old.json';
+        
+        if (fs.existsSync(BUNDLES_OLD_FILE)) {
+            console.log('🔄 Tentando restaurar backup anterior...');
+            try {
+                if (fs.existsSync(BUNDLES_FILE)) {
+                    fs.unlinkSync(BUNDLES_FILE);
+                }
+                fs.renameSync(BUNDLES_OLD_FILE, BUNDLES_FILE);
+                console.log('✅ Backup restaurado com sucesso!');
+                console.log('💡 Os dados anteriores foram mantidos para evitar perda de informações.');
+            } catch (restoreError) {
+                console.error('❌ Erro ao restaurar backup:', restoreError.message);
+            }
         }
+        
+        if (error.response) {
+            console.error('Erro na resposta da solicitação:', error.response.status, error.response.statusText);
+        } else if (error.request) {
+            console.error('Nenhuma resposta recebida:', error.request);
+        } else {
+            console.error('Erro ao configurar a solicitação:', error.message);
+        }
+        
+        throw error;
     }
 };
 
