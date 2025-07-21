@@ -9,10 +9,22 @@ const {
     removeDuplicatesFromBasicBundles, 
     removeDuplicatesFromDetailedBundles 
 } = require('./middleware/dataValidation');
+const {
+    updateStatusMiddleware,
+    preventSimultaneousUpdates,
+    executeControlledUpdate,
+    updateLoggingMiddleware,
+    updateHealthCheckMiddleware,
+    getUpdateController
+} = require('./middleware/updateControl');
 
 const router = express.Router();
 const BUNDLES_FILE = 'bundles.json';
-const BUNDLES_DETAILED_FILE = 'bundleDetailed_test.json';
+const BUNDLES_DETAILED_FILE = 'bundleDetailed.json';
+
+// Aplica middleware de controle de atualizações globalmente nas rotas
+router.use(updateStatusMiddleware);
+router.use(updateHealthCheckMiddleware);
 
 // Rota principal para verificar se a API está funcionando
 router.get('/', (req, res) => {
@@ -199,20 +211,27 @@ router.get('/api/bundles-detailed', validateInput, async (req, res) => {
             });
         }
 
-        // 🔄 Inicia atualização em segundo plano se necessário
+        // 🔄 Inicia atualização em segundo plano se necessário (com controle de conflitos)
         if (status.needsUpdate) {
             responseData.updateTriggered = true;
             
-            // Executa atualização de forma assíncrona (não bloqueia a resposta)
+            // Executa atualização de forma controlada (previne conflitos)
             setImmediate(async () => {
                 try {
-                    console.log('🔄 [BACKGROUND] Iniciando atualização automática...');
+                    console.log('🔄 [BACKGROUND] Solicitação de atualização automática...');
+                    
+                    const updateController = getUpdateController();
+                    if (updateController.isUpdateInProgress()) {
+                        console.log('⏳ [BACKGROUND] Atualização já em andamento, ignorando nova solicitação');
+                        return;
+                    }
+
                     if (!status.hasBasicBundles || status.basicBundlesCount < 100) {
                         console.log('🔄 [BACKGROUND] Atualizando bundles básicas...');
-                        await fetchAndSaveBundles();
+                        await executeControlledUpdate(() => fetchAndSaveBundles(), 'background-basic');
                     } else {
                         console.log('🔄 [BACKGROUND] Atualizando apenas detalhes...');
-                        await updateBundlesWithDetails();
+                        await executeControlledUpdate(() => updateBundlesWithDetails(), 'background-detailed');
                     }
                     console.log('✅ [BACKGROUND] Atualização automática concluída');
                 } catch (error) {
@@ -323,6 +342,43 @@ router.get('/api/filter-options', validateInput, (req, res) => {
     }
 });
 
+// 📊 Endpoint para verificar status de atualizações
+router.get('/api/update-status', validateInput, updateLoggingMiddleware('update-status'), (req, res) => {
+    try {
+        const dataStatus = getCurrentDataStatus();
+        const updateController = getUpdateController();
+        const updateStatus = updateController.getStatus();
+        const diagnostics = updateController.getDiagnostics();
+        
+        const response = {
+            ...updateStatus,
+            dataStatus: {
+                hasBasicBundles: dataStatus.hasBasicBundles,
+                hasDetailedBundles: dataStatus.hasDetailedBundles,
+                basicBundlesCount: dataStatus.basicBundlesCount,
+                detailedBundlesCount: dataStatus.detailedBundlesCount,
+                dataAge: dataStatus.dataAge,
+                needsUpdate: dataStatus.needsUpdate
+            },
+            diagnostics: diagnostics.diagnostics,
+            system: {
+                controllerType: 'UpdateController',
+                architecture: 'service-based',
+                version: '2.0'
+            }
+        };
+
+        res.json(response);
+        
+    } catch (error) {
+        console.error('Erro ao verificar status de atualização:', error);
+        res.status(500).json({ 
+            error: 'Erro ao verificar status de atualização',
+            technical_error: error.message
+        });
+    }
+});
+
 // 📜 Endpoint legacy (comportamento antigo sem inteligência)
 router.get('/api/bundles-detailed-legacy', validateInput, (req, res) => {
     try {
@@ -370,7 +426,12 @@ router.get('/api/bundles-detailed-all', (req, res) => {
 });
 
 // Endpoint para forçar uma atualização (PROTEGIDO)
-router.get('/api/force-update', authenticateApiKey, adminRateLimit, async (req, res) => {
+router.get('/api/force-update', 
+    authenticateApiKey, 
+    adminRateLimit, 
+    preventSimultaneousUpdates,
+    updateLoggingMiddleware('force-update'),
+    async (req, res) => {
     try {
         console.log('[ADMIN] Iniciando atualização forçada...');
         
@@ -379,15 +440,18 @@ router.get('/api/force-update', authenticateApiKey, adminRateLimit, async (req, 
         
         // Informa o progresso
         res.set({
-            'X-Operation': 'force-update',
+            'X-Operation': 'force-update-controlled',
             'X-Estimated-Duration': '5-15 minutes',
-            'X-Background-Process': 'false'
+            'X-Background-Process': 'false',
+            'X-Update-Control': 'enabled'
         });
         
-        await fetchAndSaveBundles();
+        // Executa atualização controlada - primeiro bundles básicas
+        await executeControlledUpdate(() => fetchAndSaveBundles(), 'force-basic');
         console.log('✅ fetchAndSaveBundles concluído.');
 
-        await updateBundlesWithDetails();
+        // Depois atualização detalhada
+        await executeControlledUpdate(() => updateBundlesWithDetails(), 'force-detailed');
         console.log('✅ updateBundlesWithDetails concluído.');
         
         const endTime = Date.now();
@@ -439,11 +503,16 @@ router.get('/api/force-update', authenticateApiKey, adminRateLimit, async (req, 
 });
 
 // Endpoint para atualizar os detalhes das bundles (PROTEGIDO)
-router.get('/api/update-details', authenticateApiKey, adminRateLimit, async (req, res) => {
+router.get('/api/update-details', 
+    authenticateApiKey, 
+    adminRateLimit, 
+    preventSimultaneousUpdates,
+    updateLoggingMiddleware('update-details'),
+    async (req, res) => {
     try {
         console.log('[ADMIN] Iniciando atualização de detalhes...');
         
-        const result = await updateBundlesWithDetails();
+        const result = await executeControlledUpdate(() => updateBundlesWithDetails(), 'admin-details');
         res.json({ 
             message: 'Detalhes das bundles atualizados com sucesso.',
             timestamp: new Date().toISOString(),
@@ -457,7 +526,12 @@ router.get('/api/update-details', authenticateApiKey, adminRateLimit, async (req
 });
 
 // 🧪 NOVO: Endpoint de teste para processar apenas algumas bundles (PROTEGIDO)
-router.get('/api/test-update', authenticateApiKey, adminRateLimit, async (req, res) => {
+router.get('/api/test-update', 
+    authenticateApiKey, 
+    adminRateLimit, 
+    preventSimultaneousUpdates,
+    updateLoggingMiddleware('test-update'),
+    async (req, res) => {
     try {
         const limit = parseInt(req.query.limit) || 50;
         
@@ -474,7 +548,10 @@ router.get('/api/test-update', authenticateApiKey, adminRateLimit, async (req, r
         console.log(`[TEST] Iniciando atualização de teste com ${limit} bundles...`);
         
         const startTime = Date.now();
-        const result = await updateBundlesWithDetails('brazilian', limit);
+        const result = await executeControlledUpdate(
+            () => updateBundlesWithDetails('brazilian', limit), 
+            `test-${limit}`
+        );
         const endTime = Date.now();
         const duration = Math.round((endTime - startTime) / 1000);
         
