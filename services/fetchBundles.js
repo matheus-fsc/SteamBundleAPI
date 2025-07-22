@@ -1,11 +1,11 @@
 const axios = require('axios');
 const cheerio = require('cheerio');
-const fs = require('fs').promises; // Usar versão Promise-based
-const fsSync = require('fs'); // Manter versão síncrona para casos específicos
+const fs = require('fs').promises;
+const fsSync = require('fs');
 const moment = require('moment-timezone');
 const { updateBundlesWithDetails } = require('./updateBundles');
 const { removeDuplicatesFromBasicBundles } = require('../middleware/dataValidation');
-const keepAlive = require('./keepAlive');
+const { keepAlive } = require('./keepAlive');
 
 const BUNDLES_FILE = 'bundles.json';
 const LAST_CHECK_FILE = 'last_check.json';

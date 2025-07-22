@@ -32,8 +32,8 @@ const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 const loadUpdateState = () => {
     try {
-        if (fs.existsSync(UPDATE_STATE_FILE)) {
-            const state = JSON.parse(fs.readFileSync(UPDATE_STATE_FILE, 'utf-8'));
+        if (fsSync.existsSync(UPDATE_STATE_FILE)) {
+            const state = JSON.parse(fsSync.readFileSync(UPDATE_STATE_FILE, 'utf-8'));
             console.log(`📋 Estado de atualização encontrado: ${state.status} (${state.completed}/${state.total})`);
             return state;
         }
@@ -320,12 +320,12 @@ const updateBundlesWithDetails = async (language = 'brazilian', limitForTesting 
     }
     
     try {
-        if (!fs.existsSync(BUNDLES_FILE)) {
+        if (!fsSync.existsSync(BUNDLES_FILE)) {
             console.error('Arquivo bundles.json não encontrado.');
             return { success: false, error: 'Arquivo bundles.json não encontrado' };
         }
         
-        const bundlesJson = JSON.parse(fs.readFileSync(BUNDLES_FILE, 'utf-8'));
+        const bundlesJson = JSON.parse(fsSync.readFileSync(BUNDLES_FILE, 'utf-8'));
         const bundlesToProcess = limitForTesting ? bundlesJson.bundles.slice(0, limitForTesting) : bundlesJson.bundles;
         
         let updateState = loadUpdateState();
@@ -339,8 +339,8 @@ const updateBundlesWithDetails = async (language = 'brazilian', limitForTesting 
             console.log(`   📅 Iniciado em: ${new Date(updateState.startTime).toLocaleString()}`);
             
             try {
-                if (fs.existsSync(BUNDLES_DETAILED_FILE)) {
-                    const existingData = JSON.parse(fs.readFileSync(BUNDLES_DETAILED_FILE, 'utf-8'));
+                if (fsSync.existsSync(BUNDLES_DETAILED_FILE)) {
+                    const existingData = JSON.parse(fsSync.readFileSync(BUNDLES_DETAILED_FILE, 'utf-8'));
                     if (existingData.bundles && !existingData.isComplete) {
                         detailedBundles = existingData.bundles;
                         startIndex = updateState.lastProcessedIndex + 1;
