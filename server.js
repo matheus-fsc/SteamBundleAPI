@@ -8,6 +8,7 @@ const fs = require('fs');
 
 const { fetchAndSaveBundles } = require('./services/fetchBundles');
 const { updateBundlesWithDetails, checkAndResumeUpdate } = require('./services/updateBundles');
+const updateController = require('./services/updateController'); // Importa para ativar auto-resume
 const routes = require('./routes');
 const { requestLogger, corsOptions } = require('./middleware/security');
 const { healthCheck, errorHandler, notFoundHandler } = require('./middleware/monitoring');
@@ -55,27 +56,87 @@ const checkLastVerification = () => {
     const bundlesDetailedExists = fs.existsSync(BUNDLES_DETAILED_FILE);
     console.log(`📋 bundles.json: ${bundlesExists ? '✅ Existe' : '❌ Não encontrado'}`);
     console.log(`📄 bundleDetailed.json: ${bundlesDetailedExists ? '✅ Existe' : '❌ Não encontrado'}`);
-    if (!bundlesExists || !bundlesDetailedExists) {
-        console.log('🚨 Arquivos essenciais ausentes - iniciando nova coleta de dados...');
+    
+    // --- NOVA LÓGICA DE VERIFICAÇÃO INTELIGENTE ---
+    if (!bundlesExists && !bundlesDetailedExists) {
+        console.log('🚨 Ambos os arquivos ausentes - iniciando coleta completa do início...');
         fetchAndSaveBundles();
         return;
     }
-    if (fs.existsSync(LAST_CHECK_FILE)) {
-        const lastCheckData = fs.readFileSync(LAST_CHECK_FILE, 'utf-8');
-        const lastCheck = JSON.parse(lastCheckData).lastCheck;
-        const now = moment().tz(TIMEZONE);
-        const lastCheckMoment = moment.tz(lastCheck, TIMEZONE);
-        const hoursSinceLastCheck = now.diff(lastCheckMoment, 'hours');
-        console.log(`⏰ Última verificação: ${lastCheckMoment.format('DD/MM/YYYY HH:mm:ss')} (${hoursSinceLastCheck}h atrás)`);
-        if (hoursSinceLastCheck >= 6) {
-            console.log('🔄 Mais de 6 horas desde a última verificação - iniciando atualização...');
+    
+    if (bundlesExists && !bundlesDetailedExists) {
+        console.log('🔍 bundles.json existe, mas bundleDetailed.json não. Verificando integridade...');
+        try {
+            const bundlesData = JSON.parse(fs.readFileSync(BUNDLES_FILE, 'utf-8'));
+            
+            // Verifica se o arquivo bundles.json está completo
+            if (!bundlesData.bundles || !Array.isArray(bundlesData.bundles) || bundlesData.bundles.length === 0) {
+                console.log('⚠️ bundles.json existe mas está vazio ou corrompido - reiniciando coleta completa...');
+                fetchAndSaveBundles();
+                return;
+            }
+            
+            // Verifica se tem a estrutura mínima esperada
+            const hasValidStructure = bundlesData.bundles.every(bundle => 
+                bundle.Link && typeof bundle.Link === 'string' && bundle.Link.includes('/bundle/')
+            );
+            
+            if (!hasValidStructure) {
+                console.log('⚠️ bundles.json existe mas tem estrutura inválida - reiniciando coleta completa...');
+                fetchAndSaveBundles();
+                return;
+            }
+            
+            console.log(`✅ bundles.json está íntegro (${bundlesData.bundles.length} bundles)`);
+            console.log('🚀 bundleDetailed.json ausente - iniciando apenas atualização detalhada...');
+            
+            // Executa apenas a atualização detalhada via updateController
+            setTimeout(() => {
+                updateController.executeControlledUpdate(
+                    () => updateBundlesWithDetails('brazilian'), 
+                    'missing-detailed-file'
+                ).catch(error => {
+                    console.error('❌ Erro ao executar atualização detalhada:', error.message);
+                });
+            }, 2000);
+            return;
+            
+        } catch (error) {
+            console.log('⚠️ Erro ao ler bundles.json - reiniciando coleta completa...', error.message);
             fetchAndSaveBundles();
-        } else {
-            console.log(`✅ Dados atualizados - próxima verificação em ${6 - hoursSinceLastCheck}h`);
+            return;
         }
-    } else {
-        console.log('📝 Arquivo de timestamp não encontrado - iniciando verificação inicial...');
+    }
+    
+    if (!bundlesExists && bundlesDetailedExists) {
+        console.log('⚠️ bundleDetailed.json existe mas bundles.json não - situação inconsistente');
+        console.log('🚨 Reiniciando coleta completa para garantir consistência...');
         fetchAndSaveBundles();
+        return;
+    }
+    
+    // Se ambos existem, faz a verificação de tempo normal
+    if (bundlesExists && bundlesDetailedExists) {
+        console.log('✅ Ambos os arquivos existem - verificando timestamp...');
+        
+        if (fs.existsSync(LAST_CHECK_FILE)) {
+            const lastCheckData = fs.readFileSync(LAST_CHECK_FILE, 'utf-8');
+            const lastCheck = JSON.parse(lastCheckData).lastCheck;
+            const now = moment().tz(TIMEZONE);
+            const lastCheckMoment = moment.tz(lastCheck, TIMEZONE);
+            const hoursSinceLastCheck = now.diff(lastCheckMoment, 'hours');
+            console.log(`⏰ Última verificação: ${lastCheckMoment.format('DD/MM/YYYY HH:mm:ss')} (${hoursSinceLastCheck}h atrás)`);
+            
+            if (hoursSinceLastCheck >= 6) {
+                console.log('🔄 Mais de 6 horas desde a última verificação - iniciando atualização...');
+                fetchAndSaveBundles();
+            } else {
+                console.log(`✅ Dados atualizados - próxima verificação em ${6 - hoursSinceLastCheck}h`);
+            }
+        } else {
+            console.log('📝 Arquivo de timestamp não encontrado - iniciando verificação inicial...');
+            fetchAndSaveBundles();
+        }
     }
 };
 

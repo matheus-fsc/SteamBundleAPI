@@ -165,10 +165,7 @@ class RenderKeepAlive {
             estimated_remaining_hours: Math.round(((this.config.maxPings - this.pingCount) * 8) / 60 * 10) / 10
         };
     }
-
-    /**
-     * Força um ping manual
-     */
+    
     async forcePing() {
         console.log('🔧 Ping manual solicitado...');
         await this.ping();

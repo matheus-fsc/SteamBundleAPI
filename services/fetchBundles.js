@@ -11,8 +11,8 @@ const BUNDLES_FILE = 'bundles.json';
 const LAST_CHECK_FILE = 'last_check.json';
 const TIMEZONE = 'America/Sao_Paulo';
 
-const MAX_CONCURRENT_REQUESTS = parseInt(process.env.FETCH_BUNDLES_CONCURRENT) || 2;
-const DELAY_BETWEEN_BATCHES = parseInt(process.env.FETCH_BUNDLES_DELAY) || 1500;
+const MAX_CONCURRENT_REQUESTS = parseInt(process.env.FETCH_BUNDLES_CONCURRENT) || 5;
+const DELAY_BETWEEN_BATCHES = parseInt(process.env.FETCH_BUNDLES_DELAY) || 200;
 const REQUEST_TIMEOUT = parseInt(process.env.FETCH_BUNDLES_TIMEOUT) || 15000;
 
 const SAVE_INTERVAL_PAGES = 50;

@@ -1,32 +1,22 @@
-/**
- * Serviço de Controle de Atualizações
- * Gerencia o estado e coordenação de atualizações para prevenir conflitos
- */
-
 class UpdateController {
     constructor() {
         this.updateState = {
             isUpdating: false,
-            updateType: null, // 'basic' | 'detailed' | 'force-basic' | 'force-detailed' | etc.
+            updateType: null, 
             startTime: null,
             lastUpdateAttempt: null,
             updatePromise: null,
-            requestCount: 0 // Contador de requisições durante atualização
+            requestCount: 0 
         };
         
-        // Configurações
         this.config = {
-            minTimeBetweenUpdates: 30000, // 30 segundos
-            maxUpdateDuration: 900000,    // 15 minutos
+            minTimeBetweenUpdates: 30000, 
+            maxUpdateDuration: 900000,    
             logPrefix: '[UPDATE CONTROLLER]'
         };
     }
 
-    /**
-     * Verifica se uma atualização está em andamento
-     */
     isUpdateInProgress() {
-        // Verifica se a atualização não está "travada" há muito tempo
         if (this.updateState.isUpdating && this.updateState.startTime) {
             const elapsed = new Date() - this.updateState.startTime;
             if (elapsed > this.config.maxUpdateDuration) {
@@ -39,9 +29,6 @@ class UpdateController {
         return this.updateState.isUpdating;
     }
 
-    /**
-     * Marca início de atualização
-     */
     startUpdate(type) {
         this.updateState.isUpdating = true;
         this.updateState.updateType = type;
@@ -53,9 +40,6 @@ class UpdateController {
         return this.updateState.startTime;
     }
 
-    /**
-     * Marca fim de atualização
-     */
     endUpdate(success = true) {
         const duration = this.updateState.startTime ? 
             Math.round((new Date() - this.updateState.startTime) / 1000) : 0;
@@ -72,9 +56,6 @@ class UpdateController {
         return { duration, success };
     }
 
-    /**
-     * Força reset do estado (em caso de travamento)
-     */
     forceReset() {
         console.warn(`${this.config.logPrefix} Forçando reset do estado de atualização`);
         this.updateState = {
@@ -87,10 +68,6 @@ class UpdateController {
         };
     }
 
-    /**
-     * Para forçadamente todas as operações de atualização
-     * Usado via endpoint administrativo para parar emergencialmente
-     */
     forceStop() {
         const wasUpdating = this.updateState.isUpdating;
         const currentType = this.updateState.updateType;
@@ -103,12 +80,11 @@ class UpdateController {
             console.warn(`${this.config.logPrefix} Interrompendo atualização "${currentType}" após ${duration}s`);
         }
 
-        // Reset completo do estado
         this.updateState = {
             isUpdating: false,
             updateType: null,
             startTime: null,
-            lastUpdateAttempt: new Date(), // Marca o momento da parada forçada
+            lastUpdateAttempt: new Date(), 
             updatePromise: null,
             requestCount: 0
         };
@@ -124,25 +100,17 @@ class UpdateController {
         };
     }
 
-    /**
-     * Incrementa contador de requisições durante atualização
-     */
     incrementRequestCount() {
         if (this.updateState.isUpdating) {
             this.updateState.requestCount++;
         }
     }
 
-    /**
-     * Verifica se pode iniciar uma nova atualização
-     */
     canTriggerUpdate() {
-        // Se já está atualizando, não pode
         if (this.isUpdateInProgress()) {
             return false;
         }
 
-        // Se última tentativa foi muito recente, não pode
         if (this.updateState.lastUpdateAttempt) {
             const timeSinceLastAttempt = new Date() - this.updateState.lastUpdateAttempt;
             return timeSinceLastAttempt >= this.config.minTimeBetweenUpdates;
@@ -151,18 +119,13 @@ class UpdateController {
         return true;
     }
 
-    /**
-     * Executa atualização de forma controlada
-     */
     async executeControlledUpdate(updateFunction, type) {
-        // Se já está atualizando, retorna a Promise existente
         if (this.updateState.isUpdating && this.updateState.updatePromise) {
             console.log(`⏳ ${this.config.logPrefix} Atualização "${type}" já em andamento, aguardando conclusão...`);
             this.incrementRequestCount();
             return this.updateState.updatePromise;
         }
 
-        // Se não pode iniciar nova atualização
         if (!this.canTriggerUpdate()) {
             const timeSinceLastAttempt = Math.round((new Date() - this.updateState.lastUpdateAttempt) / 1000);
             console.log(`⏱️ ${this.config.logPrefix} Ignorando atualização "${type}" - última tentativa há ${timeSinceLastAttempt}s (mín: ${this.config.minTimeBetweenUpdates/1000}s)`);
@@ -171,15 +134,11 @@ class UpdateController {
 
         this.startUpdate(type);
         
-        // Cria a Promise de atualização
         this.updateState.updatePromise = this._executeUpdate(updateFunction, type);
         
         return this.updateState.updatePromise;
     }
 
-    /**
-     * Executa a atualização com tratamento de erro
-     */
     async _executeUpdate(updateFunction, type) {
         try {
             console.log(`🚀 ${this.config.logPrefix} Executando atualização "${type}"...`);
@@ -193,9 +152,6 @@ class UpdateController {
         }
     }
 
-    /**
-     * Retorna o status atual do controlador
-     */
     getStatus() {
         return {
             isUpdating: this.updateState.isUpdating,
@@ -210,9 +166,6 @@ class UpdateController {
         };
     }
 
-    /**
-     * Retorna informações de diagnóstico
-     */
     getDiagnostics() {
         const status = this.getStatus();
         return {
@@ -230,9 +183,80 @@ class UpdateController {
             }
         };
     }
+
+    async autoResumeIncompleteUpdates() {
+        console.log(`${this.config.logPrefix} 🔍 Verificando por atualizações incompletas...`);
+        
+        try {
+            const { updateBundlesWithDetails, checkAndResumeUpdate } = require('./updateBundles');
+            
+            const hasIncompleteUpdate = await checkAndResumeUpdate();
+            
+            if (hasIncompleteUpdate && !this.isUpdateInProgress()) {
+                console.log(`${this.config.logPrefix} 🔄 INICIANDO AUTO-RESUME de atualização incompleta em 5 segundos...`);
+                console.log(`${this.config.logPrefix} ⏰ Aguardando inicialização completa do servidor...`);
+                
+                setTimeout(async () => {
+                    try {
+                        console.log(`${this.config.logPrefix} 🚀 Executando auto-resume da atualização detalhada...`);
+                        
+                        const result = await this.executeControlledUpdate(
+                            () => updateBundlesWithDetails('brazilian'), 
+                            'auto-resume-detailed'
+                        );
+                        
+                        if (result.success) {
+                            console.log(`${this.config.logPrefix} ✅ Auto-resume concluído com sucesso!`);
+                            console.log(`${this.config.logPrefix} 📊 Resultado:`, result.result?.totalBundles ? `${result.result.totalBundles} bundles processados` : 'Processamento completo');
+                        } else {
+                            console.log(`${this.config.logPrefix} ⚠️ Auto-resume foi ignorado:`, result);
+                        }
+                    } catch (error) {
+                        console.error(`${this.config.logPrefix} ❌ ERRO durante auto-resume:`, error.message);
+                        console.error(`${this.config.logPrefix} 💡 A atualização pode ser reiniciada manualmente via endpoint /api/admin/update`);
+                    }
+                }, 5000);
+                
+                return { resumed: true, type: 'auto-resume-detailed', scheduled: true };
+            } else if (hasIncompleteUpdate && this.isUpdateInProgress()) {
+                console.log(`${this.config.logPrefix} ⏳ Atualização incompleta detectada, mas já há uma atualização em andamento`);
+                return { resumed: false, reason: 'already_updating' };
+            } else {
+                console.log(`${this.config.logPrefix} ✅ Nenhuma atualização incompleta encontrada`);
+                return { resumed: false, reason: 'no_incomplete_updates' };
+            }
+            
+        } catch (error) {
+            console.error(`${this.config.logPrefix} ❌ Erro durante verificação de auto-resume:`, error.message);
+            return { resumed: false, reason: 'error', error: error.message };
+        }
+    }
+
+    async initialize() {
+        console.log(`${this.config.logPrefix} 🚀 Inicializando controlador de atualizações...`);
+        console.log(`${this.config.logPrefix} 📋 Configurações:`, {
+            minTimeBetweenUpdates: `${this.config.minTimeBetweenUpdates/1000}s`,
+            maxUpdateDuration: `${this.config.maxUpdateDuration/1000}s`
+        });
+        
+        setTimeout(async () => {
+            console.log(`${this.config.logPrefix} 🔍 Iniciando verificação de auto-resume...`);
+            const result = await this.autoResumeIncompleteUpdates();
+            
+            if (result.scheduled) {
+                console.log(`${this.config.logPrefix} ⏰ Auto-resume agendado - atualização continuará automaticamente`);
+            }
+        }, 2000);
+        
+        console.log(`${this.config.logPrefix} ✅ Controlador inicializado`);
+        return { initialized: true };
+    }
 }
 
-// Singleton para garantir uma única instância
 const updateController = new UpdateController();
+
+updateController.initialize().catch(error => {
+    console.error('[UPDATE CONTROLLER] ❌ Erro durante inicialização:', error.message);
+});
 
 module.exports = updateController;

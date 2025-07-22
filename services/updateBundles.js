@@ -1,34 +1,128 @@
 const axios = require('axios');
+const cheerio = require('cheerio');
 const fs = require('fs').promises;
 const fsSync = require('fs');
+const fsPromises = require('fs/promises');
+const path = require('path');
 const moment = require('moment-timezone');
 const { removeDuplicatesFromDetailedBundles } = require('../middleware/dataValidation');
 const { keepAlive } = require('./keepAlive');
 
+// --- CONSTANTES ---
 const BUNDLES_FILE = 'bundles.json';
 const BUNDLES_DETAILED_FILE = './bundleDetailed.json';
 const UPDATE_STATE_FILE = './updateState.json';
 const TIMEZONE = 'America/Sao_Paulo';
+const LOG_FILE = path.join(__dirname, 'scraping_debug.log');
 
 const STEAM_API_CONFIG = {
-    DELAY_BETWEEN_REQUESTS: parseInt(process.env.STEAM_API_DELAY) || 1000,
-    DELAY_BETWEEN_APP_BATCHES: parseInt(process.env.STEAM_APP_DELAY) || 300,
-    MAX_APPS_PER_BUNDLE: parseInt(process.env.MAX_APPS_PER_BUNDLE) || 30,
-    REQUEST_TIMEOUT: parseInt(process.env.REQUEST_TIMEOUT) || 15000,
+    DELAY_BETWEEN_REQUESTS: parseInt(process.env.STEAM_API_DELAY) || 1500,
+    REQUEST_TIMEOUT: parseInt(process.env.REQUEST_TIMEOUT) || 20000,
     MAX_RETRIES: parseInt(process.env.MAX_RETRIES) || 3,
-    PARALLEL_BUNDLES: parseInt(process.env.PARALLEL_BUNDLES) || 4,
-    APP_DETAILS_BATCH_SIZE: parseInt(process.env.APP_BATCH_SIZE) || 5,
-    SKIP_DETAILS_THRESHOLD: parseInt(process.env.SKIP_DETAILS_THRESHOLD) || 60
+    PARALLEL_BUNDLES: 3, // Mantém o paralelismo baixo para segurança
+    STEAM_APP_DELAY: 300 // Delay entre chamadas da API de apps
 };
 
 const SAVE_INTERVAL_BATCHES = 15;
 const MEMORY_CHECK_INTERVAL_BATCHES = 3;
 const MAX_MEMORY_USAGE_MB = 300;
+const CONSECUTIVE_FAILURE_THRESHOLD = 5; // Aumentado para 5
+const CIRCUIT_BREAKER_DELAY = 45000; // Aumentado para 45s
 
-console.log('🔧 Configurações da API Steam:', STEAM_API_CONFIG);
+console.log('🔧 Configurações da API Steam (OTIMIZADA):', STEAM_API_CONFIG);
 console.log(`💾 Modo Render Free: Salvamento a cada ${SAVE_INTERVAL_BATCHES} lotes`);
 
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+// Função para limpar/resetar o log (Render Free - evita crescimento infinito)
+const resetLog = async () => {
+    try {
+        if (fsSync.existsSync(LOG_FILE)) {
+            await fsPromises.unlink(LOG_FILE);
+            console.log('🗑️ Log anterior removido para economizar espaço (Render Free)');
+        }
+    } catch (error) {
+        console.warn('⚠️ Erro ao limpar log anterior:', error.message);
+    }
+};
+
+// Função auxiliar para o logger
+const appendToLog = async (message) => {
+    const timestamp = new Date().toISOString();
+    try {
+        await fsPromises.appendFile(LOG_FILE, `[${timestamp}] ${message}\n`);
+    } catch (error) {
+        console.error('Falha ao escrever no ficheiro de log:', error);
+    }
+};
+
+/**
+ * [NOVO - FALLBACK] Busca detalhes via API de apps quando o scraping falha.
+ * @param {number[]} appIds - Array de IDs de aplicativos do bundle.
+ * @returns {Promise<object>} - Objeto com gêneros, categorias, etc., agregados.
+ */
+const getDetailsFromApps = async (appIds) => {
+    if (!appIds || appIds.length === 0) {
+        return { genres: [], categories: [], developers: [] };
+    }
+
+    const allGenres = new Set();
+    const allCategories = new Set();
+    const allDevelopers = new Set();
+    
+    // Limita e processa em lotes menores para evitar erro 400
+    const appIdsToProcess = appIds.slice(0, 20); // Reduzido de 30 para 20
+    const batchSize = 5; // Processa 5 apps por vez
+
+    try {
+        for (let i = 0; i < appIdsToProcess.length; i += batchSize) {
+            const batch = appIdsToProcess.slice(i, i + batchSize);
+            
+            // Tenta requisição individual se o lote falhar
+            for (const appId of batch) {
+                try {
+                    // Sem parâmetros cc e l para evitar erro 400
+                    const url = `https://store.steampowered.com/api/appdetails?appids=${appId}`;
+                    const response = await axios.get(url, { 
+                        timeout: 10000,
+                        headers: {
+                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                        }
+                    });
+                    
+                    const appData = response.data;
+                    const details = appData[appId];
+                    
+                    if (details && details.success && details.data) {
+                        details.data.genres?.forEach(g => allGenres.add(g.description));
+                        details.data.categories?.forEach(c => allCategories.add(c.description));
+                        details.data.developers?.forEach(d => allDevelopers.add(d));
+                    }
+                    
+                    await delay(500); // Aumento do delay para evitar rate limiting
+                    
+                } catch (singleError) {
+                    // Log apenas se não for erro conhecido
+                    if (!singleError.response || singleError.response.status !== 400) {
+                        await appendToLog(`FALLBACK INFO: App ${appId} falhou (${singleError.response?.status || 'timeout'}), continuando...`);
+                    }
+                }
+            }
+            
+            // Pausa entre lotes
+            await delay(1000);
+        }
+
+    } catch (error) {
+        await appendToLog(`ERRO DE FALLBACK: Falha geral ao buscar appdetails. Erro: ${error.message}`);
+    }
+
+    return {
+        genres: Array.from(allGenres),
+        categories: Array.from(allCategories),
+        developers: Array.from(allDevelopers)
+    };
+};
 
 const loadUpdateState = () => {
     try {
@@ -133,193 +227,169 @@ const saveDetailedBundlesData = async (detailedBundles, bundlesToProcess, isComp
     return result;
 };
 
-const fetchAppDetailsBatchWithRetry = async (appidBatch, retryCount = 0) => {
-    if (appidBatch.length === 0) return { genres: [], categories: [] };
-
-    const appidsString = appidBatch.join(',');
-    const url = `https://store.steampowered.com/api/appdetails?appids=${appidsString}&cc=BR&l=brazilian`;
-
-    try {
-        const response = await axios.get(url, {
-            timeout: STEAM_API_CONFIG.REQUEST_TIMEOUT,
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Accept': 'application/json'
-            }
-        });
-        
-        const data = response.data;
-        if (!data) return null;
-
-        const results = { genres: new Set(), categories: new Set() };
-        
-        appidBatch.forEach(appid => {
-            if (data[appid] && data[appid].success) {
-                const appData = data[appid].data;
-                if (appData.genres) appData.genres.forEach(g => results.genres.add(g.description));
-                if (appData.categories) appData.categories.forEach(c => results.categories.add(c.description));
-            }
-        });
-
-        return {
-            genres: Array.from(results.genres),
-            categories: Array.from(results.categories)
-        };
-
-    } catch (error) {
-        if (error.response?.status === 403) {
-            console.log(`🚨 BLOQUEIO DETECTADO em App Details! IP foi bloqueado`);
-            throw new Error('IP_BLOCKED_BY_STEAM');
-        }
-        if (retryCount < STEAM_API_CONFIG.MAX_RETRIES) {
-            await delay(1500 * (retryCount + 1));
-            return await fetchAppDetailsBatchWithRetry(appidBatch, retryCount + 1);
-        }
-        return null;
-    }
-};
-
-const getDetailsForApps = async (appids) => {
-    const allGenres = new Set();
-    const allCategories = new Set();
-
-    if (appids.length > STEAM_API_CONFIG.SKIP_DETAILS_THRESHOLD) {
-        console.log(`   ⏭️  Pulando detalhes - bundle com ${appids.length} apps (limite: ${STEAM_API_CONFIG.SKIP_DETAILS_THRESHOLD})`);
-        return { genres: [], categories: [] };
-    }
-
-    const limitedAppids = appids.slice(0, STEAM_API_CONFIG.MAX_APPS_PER_BUNDLE);
-    if (appids.length > STEAM_API_CONFIG.MAX_APPS_PER_BUNDLE) {
-        console.log(`⚠️  Bundle com ${appids.length} apps, processando apenas os primeiros ${STEAM_API_CONFIG.MAX_APPS_PER_BUNDLE}`);
-    }
-
-    console.log(`   📋 Buscando detalhes para ${limitedAppids.length} apps em lotes...`);
-    let successfulApps = 0;
-
-    const BATCH_SIZE = STEAM_API_CONFIG.APP_DETAILS_BATCH_SIZE;
-    for (let i = 0; i < limitedAppids.length; i += BATCH_SIZE) {
-        const batch = limitedAppids.slice(i, i + BATCH_SIZE);
-        const details = await fetchAppDetailsBatchWithRetry(batch);
-
-        if (details) {
-            successfulApps += batch.length;
-            details.genres.forEach(genre => allGenres.add(genre));
-            details.categories.forEach(category => allCategories.add(category));
-        }
-
-        if (i + BATCH_SIZE < limitedAppids.length) {
-            await delay(STEAM_API_CONFIG.DELAY_BETWEEN_APP_BATCHES);
-        }
-    }
-
-    if (successfulApps > 0) {
-        console.log(`   ✅ Detalhes de ~${successfulApps}/${limitedAppids.length} apps processados`);
-    }
-
-    return {
-        genres: Array.from(allGenres),
-        categories: Array.from(allCategories)
-    };
-};
-
 const fetchBundleDetails = async (bundleId, language = 'brazilian') => {
-    const url = `https://store.steampowered.com/actions/ajaxresolvebundles?bundleids=${bundleId}&cc=BR&l=${language}`;
+    const bundleApiUrl = `https://store.steampowered.com/actions/ajaxresolvebundles?bundleids=${bundleId}&cc=BR&l=${language}`;
+    const bundlePageUrl = `https://store.steampowered.com/bundle/${bundleId}/`;
+
+    const browserHeaders = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+        'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7'
+    };
+
     for (let attempt = 1; attempt <= STEAM_API_CONFIG.MAX_RETRIES; attempt++) {
         try {
-            const response = await axios.get(url, {
-                timeout: STEAM_API_CONFIG.REQUEST_TIMEOUT,
-                headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                    'Accept': 'application/json'
-                }
-            });
-
-            if (response.status !== 200) throw new Error(`HTTP ${response.status} para bundle ${bundleId}`);
-            if (!response.data || !Array.isArray(response.data) || !response.data[0]) {
-                console.log(`   ⚠️  Bundle ${bundleId} não encontrada (removida?)`);
-                return null;
+            const apiResponse = await axios.get(bundleApiUrl, { headers: browserHeaders });
+            if (!apiResponse.data || !apiResponse.data[0]) {
+                return { success: false, reason: 'API_NO_DATA' };
             }
-            const bundleData = response.data[0];
-            if (!bundleData.bundleid || !bundleData.name) {
-                console.log(`   ❌ Bundle ${bundleId} com dados inválidos`);
-                return null;
+            const bundleData = apiResponse.data[0];
+
+            // Atraso mais longo e mais aleatório para parecer mais humano
+            await delay(2500 + Math.random() * 3000); // Espera entre 2.5 e 5.5 segundos
+
+            const pageResponse = await axios.get(bundlePageUrl, { headers: browserHeaders, timeout: STEAM_API_CONFIG.REQUEST_TIMEOUT });
+            const $ = cheerio.load(pageResponse.data);
+
+            // Validação de página: Verifica se a página recebida é a correta
+            const pageTitle = $('title').text();
+            if (!pageTitle.includes(bundleData.name.substring(0, 10))) {
+                await appendToLog(`AVISO DE VALIDAÇÃO: Título da página inválido para o Bundle ID ${bundleId} (Link: ${bundlePageUrl}). Provavelmente é uma página de erro/captcha.`);
+                return { success: false, reason: 'INVALID_PAGE' };
+            }
+
+            const pageDetails = {};
+
+            // --- LÓGICA DE EXTRAÇÃO PRECISA ---
+            const findValuesForLabel = (label) => {
+                const values = new Set();
+                const labelElement = $(`.details_block b:contains("${label}")`);
+
+                if (labelElement.length > 0) {
+                    // Tenta encontrar um <span> adjacente primeiro (caso comum)
+                    const span = labelElement.next('span');
+                    if (span.length > 0) {
+                        span.find('a').each((i, el) => values.add($(el).text().trim()));
+                        return Array.from(values);
+                    }
+
+                    // Se não houver <span>, procura por links <a> soltos até o próximo <br>
+                    let currentNode = labelElement[0].nextSibling;
+                    while (currentNode && currentNode.tagName !== 'br') {
+                        if (currentNode.type === 'tag' && currentNode.tagName === 'a') {
+                            values.add($(currentNode).text().trim());
+                        }
+                        currentNode = currentNode.nextSibling;
+                    }
+                }
+                return Array.from(values);
+            };
+
+            pageDetails.gênero = findValuesForLabel('Gênero:');
+            pageDetails.desenvolvedor = findValuesForLabel('Desenvolvedor:');
+            pageDetails.distribuidora = findValuesForLabel('Distribuidora:');
+            pageDetails.série = findValuesForLabel('Série:');
+
+            // Lógica para idiomas e descritores (mantida)
+            const languagesText = $('.language_list').text();
+            if (languagesText) {
+                const cleanText = languagesText.replace(/Idiomas:/i, '').split('Os idiomas listados')[0];
+                pageDetails.idiomas = cleanText.split(',').map(lang => lang.trim()).filter(Boolean);
+            }
+            const descriptors = $('.game_rating_area .descriptorText').html();
+            if (descriptors) {
+                pageDetails.descritores_de_conteúdo = descriptors.split('<br>').map(d => d.trim()).filter(Boolean);
+            }
+
+            // --- LÓGICA DE FALLBACK ---
+            if (pageDetails.gênero.length === 0 && bundleData.appids && bundleData.appids.length > 0) {
+                console.log(`   ⚠️  Scraping falhou para ${bundleData.name}. Ativando fallback via API de Apps...`);
+                await appendToLog(`INFO: Ativando fallback para o Bundle ID ${bundleId} (Link: ${bundlePageUrl}).`);
+                
+                const detailsFromApps = await getDetailsFromApps(bundleData.appids);
+                
+                pageDetails.gênero = detailsFromApps.genres;
+                pageDetails.categoria = detailsFromApps.categories;
+                // Se o scraping não pegou desenvolvedor, usa o da API
+                if (!pageDetails.desenvolvedor || pageDetails.desenvolvedor.length === 0) {
+                    pageDetails.desenvolvedor = detailsFromApps.developers;
+                }
+            }
+
+            const extractionSuccess = pageDetails.gênero && pageDetails.gênero.length > 0;
+            if (!extractionSuccess) {
+                 await appendToLog(`AVISO FINAL: Extração falhou para o Bundle ID ${bundleId} (Link: ${bundlePageUrl}), mesmo após o fallback.`);
+            } else {
+                console.log(`   🔍 ${bundleData.name} (Gêneros: ${pageDetails.gênero.length}, Devs: ${pageDetails.desenvolvedor?.length || 0})`);
             }
             
-            console.log(`   🔍 ${bundleData.name} (${bundleData.appids?.length || 0} apps)`);
-            const appDetails = await getDetailsForApps(bundleData.appids || []);
-
             return {
-                bundleid: bundleData.bundleid,
-                name: bundleData.name,
-                header_image: bundleData.header_image_url,
-                capsule_image: bundleData.main_capsule,
-                final_price: bundleData.final_price,
-                initial_price: bundleData.initial_price,
-                formatted_orig_price: bundleData.formatted_orig_price,
-                formatted_final_price: bundleData.formatted_final_price,
-                discount_percent: bundleData.discount_percent,
-                genres: appDetails.genres,
-                categories: appDetails.categories,
-                total_apps: bundleData.appids?.length || 0,
-                appids: bundleData.appids,
-                packageids: bundleData.packageids,
-                available_windows: bundleData.available_windows,
-                available_mac: bundleData.available_mac,
-                available_linux: bundleData.available_linux,
-                coming_soon: bundleData.coming_soon,
-                library_asset: bundleData.library_asset,
-                processed_at: new Date().toISOString(),
-                api_version: '2.0'
+                success: true,
+                data: { 
+                    ...bundleData, 
+                    page_details: pageDetails, 
+                    processed_at: new Date().toISOString(), 
+                    api_version: '5.2-fallback-api' 
+                },
+                extractionFailed: !extractionSuccess
             };
+
         } catch (error) {
-            if (error.response?.status === 403) {
-                console.log(`🚨 BLOQUEIO DETECTADO! IP foi bloqueado pela Steam/Akamai`);
-                throw new Error('IP_BLOCKED_BY_STEAM');
+            const statusCode = error.response?.status;
+            
+            // --- DETECÇÃO DE PÁGINAS NÃO ENCONTRADAS ---
+            if (statusCode === 404 || statusCode === 410) {
+                await appendToLog(`INFO: Bundle ID ${bundleId} - Página não encontrada (${statusCode}). Bundle possivelmente removido ou indisponível na região.`);
+                return { success: false, reason: 'PAGE_NOT_FOUND' };
             }
+            
+            await appendToLog(`ERRO: Tentativa ${attempt} para o Bundle ID ${bundleId} (Link: ${bundlePageUrl}). Status: ${statusCode || 'desconhecido'}. Erro: ${error.message}`);
+            
             if (attempt === STEAM_API_CONFIG.MAX_RETRIES) {
-                console.log(`   💀 Erro final bundle ${bundleId}: ${error.message}`);
-                return null;
+                return { success: false, reason: 'MAX_RETRIES_REACHED' };
             }
-            await delay(2000 * attempt);
+            await delay(5000 * attempt); // Aumenta a espera entre retentativas se houver erro
         }
     }
-    return null;
-};
-
-const processBundleBatch = async (bundleBatch, language, batchIndex, totalBatches) => {
-    console.log(`🚀 Lote ${batchIndex + 1}/${totalBatches}: Processando ${bundleBatch.length} bundles...`);
-    const batchPromises = bundleBatch.map(bundle => {
-        const bundleIdMatch = bundle.Link.match(/\/bundle\/(\d+)/);
-        if (!bundleIdMatch) return Promise.resolve(null);
-        const bundleId = bundleIdMatch[1];
-        return fetchBundleDetails(bundleId, language).then(details => {
-            if (details) details.link = bundle.Link;
-            return details;
-        }).catch(err => {
-            console.error(`❌ Erro crítico no bundle ${bundle.Link}:`, err.message);
-            if (err.message === 'IP_BLOCKED_BY_STEAM') throw err;
-            return null;
-        });
-    });
-    
-    const results = await Promise.allSettled(batchPromises);
-    const successfulBundles = results
-        .filter(result => result.status === 'fulfilled' && result.value)
-        .map(result => result.value);
-    
-    console.log(`✅ Lote ${batchIndex + 1}: ${successfulBundles.length}/${bundleBatch.length} bundles processados com sucesso`);
-    return successfulBundles;
+    return { success: false, reason: 'UNKNOWN_FAILURE' };
 };
 
 const updateBundlesWithDetails = async (language = 'brazilian', limitForTesting = null) => {
-    console.log('🚀 VERSÃO OTIMIZADA COM RESUMO - Iniciando atualização...');
+    console.log('🚀 VERSÃO OTIMIZADA V5.3 COM INTEGRIDADE - Iniciando atualização...');
     if (limitForTesting) console.log(`🧪 MODO TESTE: Processando apenas ${limitForTesting} bundles`);
     
+    // --- LIMPEZA DO LOG (RENDER FREE) ---
     if (!limitForTesting) {
+        await resetLog(); // Remove log anterior para economizar espaço
+        await appendToLog(`=== NOVA ATUALIZAÇÃO INICIADA ===`);
+        await appendToLog(`Versão: V5.3 com integridade e fallback inteligente`);
+        await appendToLog(`Timestamp: ${new Date().toISOString()}`);
+        await appendToLog(`Language: ${language}`);
         keepAlive.start('bundle-update');
     }
     
     try {
+        // --- VERIFICAÇÃO INICIAL DE INTEGRIDADE ---
+        if (fsSync.existsSync(BUNDLES_DETAILED_FILE)) {
+            console.log('🔍 Verificando integridade do arquivo bundleDetailed.json existente...');
+            try {
+                const existingData = JSON.parse(fsSync.readFileSync(BUNDLES_DETAILED_FILE, 'utf-8'));
+                
+                // Verifica estrutura básica
+                if (!existingData.bundles || !Array.isArray(existingData.bundles)) {
+                    console.warn('⚠️ Arquivo bundleDetailed.json corrompido - removendo arquivo inválido...');
+                    fsSync.unlinkSync(BUNDLES_DETAILED_FILE);
+                } else if (existingData.isComplete) {
+                    console.log('✅ Arquivo existente válido e completo encontrado');
+                } else {
+                    console.log(`📊 Arquivo parcial válido encontrado (${existingData.bundles.length} bundles processados)`);
+                }
+            } catch (parseError) {
+                console.warn('⚠️ Erro ao ler arquivo bundleDetailed.json - removendo arquivo corrompido:', parseError.message);
+                fsSync.unlinkSync(BUNDLES_DETAILED_FILE);
+            }
+        }
+        
         if (!fsSync.existsSync(BUNDLES_FILE)) {
             console.error('Arquivo bundles.json não encontrado.');
             return { success: false, error: 'Arquivo bundles.json não encontrado' };
@@ -339,18 +409,57 @@ const updateBundlesWithDetails = async (language = 'brazilian', limitForTesting 
             console.log(`   📅 Iniciado em: ${new Date(updateState.startTime).toLocaleString()}`);
             
             try {
+                // --- VERIFICAÇÃO DE INTEGRIDADE DO ARQUIVO ---
                 if (fsSync.existsSync(BUNDLES_DETAILED_FILE)) {
+                    console.log(`   🔍 Verificando integridade do arquivo bundleDetailed.json...`);
+                    
                     const existingData = JSON.parse(fsSync.readFileSync(BUNDLES_DETAILED_FILE, 'utf-8'));
-                    if (existingData.bundles && !existingData.isComplete) {
-                        detailedBundles = existingData.bundles;
-                        startIndex = updateState.lastProcessedIndex + 1;
-                        updateState.resumeCount++;
-                        console.log(`   ✅ ${detailedBundles.length} bundles já processados carregados`);
-                        console.log(`   🎯 Continuando do índice ${startIndex}`);
+                    
+                    // Verifica se o arquivo tem estrutura válida
+                    if (!existingData.bundles || !Array.isArray(existingData.bundles)) {
+                        console.warn('⚠️ Arquivo bundleDetailed.json corrompido - estrutura inválida. Reiniciando do início...');
+                        updateState = null;
+                        detailedBundles = [];
+                        startIndex = 0;
+                    } 
+                    // Verifica se não está marcado como completo mas tem estrutura válida
+                    else if (!existingData.isComplete) {
+                        // Verifica se o número de bundles corresponde ao progresso esperado
+                        const expectedBundles = Math.min(updateState.completed, bundlesToProcess.length);
+                        const actualBundles = existingData.bundles.length;
+                        
+                        console.log(`   📊 Bundles esperados: ${expectedBundles}, Encontrados: ${actualBundles}`);
+                        
+                        // Se há uma discrepância significativa, reinicia
+                        if (actualBundles < expectedBundles * 0.8) { // Permite 20% de margem para bundles que falharam
+                            console.warn(`⚠️ Discrepância nos dados: esperado ~${expectedBundles}, encontrado ${actualBundles}. Reiniciando do início...`);
+                            updateState = null;
+                            detailedBundles = [];
+                            startIndex = 0;
+                        } else {
+                            // Arquivo parece válido, pode continuar
+                            detailedBundles = existingData.bundles;
+                            startIndex = updateState.lastProcessedIndex + 1;
+                            updateState.resumeCount++;
+                            console.log(`   ✅ ${detailedBundles.length} bundles já processados carregados`);
+                            console.log(`   🎯 Continuando do índice ${startIndex}`);
+                        }
+                    } else {
+                        // Arquivo marcado como completo, não deveria estar em estado 'in_progress'
+                        console.warn('⚠️ Estado inconsistente: arquivo completo mas updateState indica progresso. Limpando estado...');
+                        updateState = null;
+                        detailedBundles = [];
+                        startIndex = 0;
                     }
+                } else {
+                    // Arquivo não existe, mas updateState indica progresso
+                    console.warn('⚠️ Arquivo bundleDetailed.json não encontrado mas updateState indica progresso. Reiniciando do início...');
+                    updateState = null;
+                    detailedBundles = [];
+                    startIndex = 0;
                 }
             } catch (error) {
-                console.warn('⚠️ Erro ao carregar progresso anterior, reiniciando:', error.message);
+                console.warn('⚠️ Erro ao carregar progresso anterior (arquivo possivelmente corrompido), reiniciando:', error.message);
                 updateState = null;
                 detailedBundles = [];
                 startIndex = 0;
@@ -365,8 +474,9 @@ const updateBundlesWithDetails = async (language = 'brazilian', limitForTesting 
         
         saveUpdateState(updateState);
         
-        let batchesProcessed = Math.floor(startIndex / STEAM_API_CONFIG.PARALLEL_BUNDLES);
-        const batchSize = STEAM_API_CONFIG.PARALLEL_BUNDLES;
+        let consecutiveFailures = 0; // Contador para o disjuntor
+        let batchesProcessed = Math.floor(startIndex / 3); // Reduz paralelismo para 3
+        const batchSize = 3; // Antes era STEAM_API_CONFIG.PARALLEL_BUNDLES (5), agora é 3
         const totalBatches = Math.ceil(bundlesToProcess.length / batchSize);
         
         console.log(`🚀 Processando de ${startIndex} até ${bundlesToProcess.length} (${totalBatches - batchesProcessed} lotes restantes)`);
@@ -374,12 +484,59 @@ const updateBundlesWithDetails = async (language = 'brazilian', limitForTesting 
         for (let i = startIndex; i < bundlesToProcess.length; i += batchSize) {
             const batch = bundlesToProcess.slice(i, i + batchSize);
             const batchIndex = Math.floor(i / batchSize);
-            
+
+            // --- LÓGICA DO DISJUNTOR ---
+            if (consecutiveFailures >= CONSECUTIVE_FAILURE_THRESHOLD) {
+                console.log(`🚨 Múltiplas falhas (${consecutiveFailures}) detectadas. Pausando por ${CIRCUIT_BREAKER_DELAY / 1000} segundos para evitar bloqueio...`);
+                await delay(CIRCUIT_BREAKER_DELAY);
+                consecutiveFailures = 0; // Reseta o contador após a pausa
+            }
+
             const batchStartTime = Date.now();
-            const batchResults = await processBundleBatch(batch, language, batchIndex, totalBatches);
-            const batchEndTime = Date.now();
+            console.log(`🚀 Lote ${batchIndex + 1}/${totalBatches}: Processando ${batch.length} bundles...`);
             
-            detailedBundles.push(...batchResults);
+            const batchPromises = batch.map(bundle => {
+                const bundleIdMatch = bundle.Link.match(/\/bundle\/(\d+)/);
+                if (!bundleIdMatch) return Promise.resolve({ success: false, reason: 'INVALID_LINK' });
+                return fetchBundleDetails(bundleIdMatch[1], language);
+            });
+            
+            const results = await Promise.allSettled(batchPromises);
+            const batchStartResults = detailedBundles.length;
+            let ignoredNotFound = 0; // Contador para páginas não encontradas
+
+            for (const result of results) {
+                if (result.status === 'fulfilled') {
+                    if (result.value.success) {
+                        detailedBundles.push(result.value.data);
+                        // Se a extração falhou (mesmo com a página válida), conta como falha para o disjuntor
+                        if (result.value.extractionFailed) {
+                            consecutiveFailures++;
+                        } else {
+                            consecutiveFailures = 0; // Reseta em caso de sucesso total
+                        }
+                    } else {
+                        // --- NOVA LÓGICA: NÃO CONTA PÁGINAS INEXISTENTES COMO FALHA ---
+                        if (result.value.reason === 'API_NO_DATA' || result.value.reason === 'PAGE_NOT_FOUND') {
+                            // Bundle não existe ou página não encontrada - comportamento normal, não conta como falha
+                            ignoredNotFound++;
+                        } else {
+                            // Outros tipos de falha (INVALID_PAGE, MAX_RETRIES_REACHED, etc.) contam como falha real
+                            consecutiveFailures++;
+                        }
+                    }
+                } else {
+                    // Se a promessa foi rejeitada, também conta como falha
+                    consecutiveFailures++;
+                }
+            }
+
+            const batchEndTime = Date.now();
+            const successfulInBatch = detailedBundles.length - batchStartResults;
+            const logMessage = `✅ Lote ${batchIndex + 1}: ${successfulInBatch}/${batch.length} bundles processados com sucesso`;
+            const failureInfo = ignoredNotFound > 0 ? ` | ${ignoredNotFound} não encontrados (ignorados)` : '';
+            console.log(`${logMessage} | Falhas consecutivas: ${consecutiveFailures}${failureInfo}`);
+            
             batchesProcessed++;
             
             updateState.completed = i + batch.length;
@@ -447,6 +604,13 @@ const updateBundlesWithDetails = async (language = 'brazilian', limitForTesting 
             await clearUpdateState();
             console.log(`🏁 Atualização COMPLETA com ${updateState.resumeCount} resumos`);
             
+            // Log de finalização
+            await appendToLog(`=== ATUALIZAÇÃO CONCLUÍDA COM SUCESSO ===`);
+            await appendToLog(`Total processado: ${result.totalBundles} bundles`);
+            await appendToLog(`Resumos realizados: ${updateState.resumeCount}`);
+            await appendToLog(`Tempo total: ${((Date.now() - actualStartTime) / 1000).toFixed(1)}s`);
+            await appendToLog(`Finalizou em: ${new Date().toISOString()}`);
+            
             keepAlive.stop('update-completed');
         }
         
@@ -454,7 +618,11 @@ const updateBundlesWithDetails = async (language = 'brazilian', limitForTesting 
     } catch (error) {
         console.error('❌ Erro geral em updateBundlesWithDetails:', error);
         
+        // Log de erro
         if (!limitForTesting) {
+            await appendToLog(`=== ATUALIZAÇÃO FALHOU ===`);
+            await appendToLog(`Erro: ${error.message}`);
+            await appendToLog(`Timestamp: ${new Date().toISOString()}`);
             keepAlive.stop('update-error');
         }
         
