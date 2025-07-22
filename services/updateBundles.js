@@ -34,6 +34,111 @@ console.log(`💾 Modo Render Free: Salvamento a cada ${SAVE_INTERVAL_BATCHES} l
 
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
+// --- GESTOR DE LOGS SEQUENCIAL ---
+class LogManager {
+    constructor() {
+        this.logQueue = [];
+        this.isProcessing = false;
+        this.batchLogs = [];
+        this.currentBatchId = null;
+        this.completedBatches = new Set();
+    }
+
+    // Adiciona log a uma operação específica
+    addLog(batchId, message, type = 'info') {
+        this.logQueue.push({
+            batchId,
+            message,
+            type,
+            timestamp: new Date().toISOString(),
+            order: this.logQueue.length
+        });
+        
+        if (!this.isProcessing) {
+            this.processQueue();
+        }
+    }
+
+    // Marca um lote como concluído para exibir todos os logs dele
+    markBatchCompleted(batchId) {
+        this.completedBatches.add(batchId);
+        if (!this.isProcessing) {
+            this.processQueue();
+        }
+    }
+
+    // Processa a fila de logs de forma sequencial
+    async processQueue() {
+        if (this.isProcessing) return;
+        this.isProcessing = true;
+
+        while (this.logQueue.length > 0) {
+            // Procura por lotes completos na ordem
+            const availableBatches = [...this.completedBatches];
+            
+            for (const completedBatch of availableBatches) {
+                const batchLogs = this.logQueue.filter(log => log.batchId === completedBatch);
+                
+                if (batchLogs.length > 0) {
+                    // Ordena os logs do lote por ordem de criação
+                    batchLogs.sort((a, b) => a.order - b.order);
+                    
+                    // Exibe todos os logs do lote de uma vez
+                    for (const log of batchLogs) {
+                        this.displayLog(log);
+                    }
+                    
+                    // Remove os logs exibidos da fila
+                    this.logQueue = this.logQueue.filter(log => log.batchId !== completedBatch);
+                    this.completedBatches.delete(completedBatch);
+                }
+            }
+            
+            // Pequena pausa para não sobrecarregar
+            await delay(10);
+            
+            // Se não há mais lotes completos, para o processamento
+            if (this.completedBatches.size === 0) break;
+        }
+
+        this.isProcessing = false;
+    }
+
+    // Exibe o log formatado
+    displayLog(log) {
+        const timestamp = new Date(log.timestamp).toLocaleTimeString('pt-BR');
+        const prefix = `[${timestamp}]`;
+        
+        switch (log.type) {
+            case 'success':
+                console.log(`${prefix} ✅ ${log.message}`);
+                break;
+            case 'warning':
+                console.log(`${prefix} ⚠️  ${log.message}`);
+                break;
+            case 'error':
+                console.log(`${prefix} ❌ ${log.message}`);
+                break;
+            case 'info':
+            default:
+                console.log(`${prefix} ${log.message}`);
+                break;
+        }
+    }
+
+    // Log imediato para informações críticas
+    immediate(message, type = 'info') {
+        this.displayLog({
+            message,
+            type,
+            timestamp: new Date().toISOString()
+        });
+    }
+}
+
+// Instância global do gestor de logs
+const logManager = new LogManager();
+
 // Função para limpar/resetar o log (Render Free - evita crescimento infinito)
 const resetLog = async () => {
     try {
@@ -227,7 +332,7 @@ const saveDetailedBundlesData = async (detailedBundles, bundlesToProcess, isComp
     return result;
 };
 
-const fetchBundleDetails = async (bundleId, language = 'brazilian') => {
+const fetchBundleDetails = async (bundleId, language = 'brazilian', batchId = null) => {
     const bundleApiUrl = `https://store.steampowered.com/actions/ajaxresolvebundles?bundleids=${bundleId}&cc=BR&l=${language}`;
     const bundlePageUrl = `https://store.steampowered.com/bundle/${bundleId}/`;
 
@@ -303,7 +408,9 @@ const fetchBundleDetails = async (bundleId, language = 'brazilian') => {
 
             // --- LÓGICA DE FALLBACK ---
             if (pageDetails.gênero.length === 0 && bundleData.appids && bundleData.appids.length > 0) {
-                console.log(`   ⚠️  Scraping falhou para ${bundleData.name}. Ativando fallback via API de Apps...`);
+                if (batchId) {
+                    logManager.addLog(batchId, `⚠️  Scraping falhou para ${bundleData.name}. Ativando fallback via API de Apps...`, 'warning');
+                }
                 await appendToLog(`INFO: Ativando fallback para o Bundle ID ${bundleId} (Link: ${bundlePageUrl}).`);
                 
                 const detailsFromApps = await getDetailsFromApps(bundleData.appids);
@@ -319,8 +426,13 @@ const fetchBundleDetails = async (bundleId, language = 'brazilian') => {
             const extractionSuccess = pageDetails.gênero && pageDetails.gênero.length > 0;
             if (!extractionSuccess) {
                  await appendToLog(`AVISO FINAL: Extração falhou para o Bundle ID ${bundleId} (Link: ${bundlePageUrl}), mesmo após o fallback.`);
+                 if (batchId) {
+                     logManager.addLog(batchId, `❌ [ID: ${bundleData.bundleid}] Falha na extração de ${bundleData.name}`, 'error');
+                 }
             } else {
-                console.log(`   🔍 ${bundleData.name} (Gêneros: ${pageDetails.gênero.length}, Devs: ${pageDetails.desenvolvedor?.length || 0})`);
+                if (batchId) {
+                    logManager.addLog(batchId, `[ID: ${bundleData.bundleid}] 🔍 ${bundleData.name} (Gêneros: ${pageDetails.gênero.length}, Devs: ${pageDetails.desenvolvedor?.length || 0})`, 'success');
+                }
             }
             
             return {
@@ -340,12 +452,18 @@ const fetchBundleDetails = async (bundleId, language = 'brazilian') => {
             // --- DETECÇÃO DE PÁGINAS NÃO ENCONTRADAS ---
             if (statusCode === 404 || statusCode === 410) {
                 await appendToLog(`INFO: Bundle ID ${bundleId} - Página não encontrada (${statusCode}). Bundle possivelmente removido ou indisponível na região.`);
+                if (batchId) {
+                    logManager.addLog(batchId, `⚠️  [ID: ${bundleId}] Página não encontrada (${statusCode})`, 'warning');
+                }
                 return { success: false, reason: 'PAGE_NOT_FOUND' };
             }
             
             await appendToLog(`ERRO: Tentativa ${attempt} para o Bundle ID ${bundleId} (Link: ${bundlePageUrl}). Status: ${statusCode || 'desconhecido'}. Erro: ${error.message}`);
             
             if (attempt === STEAM_API_CONFIG.MAX_RETRIES) {
+                if (batchId) {
+                    logManager.addLog(batchId, `❌ [ID: ${bundleId}] Máximo de tentativas atingido`, 'error');
+                }
                 return { success: false, reason: 'MAX_RETRIES_REACHED' };
             }
             await delay(5000 * attempt); // Aumenta a espera entre retentativas se houver erro
@@ -355,14 +473,14 @@ const fetchBundleDetails = async (bundleId, language = 'brazilian') => {
 };
 
 const updateBundlesWithDetails = async (language = 'brazilian', limitForTesting = null) => {
-    console.log('🚀 VERSÃO OTIMIZADA V5.3 COM INTEGRIDADE - Iniciando atualização...');
-    if (limitForTesting) console.log(`🧪 MODO TESTE: Processando apenas ${limitForTesting} bundles`);
+    logManager.immediate('🚀 VERSÃO OTIMIZADA V5.4 COM GESTOR DE LOGS - Iniciando atualização...');
+    if (limitForTesting) logManager.immediate(`🧪 MODO TESTE: Processando apenas ${limitForTesting} bundles`);
     
     // --- LIMPEZA DO LOG (RENDER FREE) ---
     if (!limitForTesting) {
         await resetLog(); // Remove log anterior para economizar espaço
         await appendToLog(`=== NOVA ATUALIZAÇÃO INICIADA ===`);
-        await appendToLog(`Versão: V5.3 com integridade e fallback inteligente`);
+        await appendToLog(`Versão: V5.4 com gestor de logs sequencial`);
         await appendToLog(`Timestamp: ${new Date().toISOString()}`);
         await appendToLog(`Language: ${language}`);
         keepAlive.start('bundle-update');
@@ -484,21 +602,22 @@ const updateBundlesWithDetails = async (language = 'brazilian', limitForTesting 
         for (let i = startIndex; i < bundlesToProcess.length; i += batchSize) {
             const batch = bundlesToProcess.slice(i, i + batchSize);
             const batchIndex = Math.floor(i / batchSize);
+            const batchId = `batch-${batchIndex + 1}`;
 
             // --- LÓGICA DO DISJUNTOR ---
             if (consecutiveFailures >= CONSECUTIVE_FAILURE_THRESHOLD) {
-                console.log(`🚨 Múltiplas falhas (${consecutiveFailures}) detectadas. Pausando por ${CIRCUIT_BREAKER_DELAY / 1000} segundos para evitar bloqueio...`);
+                logManager.immediate(`🚨 Múltiplas falhas (${consecutiveFailures}) detectadas. Pausando por ${CIRCUIT_BREAKER_DELAY / 1000} segundos para evitar bloqueio...`, 'warning');
                 await delay(CIRCUIT_BREAKER_DELAY);
                 consecutiveFailures = 0; // Reseta o contador após a pausa
             }
 
             const batchStartTime = Date.now();
-            console.log(`🚀 Lote ${batchIndex + 1}/${totalBatches}: Processando ${batch.length} bundles...`);
+            logManager.immediate(`🚀 Lote ${batchIndex + 1}/${totalBatches}: Processando ${batch.length} bundles...`);
             
             const batchPromises = batch.map(bundle => {
                 const bundleIdMatch = bundle.Link.match(/\/bundle\/(\d+)/);
                 if (!bundleIdMatch) return Promise.resolve({ success: false, reason: 'INVALID_LINK' });
-                return fetchBundleDetails(bundleIdMatch[1], language);
+                return fetchBundleDetails(bundleIdMatch[1], language, batchId);
             });
             
             const results = await Promise.allSettled(batchPromises);
@@ -531,11 +650,14 @@ const updateBundlesWithDetails = async (language = 'brazilian', limitForTesting 
                 }
             }
 
+            // Marca o lote como concluído para exibir todos os logs dele
+            logManager.markBatchCompleted(batchId);
+
             const batchEndTime = Date.now();
             const successfulInBatch = detailedBundles.length - batchStartResults;
             const logMessage = `✅ Lote ${batchIndex + 1}: ${successfulInBatch}/${batch.length} bundles processados com sucesso`;
             const failureInfo = ignoredNotFound > 0 ? ` | ${ignoredNotFound} não encontrados (ignorados)` : '';
-            console.log(`${logMessage} | Falhas consecutivas: ${consecutiveFailures}${failureInfo}`);
+            logManager.immediate(`${logMessage} | Falhas consecutivas: ${consecutiveFailures}${failureInfo}`, 'success');
             
             batchesProcessed++;
             
@@ -548,14 +670,14 @@ const updateBundlesWithDetails = async (language = 'brazilian', limitForTesting 
             const remaining = totalBatches - batchIndex - 1;
             const estimatedTimeLeft = remaining * batchTime;
             
-            console.log(`📈 Progresso: ${updateState.completed}/${bundlesToProcess.length} | Tempo: ${elapsed.toFixed(1)}s | ETA: ${estimatedTimeLeft.toFixed(1)}s | Resumos: ${updateState.resumeCount}`);
+            logManager.immediate(`📈 Progresso: ${updateState.completed}/${bundlesToProcess.length} | Tempo: ${elapsed.toFixed(1)}s | ETA: ${estimatedTimeLeft.toFixed(1)}s | Resumos: ${updateState.resumeCount}`);
 
             const memory = getMemoryUsage();
             const shouldSaveByInterval = batchesProcessed % SAVE_INTERVAL_BATCHES === 0;
             const shouldSaveByMemory = memory.heapUsed > MAX_MEMORY_USAGE_MB;
             
             if (shouldSaveByInterval || shouldSaveByMemory) {
-                if (shouldSaveByMemory) console.log(`🚨 Memória alta (${memory.heapUsed}MB) - forçando salvamento`);
+                if (shouldSaveByMemory) logManager.immediate(`🚨 Memória alta (${memory.heapUsed}MB) - forçando salvamento`, 'warning');
                 
                 const uniqueDetailedBundles = Array.from(new Map(detailedBundles.map(bundle => [bundle.bundleid, bundle])).values());
                 await saveDetailedBundlesData(uniqueDetailedBundles, bundlesToProcess, false, limitForTesting, actualStartTime, updateState);
@@ -564,12 +686,12 @@ const updateBundlesWithDetails = async (language = 'brazilian', limitForTesting 
                 if (global.gc) {
                     global.gc();
                     const memoryAfterGC = getMemoryUsage();
-                    console.log(`🧹 GC executado: ${memory.heapUsed}MB → ${memoryAfterGC.heapUsed}MB`);
+                    logManager.immediate(`🧹 GC executado: ${memory.heapUsed}MB → ${memoryAfterGC.heapUsed}MB`);
                 }
             }
 
             if (batchesProcessed % MEMORY_CHECK_INTERVAL_BATCHES === 0) {
-                console.log(`📊 Memória: ${memory.heapUsed}MB | Detalhadas: ${detailedBundles.length} | Lotes: ${batchIndex + 1}/${totalBatches} | Checkpoint: ${updateState.completed}/${updateState.total}`);
+                logManager.immediate(`📊 Memória: ${memory.heapUsed}MB | Detalhadas: ${detailedBundles.length} | Lotes: ${batchIndex + 1}/${totalBatches} | Checkpoint: ${updateState.completed}/${updateState.total}`);
             }
 
             if (i + batchSize < bundlesToProcess.length) {
@@ -577,11 +699,11 @@ const updateBundlesWithDetails = async (language = 'brazilian', limitForTesting 
             }
         }
 
-        console.log(`🎉 Processamento concluído em ${(Date.now() - actualStartTime) / 1000}s`);
+        logManager.immediate(`🎉 Processamento concluído em ${(Date.now() - actualStartTime) / 1000}s`, 'success');
         
-        console.log('🔍 Removendo duplicatas das bundles detalhadas...');
+        logManager.immediate('🔍 Removendo duplicatas das bundles detalhadas...');
         const uniqueDetailedBundles = Array.from(new Map(detailedBundles.map(bundle => [bundle.bundleid, bundle])).values());
-        console.log(`📊 Bundles detalhadas: ${detailedBundles.length} processadas → ${uniqueDetailedBundles.length} únicas`);
+        logManager.immediate(`📊 Bundles detalhadas: ${detailedBundles.length} processadas → ${uniqueDetailedBundles.length} únicas`);
 
         updateState.status = 'completed';
         updateState.completed = bundlesToProcess.length;
@@ -590,19 +712,19 @@ const updateBundlesWithDetails = async (language = 'brazilian', limitForTesting 
         const result = await saveDetailedBundlesData(uniqueDetailedBundles, bundlesToProcess, true, limitForTesting, actualStartTime, updateState);
         
         if (!limitForTesting) {
-            console.log('🔍 Verificação final de duplicatas...');
+            logManager.immediate('🔍 Verificação final de duplicatas...');
             const deduplication = removeDuplicatesFromDetailedBundles();
             if (deduplication.removed > 0) {
                 result.totalBundles = deduplication.total;
                 result.duplicatesRemoved = deduplication.removed;
                 await fs.writeFile(BUNDLES_DETAILED_FILE, JSON.stringify(result, null, 2), 'utf-8');
-                console.log(`🧹 ${deduplication.removed} duplicatas adicionais removidas pelo middleware`);
+                logManager.immediate(`🧹 ${deduplication.removed} duplicatas adicionais removidas pelo middleware`, 'success');
             } else {
-                console.log(`✅ Nenhuma duplicata adicional encontrada.`);
+                logManager.immediate(`✅ Nenhuma duplicata adicional encontrada.`, 'success');
             }
             
             await clearUpdateState();
-            console.log(`🏁 Atualização COMPLETA com ${updateState.resumeCount} resumos`);
+            logManager.immediate(`🏁 Atualização COMPLETA com ${updateState.resumeCount} resumos`, 'success');
             
             // Log de finalização
             await appendToLog(`=== ATUALIZAÇÃO CONCLUÍDA COM SUCESSO ===`);
