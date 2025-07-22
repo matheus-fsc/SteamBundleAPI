@@ -14,6 +14,13 @@ const router = express.Router();
 const BUNDLES_FILE = 'bundles.json';
 const BUNDLES_DETAILED_FILE = 'bundleDetailed.json';
 
+// Helper function for next scheduled update
+function getNextScheduledUpdate() {
+    const now = new Date();
+    const nextUpdate = new Date(now.getTime() + 6 * 60 * 60 * 1000); // 6 hours from now
+    return nextUpdate.toISOString();
+}
+
 // Rota principal para verificar se a API está funcionando
 router.get('/', (req, res) => {
     const status = getCurrentDataStatus();
@@ -307,11 +314,14 @@ router.get('/api/bundles-detailed-legacy', validateInput, (req, res) => {
 router.get('/api/filter-options', validateInput, async (req, res) => {
     try {
         // Tentar usar dados detalhados primeiro, senão usar básicos
-        let data = await getDetailedBundles();
+        let data = null;
         let dataType = 'detailed';
         
-        if (!data) {
-            data = await getBasicBundles();
+        if (fs.existsSync(BUNDLES_DETAILED_FILE)) {
+            data = JSON.parse(fs.readFileSync(BUNDLES_DETAILED_FILE, 'utf-8'));
+            dataType = 'detailed';
+        } else if (fs.existsSync(BUNDLES_FILE)) {
+            data = JSON.parse(fs.readFileSync(BUNDLES_FILE, 'utf-8'));
             dataType = 'basic';
         }
         
