@@ -304,6 +304,95 @@ router.get('/api/bundles-detailed-legacy', validateInput, (req, res) => {
     }
 });
 
+router.get('/api/filter-options', validateInput, async (req, res) => {
+    try {
+        // Tentar usar dados detalhados primeiro, senão usar básicos
+        let data = await getDetailedBundles();
+        let dataType = 'detailed';
+        
+        if (!data) {
+            data = await getBasicBundles();
+            dataType = 'basic';
+        }
+        
+        if (!data) {
+            return res.status(500).json({ 
+                error: 'Dados não encontrados',
+                suggestion: 'A API pode estar inicializando',
+                cache_miss: true
+            });
+        }
+        
+        const bundles = data.bundles || [];
+        const genres = new Set();
+        const categories = new Set();
+        const platforms = new Set();
+        let minPrice = Infinity;
+        let maxPrice = 0;
+        let minDiscount = 100;
+        let maxDiscount = 0;
+        
+        bundles.forEach(bundle => {
+            if (bundle.genres && Array.isArray(bundle.genres)) {
+                bundle.genres.forEach(genre => genres.add(genre));
+            }
+            if (bundle.categories && Array.isArray(bundle.categories)) {
+                bundle.categories.forEach(category => categories.add(category));
+            }
+            if (bundle.available_windows) platforms.add('Windows');
+            if (bundle.available_mac) platforms.add('Mac');
+            if (bundle.available_linux) platforms.add('Linux');
+            if (bundle.final_price && typeof bundle.final_price === 'number') {
+                const priceInReais = bundle.final_price / 100;
+                minPrice = Math.min(minPrice, priceInReais);
+                maxPrice = Math.max(maxPrice, priceInReais);
+            }
+            if (bundle.discount_percent && typeof bundle.discount_percent === 'number') {
+                minDiscount = Math.min(minDiscount, bundle.discount_percent);
+                maxDiscount = Math.max(maxDiscount, bundle.discount_percent);
+            }
+        });
+        
+        if (minPrice === Infinity) minPrice = 0;
+        if (minDiscount === 100) minDiscount = 0;
+        
+        const filterOptions = {
+            genres: Array.from(genres).sort(),
+            categories: Array.from(categories).sort(),
+            platforms: Array.from(platforms).sort(),
+            priceRange: {
+                min: Math.floor(minPrice),
+                max: Math.ceil(maxPrice)
+            },
+            discountRange: {
+                min: minDiscount,
+                max: maxDiscount
+            },
+            metadata: {
+                totalBundles: bundles.length,
+                dataSource: dataType,
+                lastUpdate: data.last_update || null,
+                cache_hit: true
+            }
+        };
+        
+        res.set({
+            'X-Data-Source': dataType,
+            'X-Total-Bundles': bundles.length.toString(),
+            'X-Cache-Status': 'cached'
+        });
+        
+        res.json(filterOptions);
+        console.log(`🔍 Opções de filtro enviadas (${bundles.length} bundles analisados) - Source: ${dataType} - Cache: ✅`);
+    } catch (error) {
+        console.error('Erro ao gerar opções de filtro:', error);
+        res.status(500).json({ 
+            error: 'Erro ao gerar opções de filtro',
+            technical_error: error.message
+        });
+    }
+});
+
 router.get('/api/bundles-detailed-all', (req, res) => {
     try {
         if (fs.existsSync(BUNDLES_DETAILED_FILE)) {
