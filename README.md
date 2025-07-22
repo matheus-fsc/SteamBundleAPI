@@ -1,6 +1,17 @@
 # SteamBundleAPI
 
-Uma API segura e robusta para buscar e gerenciar bundles da Steam Store.
+Uma API robusta e inteligente para buscar e gerenciar bundles da Steam Store.
+
+## ⚡ VERSÃO 5.3 - SISTEMA ULTRA OTIMIZADO
+
+### 🚀 **Configuração Super Simples**
+Apenas **3 variáveis** necessárias - tudo otimizado automaticamente!
+
+```bash
+NODE_ENV=production
+TIMEZONE=America/Sao_Paulo
+API_KEY=sua_api_key_super_secreta_aqui
+```
 
 ## ⚡ OTIMIZAÇÕES DE PERFORMANCE E MEMÓRIA
 
