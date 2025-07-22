@@ -34,111 +34,6 @@ console.log(`💾 Modo Render Free: Salvamento a cada ${SAVE_INTERVAL_BATCHES} l
 
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-// --- GESTOR DE LOGS SEQUENCIAL ---
-class LogManager {
-    constructor() {
-        this.logQueue = [];
-        this.isProcessing = false;
-        this.batchLogs = [];
-        this.currentBatchId = null;
-        this.completedBatches = new Set();
-    }
-
-    // Adiciona log a uma operação específica
-    addLog(batchId, message, type = 'info') {
-        this.logQueue.push({
-            batchId,
-            message,
-            type,
-            timestamp: new Date().toISOString(),
-            order: this.logQueue.length
-        });
-        
-        if (!this.isProcessing) {
-            this.processQueue();
-        }
-    }
-
-    // Marca um lote como concluído para exibir todos os logs dele
-    markBatchCompleted(batchId) {
-        this.completedBatches.add(batchId);
-        if (!this.isProcessing) {
-            this.processQueue();
-        }
-    }
-
-    // Processa a fila de logs de forma sequencial
-    async processQueue() {
-        if (this.isProcessing) return;
-        this.isProcessing = true;
-
-        while (this.logQueue.length > 0) {
-            // Procura por lotes completos na ordem
-            const availableBatches = [...this.completedBatches];
-            
-            for (const completedBatch of availableBatches) {
-                const batchLogs = this.logQueue.filter(log => log.batchId === completedBatch);
-                
-                if (batchLogs.length > 0) {
-                    // Ordena os logs do lote por ordem de criação
-                    batchLogs.sort((a, b) => a.order - b.order);
-                    
-                    // Exibe todos os logs do lote de uma vez
-                    for (const log of batchLogs) {
-                        this.displayLog(log);
-                    }
-                    
-                    // Remove os logs exibidos da fila
-                    this.logQueue = this.logQueue.filter(log => log.batchId !== completedBatch);
-                    this.completedBatches.delete(completedBatch);
-                }
-            }
-            
-            // Pequena pausa para não sobrecarregar
-            await delay(10);
-            
-            // Se não há mais lotes completos, para o processamento
-            if (this.completedBatches.size === 0) break;
-        }
-
-        this.isProcessing = false;
-    }
-
-    // Exibe o log formatado
-    displayLog(log) {
-        const timestamp = new Date(log.timestamp).toLocaleTimeString('pt-BR');
-        const prefix = `[${timestamp}]`;
-        
-        switch (log.type) {
-            case 'success':
-                console.log(`${prefix} ✅ ${log.message}`);
-                break;
-            case 'warning':
-                console.log(`${prefix} ⚠️  ${log.message}`);
-                break;
-            case 'error':
-                console.log(`${prefix} ❌ ${log.message}`);
-                break;
-            case 'info':
-            default:
-                console.log(`${prefix} ${log.message}`);
-                break;
-        }
-    }
-
-    // Log imediato para informações críticas
-    immediate(message, type = 'info') {
-        this.displayLog({
-            message,
-            type,
-            timestamp: new Date().toISOString()
-        });
-    }
-}
-
-// Instância global do gestor de logs
-const logManager = new LogManager();
-
 // Função para limpar/resetar o log (Render Free - evita crescimento infinito)
 const resetLog = async () => {
     try {
@@ -332,7 +227,7 @@ const saveDetailedBundlesData = async (detailedBundles, bundlesToProcess, isComp
     return result;
 };
 
-const fetchBundleDetails = async (bundleId, language = 'brazilian', batchId = null) => {
+const fetchBundleDetails = async (bundleId, language = 'brazilian') => {
     const bundleApiUrl = `https://store.steampowered.com/actions/ajaxresolvebundles?bundleids=${bundleId}&cc=BR&l=${language}`;
     const bundlePageUrl = `https://store.steampowered.com/bundle/${bundleId}/`;
 
@@ -408,9 +303,7 @@ const fetchBundleDetails = async (bundleId, language = 'brazilian', batchId = nu
 
             // --- LÓGICA DE FALLBACK ---
             if (pageDetails.gênero.length === 0 && bundleData.appids && bundleData.appids.length > 0) {
-                if (batchId) {
-                    logManager.addLog(batchId, `⚠️  Scraping falhou para ${bundleData.name}. Ativando fallback via API de Apps...`, 'warning');
-                }
+                console.log(`⚠️  Scraping falhou para ${bundleData.name}. Ativando fallback via API de Apps...`);
                 await appendToLog(`INFO: Ativando fallback para o Bundle ID ${bundleId} (Link: ${bundlePageUrl}).`);
                 
                 const detailsFromApps = await getDetailsFromApps(bundleData.appids);
@@ -426,13 +319,9 @@ const fetchBundleDetails = async (bundleId, language = 'brazilian', batchId = nu
             const extractionSuccess = pageDetails.gênero && pageDetails.gênero.length > 0;
             if (!extractionSuccess) {
                  await appendToLog(`AVISO FINAL: Extração falhou para o Bundle ID ${bundleId} (Link: ${bundlePageUrl}), mesmo após o fallback.`);
-                 if (batchId) {
-                     logManager.addLog(batchId, `❌ [ID: ${bundleData.bundleid}] Falha na extração de ${bundleData.name}`, 'error');
-                 }
+                 console.log(`❌ [ID: ${bundleData.bundleid}] Falha na extração de ${bundleData.name}`);
             } else {
-                if (batchId) {
-                    logManager.addLog(batchId, `[ID: ${bundleData.bundleid}] 🔍 ${bundleData.name} (Gêneros: ${pageDetails.gênero.length}, Devs: ${pageDetails.desenvolvedor?.length || 0})`, 'success');
-                }
+                console.log(`✅ [ID: ${bundleData.bundleid}] ${bundleData.name} (Gêneros: ${pageDetails.gênero.length}, Devs: ${pageDetails.desenvolvedor?.length || 0})`);
             }
             
             return {
@@ -441,7 +330,7 @@ const fetchBundleDetails = async (bundleId, language = 'brazilian', batchId = nu
                     ...bundleData, 
                     page_details: pageDetails, 
                     processed_at: new Date().toISOString(), 
-                    api_version: '5.2-fallback-api' 
+                    api_version: '5.5-simplified' 
                 },
                 extractionFailed: !extractionSuccess
             };
@@ -452,18 +341,14 @@ const fetchBundleDetails = async (bundleId, language = 'brazilian', batchId = nu
             // --- DETECÇÃO DE PÁGINAS NÃO ENCONTRADAS ---
             if (statusCode === 404 || statusCode === 410) {
                 await appendToLog(`INFO: Bundle ID ${bundleId} - Página não encontrada (${statusCode}). Bundle possivelmente removido ou indisponível na região.`);
-                if (batchId) {
-                    logManager.addLog(batchId, `⚠️  [ID: ${bundleId}] Página não encontrada (${statusCode})`, 'warning');
-                }
+                console.log(`⚠️  [ID: ${bundleId}] Página não encontrada (${statusCode})`);
                 return { success: false, reason: 'PAGE_NOT_FOUND' };
             }
             
             await appendToLog(`ERRO: Tentativa ${attempt} para o Bundle ID ${bundleId} (Link: ${bundlePageUrl}). Status: ${statusCode || 'desconhecido'}. Erro: ${error.message}`);
             
             if (attempt === STEAM_API_CONFIG.MAX_RETRIES) {
-                if (batchId) {
-                    logManager.addLog(batchId, `❌ [ID: ${bundleId}] Máximo de tentativas atingido`, 'error');
-                }
+                console.log(`❌ [ID: ${bundleId}] Máximo de tentativas atingido`);
                 return { success: false, reason: 'MAX_RETRIES_REACHED' };
             }
             await delay(5000 * attempt); // Aumenta a espera entre retentativas se houver erro
@@ -473,38 +358,60 @@ const fetchBundleDetails = async (bundleId, language = 'brazilian', batchId = nu
 };
 
 const updateBundlesWithDetails = async (language = 'brazilian', limitForTesting = null) => {
-    logManager.immediate('🚀 VERSÃO OTIMIZADA V5.4 COM GESTOR DE LOGS - Iniciando atualização...');
-    if (limitForTesting) logManager.immediate(`🧪 MODO TESTE: Processando apenas ${limitForTesting} bundles`);
+    console.log('🚀 VERSÃO OTIMIZADA V5.5 SIMPLIFICADA - Iniciando atualização...');
+    if (limitForTesting) console.log(`🧪 MODO TESTE: Processando apenas ${limitForTesting} bundles`);
     
     // --- LIMPEZA DO LOG (RENDER FREE) ---
     if (!limitForTesting) {
         await resetLog(); // Remove log anterior para economizar espaço
         await appendToLog(`=== NOVA ATUALIZAÇÃO INICIADA ===`);
-        await appendToLog(`Versão: V5.4 com gestor de logs sequencial`);
+        await appendToLog(`Versão: V5.5 simplificada`);
         await appendToLog(`Timestamp: ${new Date().toISOString()}`);
         await appendToLog(`Language: ${language}`);
         keepAlive.start('bundle-update');
     }
     
+    // --- SISTEMA DE BACKUP PARA BUNDLEDETAILED.JSON ---
+    const BUNDLES_DETAILED_OLD_FILE = './bundleDetailed-old.json';
+    
+    if (fsSync.existsSync(BUNDLES_DETAILED_FILE)) {
+        try {
+            console.log('📁 Arquivo bundleDetailed.json encontrado, criando backup...');
+            
+            // Remove backup antigo se existir
+            if (fsSync.existsSync(BUNDLES_DETAILED_OLD_FILE)) {
+                console.log('🗑️ Removendo backup antigo do bundleDetailed...');
+                await fs.unlink(BUNDLES_DETAILED_OLD_FILE);
+            }
+            
+            // Cria backup do arquivo atual
+            await fs.rename(BUNDLES_DETAILED_FILE, BUNDLES_DETAILED_OLD_FILE);
+            console.log(`✅ Backup criado: bundleDetailed.json → bundleDetailed-old.json`);
+        } catch (backupError) {
+            console.log(`⚠️ Erro ao criar backup do bundleDetailed.json: ${backupError.message}`);
+            console.log('📄 Continuando sem backup (arquivo será sobrescrito)');
+        }
+    }
+    
     try {
         // --- VERIFICAÇÃO INICIAL DE INTEGRIDADE ---
-        if (fsSync.existsSync(BUNDLES_DETAILED_FILE)) {
-            console.log('🔍 Verificando integridade do arquivo bundleDetailed.json existente...');
+        if (fsSync.existsSync(BUNDLES_DETAILED_OLD_FILE)) {
+            console.log('🔍 Verificando integridade do backup bundleDetailed-old.json...');
             try {
-                const existingData = JSON.parse(fsSync.readFileSync(BUNDLES_DETAILED_FILE, 'utf-8'));
+                const existingData = JSON.parse(fsSync.readFileSync(BUNDLES_DETAILED_OLD_FILE, 'utf-8'));
                 
                 // Verifica estrutura básica
                 if (!existingData.bundles || !Array.isArray(existingData.bundles)) {
-                    console.warn('⚠️ Arquivo bundleDetailed.json corrompido - removendo arquivo inválido...');
-                    fsSync.unlinkSync(BUNDLES_DETAILED_FILE);
+                    console.warn('⚠️ Backup bundleDetailed-old.json corrompido - removendo arquivo inválido...');
+                    fsSync.unlinkSync(BUNDLES_DETAILED_OLD_FILE);
                 } else if (existingData.isComplete) {
-                    console.log('✅ Arquivo existente válido e completo encontrado');
+                    console.log('✅ Backup válido e completo encontrado');
                 } else {
-                    console.log(`📊 Arquivo parcial válido encontrado (${existingData.bundles.length} bundles processados)`);
+                    console.log(`📊 Backup parcial válido encontrado (${existingData.bundles.length} bundles processados)`);
                 }
             } catch (parseError) {
-                console.warn('⚠️ Erro ao ler arquivo bundleDetailed.json - removendo arquivo corrompido:', parseError.message);
-                fsSync.unlinkSync(BUNDLES_DETAILED_FILE);
+                console.warn('⚠️ Erro ao ler backup bundleDetailed-old.json - removendo arquivo corrompido:', parseError.message);
+                fsSync.unlinkSync(BUNDLES_DETAILED_OLD_FILE);
             }
         }
         
@@ -606,18 +513,18 @@ const updateBundlesWithDetails = async (language = 'brazilian', limitForTesting 
 
             // --- LÓGICA DO DISJUNTOR ---
             if (consecutiveFailures >= CONSECUTIVE_FAILURE_THRESHOLD) {
-                logManager.immediate(`🚨 Múltiplas falhas (${consecutiveFailures}) detectadas. Pausando por ${CIRCUIT_BREAKER_DELAY / 1000} segundos para evitar bloqueio...`, 'warning');
+                console.log(`🚨 Múltiplas falhas (${consecutiveFailures}) detectadas. Pausando por ${CIRCUIT_BREAKER_DELAY / 1000} segundos para evitar bloqueio...`);
                 await delay(CIRCUIT_BREAKER_DELAY);
                 consecutiveFailures = 0; // Reseta o contador após a pausa
             }
 
             const batchStartTime = Date.now();
-            logManager.immediate(`🚀 Lote ${batchIndex + 1}/${totalBatches}: Processando ${batch.length} bundles...`);
+            console.log(`🚀 Lote ${batchIndex + 1}/${totalBatches}: Processando ${batch.length} bundles...`);
             
             const batchPromises = batch.map(bundle => {
                 const bundleIdMatch = bundle.Link.match(/\/bundle\/(\d+)/);
                 if (!bundleIdMatch) return Promise.resolve({ success: false, reason: 'INVALID_LINK' });
-                return fetchBundleDetails(bundleIdMatch[1], language, batchId);
+                return fetchBundleDetails(bundleIdMatch[1], language);
             });
             
             const results = await Promise.allSettled(batchPromises);
@@ -650,14 +557,13 @@ const updateBundlesWithDetails = async (language = 'brazilian', limitForTesting 
                 }
             }
 
-            // Marca o lote como concluído para exibir todos os logs dele
-            logManager.markBatchCompleted(batchId);
+            // Remove call to logManager.markBatchCompleted
 
             const batchEndTime = Date.now();
             const successfulInBatch = detailedBundles.length - batchStartResults;
             const logMessage = `✅ Lote ${batchIndex + 1}: ${successfulInBatch}/${batch.length} bundles processados com sucesso`;
             const failureInfo = ignoredNotFound > 0 ? ` | ${ignoredNotFound} não encontrados (ignorados)` : '';
-            logManager.immediate(`${logMessage} | Falhas consecutivas: ${consecutiveFailures}${failureInfo}`, 'success');
+            console.log(`${logMessage} | Falhas consecutivas: ${consecutiveFailures}${failureInfo}`);
             
             batchesProcessed++;
             
@@ -670,14 +576,14 @@ const updateBundlesWithDetails = async (language = 'brazilian', limitForTesting 
             const remaining = totalBatches - batchIndex - 1;
             const estimatedTimeLeft = remaining * batchTime;
             
-            logManager.immediate(`📈 Progresso: ${updateState.completed}/${bundlesToProcess.length} | Tempo: ${elapsed.toFixed(1)}s | ETA: ${estimatedTimeLeft.toFixed(1)}s | Resumos: ${updateState.resumeCount}`);
+            console.log(`📈 Progresso: ${updateState.completed}/${bundlesToProcess.length} | Tempo: ${elapsed.toFixed(1)}s | ETA: ${estimatedTimeLeft.toFixed(1)}s | Resumos: ${updateState.resumeCount}`);
 
             const memory = getMemoryUsage();
             const shouldSaveByInterval = batchesProcessed % SAVE_INTERVAL_BATCHES === 0;
             const shouldSaveByMemory = memory.heapUsed > MAX_MEMORY_USAGE_MB;
             
             if (shouldSaveByInterval || shouldSaveByMemory) {
-                if (shouldSaveByMemory) logManager.immediate(`🚨 Memória alta (${memory.heapUsed}MB) - forçando salvamento`, 'warning');
+                if (shouldSaveByMemory) console.log(`🚨 Memória alta (${memory.heapUsed}MB) - forçando salvamento`);
                 
                 const uniqueDetailedBundles = Array.from(new Map(detailedBundles.map(bundle => [bundle.bundleid, bundle])).values());
                 await saveDetailedBundlesData(uniqueDetailedBundles, bundlesToProcess, false, limitForTesting, actualStartTime, updateState);
@@ -686,12 +592,12 @@ const updateBundlesWithDetails = async (language = 'brazilian', limitForTesting 
                 if (global.gc) {
                     global.gc();
                     const memoryAfterGC = getMemoryUsage();
-                    logManager.immediate(`🧹 GC executado: ${memory.heapUsed}MB → ${memoryAfterGC.heapUsed}MB`);
+                    console.log(`🧹 GC executado: ${memory.heapUsed}MB → ${memoryAfterGC.heapUsed}MB`);
                 }
             }
 
             if (batchesProcessed % MEMORY_CHECK_INTERVAL_BATCHES === 0) {
-                logManager.immediate(`📊 Memória: ${memory.heapUsed}MB | Detalhadas: ${detailedBundles.length} | Lotes: ${batchIndex + 1}/${totalBatches} | Checkpoint: ${updateState.completed}/${updateState.total}`);
+                console.log(`📊 Memória: ${memory.heapUsed}MB | Detalhadas: ${detailedBundles.length} | Lotes: ${batchIndex + 1}/${totalBatches} | Checkpoint: ${updateState.completed}/${updateState.total}`);
             }
 
             if (i + batchSize < bundlesToProcess.length) {
@@ -699,11 +605,11 @@ const updateBundlesWithDetails = async (language = 'brazilian', limitForTesting 
             }
         }
 
-        logManager.immediate(`🎉 Processamento concluído em ${(Date.now() - actualStartTime) / 1000}s`, 'success');
+        console.log(`🎉 Processamento concluído em ${(Date.now() - actualStartTime) / 1000}s`);
         
-        logManager.immediate('🔍 Removendo duplicatas das bundles detalhadas...');
+        console.log('🔍 Removendo duplicatas das bundles detalhadas...');
         const uniqueDetailedBundles = Array.from(new Map(detailedBundles.map(bundle => [bundle.bundleid, bundle])).values());
-        logManager.immediate(`📊 Bundles detalhadas: ${detailedBundles.length} processadas → ${uniqueDetailedBundles.length} únicas`);
+        console.log(`📊 Bundles detalhadas: ${detailedBundles.length} processadas → ${uniqueDetailedBundles.length} únicas`);
 
         updateState.status = 'completed';
         updateState.completed = bundlesToProcess.length;
@@ -712,19 +618,19 @@ const updateBundlesWithDetails = async (language = 'brazilian', limitForTesting 
         const result = await saveDetailedBundlesData(uniqueDetailedBundles, bundlesToProcess, true, limitForTesting, actualStartTime, updateState);
         
         if (!limitForTesting) {
-            logManager.immediate('🔍 Verificação final de duplicatas...');
+            console.log('🔍 Verificação final de duplicatas...');
             const deduplication = removeDuplicatesFromDetailedBundles();
             if (deduplication.removed > 0) {
                 result.totalBundles = deduplication.total;
                 result.duplicatesRemoved = deduplication.removed;
                 await fs.writeFile(BUNDLES_DETAILED_FILE, JSON.stringify(result, null, 2), 'utf-8');
-                logManager.immediate(`🧹 ${deduplication.removed} duplicatas adicionais removidas pelo middleware`, 'success');
+                console.log(`🧹 ${deduplication.removed} duplicatas adicionais removidas pelo middleware`);
             } else {
-                logManager.immediate(`✅ Nenhuma duplicata adicional encontrada.`, 'success');
+                console.log(`✅ Nenhuma duplicata adicional encontrada.`);
             }
             
             await clearUpdateState();
-            logManager.immediate(`🏁 Atualização COMPLETA com ${updateState.resumeCount} resumos`, 'success');
+            console.log(`🏁 Atualização COMPLETA com ${updateState.resumeCount} resumos`);
             
             // Log de finalização
             await appendToLog(`=== ATUALIZAÇÃO CONCLUÍDA COM SUCESSO ===`);
@@ -739,6 +645,31 @@ const updateBundlesWithDetails = async (language = 'brazilian', limitForTesting 
         return { success: true, ...result, resumeCount: updateState.resumeCount };
     } catch (error) {
         console.error('❌ Erro geral em updateBundlesWithDetails:', error);
+        
+        // --- SISTEMA DE RESTAURAÇÃO DE BACKUP ---
+        const BUNDLES_DETAILED_OLD_FILE = './bundleDetailed-old.json';
+        
+        if (fsSync.existsSync(BUNDLES_DETAILED_OLD_FILE)) {
+            try {
+                console.log('🔄 Erro durante atualização - tentando restaurar backup...');
+                
+                // Verifica se existe arquivo atual corrompido e remove
+                if (fsSync.existsSync(BUNDLES_DETAILED_FILE)) {
+                    console.log('🗑️ Removendo arquivo bundleDetailed.json corrompido...');
+                    await fs.unlink(BUNDLES_DETAILED_FILE);
+                }
+                
+                // Restaura o backup
+                await fs.rename(BUNDLES_DETAILED_OLD_FILE, BUNDLES_DETAILED_FILE);
+                console.log('✅ Backup restaurado com sucesso! Dados anteriores preservados.');
+                
+            } catch (restoreError) {
+                console.error('❌ Erro ao restaurar backup do bundleDetailed.json:', restoreError.message);
+                console.log('⚠️ Falha na restauração - dados podem estar indisponíveis temporariamente');
+            }
+        } else {
+            console.log('⚠️ Nenhum backup disponível para restauração');
+        }
         
         // Log de erro
         if (!limitForTesting) {

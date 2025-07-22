@@ -57,9 +57,160 @@ router.get('/', (req, res) => {
             admin: [
                 '/api/force-update - Atualização completa (requer API key)',
                 '/api/clean-duplicates - Limpeza de duplicatas (requer API key)'
+            ],
+            backup: [
+                '/api/bundles-old - Backup dos bundles básicos (durante atualizações)',
+                '/api/bundles-detailed-old - Backup dos bundles detalhados (durante atualizações)'
             ]
         }
     });
+});
+
+// 📁 ENDPOINTS DE BACKUP (servidos durante atualizações)
+router.get('/api/bundles-old', async (req, res) => {
+    try {
+        const BUNDLES_OLD_FILE = 'bundles-old.json';
+        
+        if (fs.existsSync(BUNDLES_OLD_FILE)) {
+            const data = fs.readFileSync(BUNDLES_OLD_FILE, 'utf-8');
+            const backupData = JSON.parse(data);
+            
+            // Headers informativos para backup
+            res.set({
+                'X-Data-Type': 'backup-basic',
+                'X-Total-Count': backupData.totalBundles?.toString() || '0',
+                'X-Backup-Status': 'available',
+                'X-Warning': 'Este é um backup - dados podem estar desatualizados'
+            });
+            
+            const response = {
+                ...backupData,
+                metadata: {
+                    data_type: 'backup_basic',
+                    backup_timestamp: backupData.last_update || 'unknown',
+                    warning: 'Dados de backup servidos durante atualização da API',
+                    recommendation: 'Tente novamente em alguns minutos para dados atualizados',
+                    status: 'backup_mode'
+                }
+            };
+            
+            res.json(response);
+            console.log(`📁 Backup de bundles básicos enviado (${backupData.totalBundles} total)`);
+        } else {
+            res.status(404).json({ 
+                error: 'Backup de bundles básicos não encontrado',
+                message: 'Nenhum backup disponível no momento',
+                suggestion: 'Use /api/bundles para dados atuais'
+            });
+        }
+    } catch (error) {
+        console.error('Erro ao ler backup de bundles básicos:', error);
+        res.status(500).json({ 
+            error: 'Erro ao ler backup de bundles básicos',
+            fallback: 'Use /api/bundles para dados atuais'
+        });
+    }
+});
+
+router.get('/api/bundles-detailed-old', validateInput, async (req, res) => {
+    try {
+        const BUNDLES_DETAILED_OLD_FILE = 'bundleDetailed-old.json';
+        
+        if (fs.existsSync(BUNDLES_DETAILED_OLD_FILE)) {
+            const data = JSON.parse(fs.readFileSync(BUNDLES_DETAILED_OLD_FILE, 'utf-8'));
+            
+            // Paginação (mantém compatibilidade)
+            const page = parseInt(req.query.page) || 1;
+            const limit = parseInt(req.query.limit) || 10;
+            const startIndex = (page - 1) * limit;
+            const endIndex = page * limit;
+
+            // Headers informativos para backup detalhado
+            res.set({
+                'X-Data-Type': 'backup-detailed',
+                'X-Total-Count': data.totalBundles?.toString() || '0',
+                'X-Current-Page': page.toString(),
+                'X-Total-Pages': Math.ceil(data.bundles.length / limit).toString(),
+                'X-Backup-Status': 'available',
+                'X-Warning': 'Dados de backup - podem estar desatualizados'
+            });
+
+            const responseData = {
+                totalBundles: data.totalBundles,
+                bundles: data.bundles.slice(startIndex, endIndex),
+                page: page,
+                totalPages: Math.ceil(data.bundles.length / limit),
+                hasNext: endIndex < data.bundles.length,
+                hasPrev: page > 1,
+                lastUpdate: data.last_update,
+                updateTriggered: false,
+                dataType: 'backup',
+                metadata: {
+                    data_quality: 'backup_detailed',
+                    backup_timestamp: data.last_update || 'unknown',
+                    message: 'Servindo backup durante atualização da API',
+                    warning: 'Dados podem estar desatualizados',
+                    recommendation: 'Recarregue em alguns minutos para dados atualizados',
+                    status: {
+                        current_status: 'serving_backup_data',
+                        reason: 'api_update_in_progress',
+                        user_action: 'aguarde finalização da atualização',
+                        estimated_time: '5-15 minutos'
+                    }
+                }
+            };
+            
+            res.json(responseData);
+            console.log(`📁 Backup detalhado enviado - Página ${page} (${responseData.bundles.length} itens)`);
+        } else {
+            res.status(404).json({ 
+                error: 'Backup de bundles detalhados não encontrado',
+                message: 'Nenhum backup disponível no momento',
+                suggestion: 'Use /api/bundles-detailed para dados atuais ou aguarde a finalização da atualização'
+            });
+        }
+    } catch (error) {
+        console.error('Erro ao ler backup de bundles detalhados:', error);
+        res.status(500).json({ 
+            error: 'Erro ao ler backup de bundles detalhados',
+            fallback: 'Use /api/bundles-detailed para dados atuais'
+        });
+    }
+});
+
+// 🤖 ENDPOINT INTELIGENTE: Serve dados atuais ou backup automaticamente
+router.get('/api/bundles-smart', validateInput, async (req, res) => {
+    try {
+        // Verifica se há uma atualização em progresso
+        const updateController = require('./services/updateController');
+        const isUpdating = updateController.isUpdateInProgress();
+        
+        // Se está atualizando e backup existe, serve o backup
+        if (isUpdating && fs.existsSync('bundleDetailed-old.json')) {
+            console.log('🤖 [SMART] Atualização em progresso - servindo backup automaticamente');
+            
+            // Redireciona internamente para o endpoint de backup
+            req.url = '/api/bundles-detailed-old';
+            
+            // Adiciona header indicando que é um redirecionamento automático
+            res.set('X-Smart-Redirect', 'backup-auto-served');
+            
+            return router.handle(req, res, () => {});
+        }
+        
+        // Caso contrário, serve dados normais
+        console.log('🤖 [SMART] Servindo dados normais');
+        req.url = '/api/bundles-detailed';
+        res.set('X-Smart-Redirect', 'normal-data-served');
+        
+        return router.handle(req, res, () => {});
+        
+    } catch (error) {
+        console.error('Erro no endpoint smart:', error);
+        // Em caso de erro, serve dados normais como fallback
+        req.url = '/api/bundles-detailed';
+        return router.handle(req, res, () => {});
+    }
 });
 
 
