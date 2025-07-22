@@ -1,10 +1,10 @@
 {
-  "last_update": "2025-07-22T13:51:48-03:00",
-  "totalBundles": 284,
+  "last_update": "2025-07-22T13:57:17-03:00",
+  "totalBundles": 346,
   "isTestMode": false,
   "processedCount": 4898,
-  "processingTimeSeconds": 1301.825,
-  "bundlesPerSecond": 0.21815528200795037,
+  "processingTimeSeconds": 1630.478,
+  "bundlesPerSecond": 0.21220770841434228,
   "bundles": [
     {
       "packageids": [
@@ -16508,7 +16508,7 @@
           "Remote Play on TV"
         ]
       },
-      "processed_at": "2025-07-22T16:48:17.593Z",
+      "processed_at": "2025-07-22T16:55:15.522Z",
       "api_version": "5.2-fallback-api"
     },
     {
@@ -18206,7 +18206,7 @@
           "Multi-player"
         ]
       },
-      "processed_at": "2025-07-22T16:49:44.110Z",
+      "processed_at": "2025-07-22T16:52:08.101Z",
       "api_version": "5.2-fallback-api"
     },
     {
@@ -19841,20 +19841,4098 @@
       },
       "processed_at": "2025-07-22T16:51:48.233Z",
       "api_version": "5.2-fallback-api"
+    },
+    {
+      "packageids": [
+        354177,
+        661656
+      ],
+      "appids": [
+        1059900,
+        1839060
+      ],
+      "bundleid": 36263,
+      "name": "Tribes Bundle",
+      "header_image_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/36263/qqio9mu4kxttp89c/header_ratio.jpg?t=1698785543",
+      "main_capsule": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/36263/qqio9mu4kxttp89c/capsule_616x353.jpg?t=1698785543",
+      "initial_price": 10498,
+      "final_price": 8031,
+      "formatted_orig_price": "R$ 94,48",
+      "formatted_final_price": "R$ 80,31",
+      "discount_percent": 15,
+      "bundle_base_discount": 10,
+      "available_windows": true,
+      "available_mac": false,
+      "available_linux": false,
+      "support_vrhmd": false,
+      "support_vrhmd_only": false,
+      "creator_clan_ids": [
+        33701576,
+        44980303,
+        36875029,
+        38394018
+      ],
+      "localized_langs": [],
+      "coming_soon": false,
+      "library_asset": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1059900/library_600x900.jpg?t=1748941355",
+      "no_main_cap": false,
+      "deck_compatibility_category": 1,
+      "page_details": {
+        "gênero": [
+          "Adventure",
+          "Casual",
+          "Simulation",
+          "Indie",
+          "Early Access"
+        ],
+        "desenvolvedor": [
+          "Space Boat Studios",
+          "Baked Games",
+          "polyperfect"
+        ],
+        "distribuidora": [],
+        "série": [],
+        "categoria": [
+          "Single-player",
+          "Steam Achievements",
+          "Steam Cloud",
+          "Family Sharing",
+          "Full controller support"
+        ]
+      },
+      "processed_at": "2025-07-22T16:51:55.983Z",
+      "api_version": "5.2-fallback-api"
+    },
+    {
+      "packageids": [
+        614771,
+        594518,
+        443800
+      ],
+      "appids": [
+        1110910,
+        1672210,
+        1274600
+      ],
+      "bundleid": 36269,
+      "name": "Soulslike Bundle",
+      "header_image_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/36269/oymgbqhj8jkkvwgb/header_ratio.jpg?t=1710408530",
+      "main_capsule": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/36269/oymgbqhj8jkkvwgb/capsule_616x353.jpg?t=1710408530",
+      "initial_price": 16688,
+      "final_price": 15019,
+      "formatted_orig_price": "R$ 150,19",
+      "formatted_final_price": "R$ 150,19",
+      "discount_percent": 0,
+      "bundle_base_discount": 10,
+      "available_windows": true,
+      "available_mac": false,
+      "available_linux": false,
+      "support_vrhmd": false,
+      "support_vrhmd_only": false,
+      "creator_clan_ids": [
+        39826181
+      ],
+      "localized_langs": [],
+      "coming_soon": false,
+      "library_asset": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1110910/library_600x900.jpg?t=1749246589",
+      "no_main_cap": false,
+      "deck_compatibility_category": 2,
+      "page_details": {
+        "gênero": [
+          "Action",
+          "RPG",
+          "Adventure",
+          "Indie"
+        ],
+        "desenvolvedor": [
+          "Cold Symmetry",
+          "Kumi Souls Games"
+        ],
+        "distribuidora": [],
+        "série": [],
+        "categoria": [
+          "Single-player",
+          "Steam Achievements",
+          "Full controller support",
+          "Steam Trading Cards",
+          "Steam Cloud",
+          "Family Sharing",
+          "Downloadable Content"
+        ]
+      },
+      "processed_at": "2025-07-22T16:51:58.005Z",
+      "api_version": "5.2-fallback-api"
+    },
+    {
+      "packageids": [
+        306509,
+        465984,
+        57718
+      ],
+      "appids": [
+        943140,
+        1333470,
+        342310
+      ],
+      "bundleid": 36329,
+      "name": "Pixel Bundle",
+      "header_image_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/36329/mff7kk6zd31vn13r/header_ratio.jpg?t=1700567977",
+      "main_capsule": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/36329/mff7kk6zd31vn13r/capsule_616x353.jpg?t=1700567977",
+      "initial_price": 14547,
+      "final_price": 5820,
+      "formatted_orig_price": "R$ 58,19",
+      "formatted_final_price": "R$ 58,20",
+      "discount_percent": 0,
+      "bundle_base_discount": 60,
+      "available_windows": true,
+      "available_mac": false,
+      "available_linux": false,
+      "support_vrhmd": false,
+      "support_vrhmd_only": false,
+      "creator_clan_ids": [
+        33269580,
+        45287187
+      ],
+      "localized_langs": [],
+      "coming_soon": false,
+      "library_asset": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/943140/library_600x900.jpg?t=1748380634",
+      "no_main_cap": false,
+      "deck_compatibility_category": 0,
+      "page_details": {
+        "gênero": [
+          "Action",
+          "Adventure",
+          "Indie",
+          "RPG",
+          "Actie",
+          "Simulation",
+          "Strategy"
+        ],
+        "desenvolvedor": [
+          "Red Blue Games",
+          "Merge Games",
+          "Jankenteam",
+          "Leonard Menchiari",
+          "IV Productions",
+          "Ivan Venturi Productions"
+        ],
+        "distribuidora": [],
+        "série": [],
+        "categoria": [
+          "Single-player",
+          "Multi-player",
+          "Co-op",
+          "Shared/Split Screen Co-op",
+          "Shared/Split Screen",
+          "Steam Achievements",
+          "Full controller support",
+          "Steam Trading Cards",
+          "Steam Cloud",
+          "Remote Play Together",
+          "Family Sharing",
+          "Singleplayer",
+          "Steam-prestaties",
+          "Volledige controllerondersteuning",
+          "Gezinsbibliotheek",
+          "PvP",
+          "Shared/Split Screen PvP"
+        ]
+      },
+      "processed_at": "2025-07-22T16:51:56.916Z",
+      "api_version": "5.2-fallback-api"
+    },
+    {
+      "packageids": [
+        379726,
+        595484
+      ],
+      "appids": [
+        1120320,
+        1674900
+      ],
+      "bundleid": 44776,
+      "name": "Handyman’s Bundle",
+      "header_image_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/44776/45q131hbvx6elc1k/c438afc2ac2d373da9a07e167d1f7bef7b901a50/header_ratio.jpg?t=1726229795",
+      "main_capsule": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/44776/45q131hbvx6elc1k/0cdaea7cc601924964038ed3eaf4d2cb9273d11d/capsule_616x353.jpg?t=1726229795",
+      "initial_price": 11998,
+      "final_price": 10198,
+      "formatted_orig_price": "R$ 101,98",
+      "formatted_final_price": "R$ 101,98",
+      "discount_percent": 0,
+      "bundle_base_discount": 15,
+      "available_windows": true,
+      "available_mac": false,
+      "available_linux": false,
+      "support_vrhmd": false,
+      "support_vrhmd_only": false,
+      "creator_clan_ids": [
+        39748922
+      ],
+      "localized_langs": [],
+      "coming_soon": false,
+      "library_asset": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1120320/library_600x900.jpg?t=1734526466",
+      "no_main_cap": false,
+      "deck_compatibility_category": 2,
+      "page_details": {
+        "gênero": [
+          "Aventura",
+          "Casual",
+          "Indie",
+          "Simulação"
+        ],
+        "desenvolvedor": [
+          "Live Motion Games",
+          "Frozen Way",
+          "GameFormatic S.A."
+        ],
+        "distribuidora": [
+          "Live Motion Games",
+          "Frozen Way",
+          "Frozen District",
+          "PlayWay S.A."
+        ],
+        "série": [
+          "Builder Simulator",
+          "Frozen Way"
+        ],
+        "idiomas": [
+          "Inglês",
+          "Polonês",
+          "Francês",
+          "Italiano",
+          "Alemão",
+          "Espanhol (Espanha)",
+          "Chinês simplificado",
+          "Japonês",
+          "Português (Portugal)",
+          "Russo",
+          "Turco",
+          "Tcheco",
+          "Húngaro",
+          "Coreano",
+          "Português (Brasil)",
+          "Romeno"
+        ]
+      },
+      "processed_at": "2025-07-22T16:52:03.124Z",
+      "api_version": "5.2-fallback-api"
+    },
+    {
+      "packageids": [
+        354177,
+        722189
+      ],
+      "appids": [
+        1059900,
+        2000160
+      ],
+      "bundleid": 45320,
+      "name": "Simulators Bundle",
+      "header_image_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/45320/6satm99830a1bq8s/1d602c25d1b49eac51fb5b75b2ae2fb2cb0eadf4/header_ratio.jpg?t=1726661985",
+      "main_capsule": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/45320/6satm99830a1bq8s/3d2fbab5c397f2a2d597dad737aca3222432e2cf/capsule_616x353.jpg?t=1726661985",
+      "initial_price": 13398,
+      "final_price": 12058,
+      "formatted_orig_price": "R$ 120,58",
+      "formatted_final_price": "R$ 120,58",
+      "discount_percent": 0,
+      "bundle_base_discount": 10,
+      "available_windows": true,
+      "available_mac": false,
+      "available_linux": false,
+      "support_vrhmd": false,
+      "support_vrhmd_only": false,
+      "creator_clan_ids": [
+        33701576,
+        44980303,
+        36875029,
+        33025535
+      ],
+      "localized_langs": [],
+      "coming_soon": false,
+      "library_asset": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1059900/library_600x900.jpg?t=1748941355",
+      "no_main_cap": false,
+      "deck_compatibility_category": 2,
+      "page_details": {
+        "gênero": [
+          "Aventura",
+          "Casual",
+          "Simulação",
+          "Acesso Antecipado"
+        ],
+        "desenvolvedor": [
+          "Space Boat Studios",
+          "Baked Games",
+          "Crystalia Games"
+        ],
+        "distribuidora": [
+          "PlayWay S.A.",
+          "Polyslash",
+          "CreativeForge Games"
+        ],
+        "série": [
+          "PlayWay S.A.",
+          "bakedgamesofficial"
+        ],
+        "idiomas": [
+          "Inglês",
+          "Polonês",
+          "Francês",
+          "Alemão",
+          "Espanhol (Espanha)",
+          "Português (Brasil)",
+          "Italiano",
+          "Chinês tradicional",
+          "Chinês simplificado",
+          "Tcheco",
+          "Dinamarquês",
+          "Finlandês",
+          "Espanhol (América Latina)",
+          "Holandês",
+          "Japonês",
+          "Coreano",
+          "Norueguês",
+          "Português (Portugal)",
+          "Russo",
+          "Sueco",
+          "Turco"
+        ]
+      },
+      "processed_at": "2025-07-22T16:52:14.920Z",
+      "api_version": "5.2-fallback-api"
+    },
+    {
+      "packageids": [
+        863133,
+        937862,
+        1099127
+      ],
+      "appids": [
+        2399220,
+        2614070,
+        3094010
+      ],
+      "bundleid": 49997,
+      "name": "Qruppo Developer Bundle",
+      "header_image_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/49997/cznbhoydb5gfivxh/b1069356e74c2604a1a37248b16cbc4a5e8cac1a/header_ratio.jpg?t=1738140036",
+      "main_capsule": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/49997/cznbhoydb5gfivxh/28c8930c61775d830a599d0817db27e3fb30c3ce/capsule_616x353.jpg?t=1738140036",
+      "initial_price": 22197,
+      "final_price": 19977,
+      "formatted_orig_price": "R$ 199,77",
+      "formatted_final_price": "R$ 199,77",
+      "discount_percent": 0,
+      "bundle_base_discount": 10,
+      "available_windows": true,
+      "available_mac": false,
+      "available_linux": false,
+      "support_vrhmd": false,
+      "support_vrhmd_only": false,
+      "creator_clan_ids": [
+        35756289
+      ],
+      "localized_langs": [],
+      "coming_soon": false,
+      "library_asset": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/2399220/library_600x900.jpg?t=1731978471",
+      "no_main_cap": false,
+      "deck_compatibility_category": 1,
+      "page_details": {
+        "gênero": [
+          "Aventura",
+          "Casual"
+        ],
+        "desenvolvedor": [
+          "Qruppo"
+        ],
+        "distribuidora": [
+          "Shiravune"
+        ],
+        "série": [
+          "Shiravune"
+        ],
+        "idiomas": [
+          "Inglês",
+          "Chinês simplificado",
+          "Chinês tradicional",
+          "Japonês"
+        ]
+      },
+      "processed_at": "2025-07-22T16:52:15.184Z",
+      "api_version": "5.2-fallback-api"
+    },
+    {
+      "packageids": [
+        398597,
+        420805,
+        654403,
+        419844,
+        347633,
+        224287,
+        350939,
+        355585,
+        304658,
+        345274,
+        409885,
+        289580,
+        370585,
+        380381,
+        405955,
+        476957,
+        308442,
+        372666
+      ],
+      "appids": [
+        1166740,
+        1215870,
+        1819800,
+        1213640,
+        1043350,
+        759610,
+        1051830,
+        1063230,
+        938640,
+        1036920,
+        1190780,
+        904860,
+        1098670,
+        1122110,
+        1181280,
+        1360360,
+        948120,
+        1103650
+      ],
+      "bundleid": 10415,
+      "name": "Horror Bundle",
+      "header_image_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/10415/rau7bgxk1djsliyh/cca8daa11d619823c4d885f01e3513c68c37b863/header_ratio.jpg?t=1746089681",
+      "main_capsule": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/10415/rau7bgxk1djsliyh/e2ee060e345bafbb418d214a229ddb96cf38f297/capsule_616x353.jpg?t=1746089681",
+      "initial_price": 8342,
+      "final_price": 8266,
+      "formatted_orig_price": "R$ 82,59",
+      "formatted_final_price": "R$ 82,66",
+      "discount_percent": 0,
+      "bundle_base_discount": 1,
+      "available_windows": true,
+      "available_mac": false,
+      "available_linux": false,
+      "support_vrhmd": false,
+      "support_vrhmd_only": false,
+      "creator_clan_ids": [],
+      "localized_langs": [],
+      "coming_soon": false,
+      "library_asset": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1166740/library_600x900.jpg?t=1746093404",
+      "no_main_cap": false,
+      "deck_compatibility_category": 0,
+      "page_details": {
+        "gênero": [
+          "Action",
+          "Adventure",
+          "Indie",
+          "Simulation",
+          "RPG"
+        ],
+        "desenvolvedor": [
+          "VikTor"
+        ],
+        "distribuidora": [],
+        "série": [],
+        "categoria": [
+          "Single-player",
+          "Steam Achievements",
+          "Family Sharing",
+          "Steam Trading Cards"
+        ]
+      },
+      "processed_at": "2025-07-22T16:52:32.016Z",
+      "api_version": "5.2-fallback-api"
+    },
+    {
+      "packageids": [
+        503820,
+        273599,
+        593119,
+        357093
+      ],
+      "appids": [
+        1433860,
+        867290,
+        1668130,
+        1066760
+      ],
+      "bundleid": 23023,
+      "name": "Tycoon Bundle",
+      "header_image_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/23023/qrjioy8mmzo02nbp/header_ratio.jpg?t=1669971077",
+      "main_capsule": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/23023/qrjioy8mmzo02nbp/capsule_616x353.jpg?t=1669971077",
+      "initial_price": 21396,
+      "final_price": 4331,
+      "formatted_orig_price": "R$ 160,47",
+      "formatted_final_price": "R$ 43,31",
+      "discount_percent": 73,
+      "bundle_base_discount": 25,
+      "available_windows": true,
+      "available_mac": false,
+      "available_linux": false,
+      "support_vrhmd": false,
+      "support_vrhmd_only": false,
+      "creator_clan_ids": [
+        33938074,
+        37394024,
+        42290491,
+        30731560
+      ],
+      "localized_langs": [],
+      "coming_soon": false,
+      "library_asset": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1433860/library_600x900.jpg?t=1732093919",
+      "no_main_cap": false,
+      "deck_compatibility_category": 0,
+      "page_details": {
+        "gênero": [
+          "Adventure",
+          "Indie",
+          "RPG",
+          "Strategy",
+          "Casual",
+          "Simulation"
+        ],
+        "desenvolvedor": [
+          "Klabater",
+          "Juggler Games",
+          "LAB132"
+        ],
+        "distribuidora": [],
+        "série": [],
+        "categoria": [
+          "Single-player",
+          "Steam Achievements",
+          "Steam Trading Cards",
+          "Partial Controller Support",
+          "Family Sharing",
+          "Full controller support",
+          "Steam Cloud"
+        ]
+      },
+      "processed_at": "2025-07-22T16:52:41.901Z",
+      "api_version": "5.2-fallback-api"
+    },
+    {
+      "packageids": [
+        162184,
+        554878
+      ],
+      "appids": [
+        609320,
+        1570010
+      ],
+      "bundleid": 24953,
+      "name": "FAR Universe Bundle",
+      "header_image_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/24953/h3ba9vwj2hvpo9zv/header_ratio.jpg?t=1651242938",
+      "main_capsule": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/24953/h3ba9vwj2hvpo9zv/capsule_616x353.jpg?t=1651242938",
+      "initial_price": 8698,
+      "final_price": 1585,
+      "formatted_orig_price": "R$ 82,63",
+      "formatted_final_price": "R$ 15,85",
+      "discount_percent": 81,
+      "bundle_base_discount": 5,
+      "available_windows": true,
+      "available_mac": false,
+      "available_linux": false,
+      "support_vrhmd": false,
+      "support_vrhmd_only": false,
+      "creator_clan_ids": [
+        33976734,
+        33038208,
+        40737742,
+        26299579
+      ],
+      "localized_langs": [],
+      "coming_soon": false,
+      "library_asset": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/609320/library_600x900.jpg?t=1745574096",
+      "no_main_cap": false,
+      "deck_compatibility_category": 3,
+      "page_details": {
+        "gênero": [
+          "Ação",
+          "Aventura",
+          "Indie"
+        ],
+        "desenvolvedor": [
+          "Okomotive"
+        ],
+        "distribuidora": [
+          "Assemble Entertainment",
+          "Frontier Foundry"
+        ],
+        "série": [
+          "FAR Universe"
+        ],
+        "idiomas": [
+          "Alemão",
+          "Inglês",
+          "Francês",
+          "Italiano",
+          "Espanhol (Espanha)",
+          "Japonês",
+          "Português (Brasil)",
+          "Russo",
+          "Chinês simplificado",
+          "Polonês",
+          "Chinês tradicional",
+          "Coreano",
+          "Árabe",
+          "Ucraniano",
+          "Holandês",
+          "Espanhol (América Latina)"
+        ]
+      },
+      "processed_at": "2025-07-22T16:52:48.902Z",
+      "api_version": "5.2-fallback-api"
+    },
+    {
+      "packageids": [
+        468278,
+        687243
+      ],
+      "appids": [
+        1339410,
+        1908250
+      ],
+      "bundleid": 25988,
+      "name": "本境系列 Bundle",
+      "header_image_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/25988/w82uhsc0v8bt4prs/header_ratio.jpg?t=1651226345",
+      "main_capsule": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/25988/w82uhsc0v8bt4prs/capsule_616x353.jpg?t=1651226345",
+      "initial_price": 3899,
+      "final_price": 3101,
+      "formatted_orig_price": "R$ 37,04",
+      "formatted_final_price": "R$ 31,01",
+      "discount_percent": 16,
+      "bundle_base_discount": 5,
+      "available_windows": true,
+      "available_mac": false,
+      "available_linux": false,
+      "support_vrhmd": false,
+      "support_vrhmd_only": false,
+      "creator_clan_ids": [
+        33019943
+      ],
+      "localized_langs": [],
+      "coming_soon": false,
+      "library_asset": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1339410/library_600x900.jpg?t=1657075831",
+      "no_main_cap": false,
+      "deck_compatibility_category": 0,
+      "page_details": {
+        "gênero": [
+          "Aventura",
+          "Casual",
+          "Indie",
+          "RPG"
+        ],
+        "desenvolvedor": [
+          "SP-time"
+        ],
+        "distribuidora": [
+          "SP-time"
+        ],
+        "série": [],
+        "idiomas": [
+          "Chinês simplificado",
+          "Chinês tradicional"
+        ]
+      },
+      "processed_at": "2025-07-22T16:52:48.328Z",
+      "api_version": "5.2-fallback-api"
+    },
+    {
+      "packageids": [
+        336616,
+        445574
+      ],
+      "appids": [
+        1015710,
+        1279280
+      ],
+      "bundleid": 20481,
+      "name": " peperoncino Bundle",
+      "header_image_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/20481/u5gkbzwia9fzc1np/header_ratio.jpg?t=1617422485",
+      "main_capsule": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/20481/u5gkbzwia9fzc1np/capsule_616x353.jpg?t=1617422485",
+      "initial_price": 7598,
+      "final_price": 2392,
+      "formatted_orig_price": "R$ 68,38",
+      "formatted_final_price": "R$ 23,92",
+      "discount_percent": 65,
+      "bundle_base_discount": 10,
+      "available_windows": true,
+      "available_mac": false,
+      "available_linux": false,
+      "support_vrhmd": false,
+      "support_vrhmd_only": false,
+      "creator_clan_ids": [
+        32398519
+      ],
+      "localized_langs": [],
+      "coming_soon": false,
+      "library_asset": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1015710/library_600x900.jpg?t=1749037169",
+      "no_main_cap": false,
+      "deck_compatibility_category": 1,
+      "page_details": {
+        "gênero": [
+          "Indie",
+          "Simulation",
+          "RPG"
+        ],
+        "desenvolvedor": [
+          "peperoncino"
+        ],
+        "distribuidora": [],
+        "série": [],
+        "categoria": [
+          "Single-player",
+          "Steam Cloud",
+          "Family Sharing",
+          "Steam Trading Cards"
+        ]
+      },
+      "processed_at": "2025-07-22T16:52:58.789Z",
+      "api_version": "5.2-fallback-api"
+    },
+    {
+      "packageids": [
+        415751,
+        510722,
+        558948
+      ],
+      "appids": [
+        1204130,
+        1451460,
+        1580050
+      ],
+      "bundleid": 23841,
+      "name": "Dead Cells: DLC Bundle",
+      "header_image_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/23841/4mru9fq2l3m7nuaj/header_ratio.jpg?t=1641490422",
+      "main_capsule": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/23841/4mru9fq2l3m7nuaj/capsule_616x353.jpg?t=1641490422",
+      "initial_price": 3267,
+      "final_price": 1305,
+      "formatted_orig_price": "R$ 26,14",
+      "formatted_final_price": "R$ 13,05",
+      "discount_percent": 50,
+      "bundle_base_discount": 20,
+      "available_windows": true,
+      "available_mac": true,
+      "available_linux": true,
+      "support_vrhmd": false,
+      "support_vrhmd_only": false,
+      "creator_clan_ids": [
+        32971341
+      ],
+      "localized_langs": [],
+      "coming_soon": false,
+      "library_asset": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/23841/4mru9fq2l3m7nuaj/library_600x900.jpg?t=1641490422",
+      "no_main_cap": false,
+      "deck_compatibility_category": 0,
+      "page_details": {
+        "gênero": [
+          "Action",
+          "Indie"
+        ],
+        "desenvolvedor": [
+          "Motion Twin",
+          "Evil Empire"
+        ],
+        "distribuidora": [],
+        "série": [],
+        "categoria": [
+          "Single-player",
+          "Downloadable Content",
+          "Steam Achievements",
+          "Full controller support",
+          "Steam Trading Cards",
+          "Steam Workshop",
+          "Steam Cloud",
+          "Remote Play on Phone",
+          "Remote Play on Tablet",
+          "Remote Play on TV",
+          "Family Sharing"
+        ]
+      },
+      "processed_at": "2025-07-22T16:52:59.301Z",
+      "api_version": "5.2-fallback-api"
+    },
+    {
+      "packageids": [
+        1038643,
+        1038647,
+        1005826,
+        1031521,
+        1081603
+      ],
+      "appids": [
+        1371580,
+        2817410,
+        2817400,
+        2893560,
+        3042590
+      ],
+      "bundleid": 42892,
+      "name": "Imperial Expansion Bundle",
+      "header_image_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/42892/k1pxysr5x4jwx7ah/header_ratio.jpg?t=1719487468",
+      "main_capsule": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/42892/k1pxysr5x4jwx7ah/capsule_616x353.jpg?t=1719487468",
+      "initial_price": 21945,
+      "final_price": 21945,
+      "formatted_orig_price": "R$ 219,45",
+      "formatted_final_price": "R$ 219,45",
+      "discount_percent": 0,
+      "bundle_base_discount": 0,
+      "available_windows": true,
+      "available_mac": false,
+      "available_linux": false,
+      "support_vrhmd": false,
+      "support_vrhmd_only": false,
+      "creator_clan_ids": [
+        38628797,
+        41378344
+      ],
+      "localized_langs": [],
+      "coming_soon": false,
+      "library_asset": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1371580/3a415b3d36cf10c4c93e720f2a9de493c8b408d1/library_600x900.jpg?t=1743733551",
+      "no_main_cap": false,
+      "deck_compatibility_category": 1,
+      "page_details": {
+        "gênero": [
+          "Action",
+          "Adventure",
+          "Indie",
+          "Massively Multiplayer",
+          "RPG"
+        ],
+        "desenvolvedor": [
+          "Angela Game"
+        ],
+        "distribuidora": [],
+        "série": [],
+        "categoria": [
+          "Single-player",
+          "Multi-player",
+          "MMO",
+          "PvP",
+          "Online PvP",
+          "LAN PvP",
+          "Co-op",
+          "Online Co-op",
+          "LAN Co-op",
+          "Steam Achievements",
+          "Steam Workshop",
+          "In-App Purchases",
+          "HDR available",
+          "Downloadable Content"
+        ]
+      },
+      "processed_at": "2025-07-22T16:55:55.911Z",
+      "api_version": "5.2-fallback-api"
+    },
+    {
+      "packageids": [
+        487272,
+        396365
+      ],
+      "appids": [
+        1388570,
+        1161430
+      ],
+      "bundleid": 23086,
+      "name": "KOEX bundle",
+      "header_image_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/23086/r13qhts6xi7lo9uj/header_ratio.jpg?t=1634024772",
+      "main_capsule": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/23086/r13qhts6xi7lo9uj/capsule_616x353.jpg?t=1634024772",
+      "initial_price": 3318,
+      "final_price": 2654,
+      "formatted_orig_price": "R$ 26,54",
+      "formatted_final_price": "R$ 26,54",
+      "discount_percent": 0,
+      "bundle_base_discount": 20,
+      "available_windows": true,
+      "available_mac": false,
+      "available_linux": false,
+      "support_vrhmd": false,
+      "support_vrhmd_only": false,
+      "creator_clan_ids": [
+        33872836,
+        33788459,
+        33066823
+      ],
+      "localized_langs": [],
+      "coming_soon": false,
+      "library_asset": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1388570/library_600x900.jpg?t=1745567798",
+      "no_main_cap": false,
+      "deck_compatibility_category": 0,
+      "page_details": {
+        "gênero": [
+          "Action",
+          "Adventure",
+          "Indie"
+        ],
+        "desenvolvedor": [
+          "KOEX studio"
+        ],
+        "distribuidora": [],
+        "série": [],
+        "categoria": [
+          "Single-player",
+          "Steam Achievements",
+          "Family Sharing"
+        ]
+      },
+      "processed_at": "2025-07-22T16:54:15.906Z",
+      "api_version": "5.2-fallback-api"
+    },
+    {
+      "packageids": [
+        149443,
+        149700,
+        152218
+      ],
+      "appids": [
+        582260,
+        577580,
+        588490
+      ],
+      "bundleid": 2870,
+      "name": "Throwback Bundle",
+      "header_image_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/2870/gkc802acq4nbkpll/header_ratio.jpg?t=1544748172",
+      "main_capsule": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/2870/gkc802acq4nbkpll/capsule_616x353.jpg?t=1544748172",
+      "initial_price": 4137,
+      "final_price": 3516,
+      "formatted_orig_price": "R$ 35,16",
+      "formatted_final_price": "R$ 35,16",
+      "discount_percent": 0,
+      "bundle_base_discount": 15,
+      "available_windows": true,
+      "available_mac": false,
+      "available_linux": false,
+      "support_vrhmd": false,
+      "support_vrhmd_only": false,
+      "creator_clan_ids": [
+        33186850
+      ],
+      "localized_langs": [],
+      "coming_soon": false,
+      "library_asset": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/582260/library_600x900.jpg?t=1614372466",
+      "no_main_cap": false,
+      "deck_compatibility_category": 0,
+      "page_details": {
+        "gênero": [
+          "Racing",
+          "Action",
+          "Adventure",
+          "Sports"
+        ],
+        "desenvolvedor": [
+          "Acclaim Cheltenham",
+          "Throwback Entertainment",
+          "Criterion Games"
+        ],
+        "distribuidora": [],
+        "série": [],
+        "categoria": [
+          "Single-player",
+          "Steam Trading Cards",
+          "Partial Controller Support",
+          "Steam Cloud",
+          "Family Sharing",
+          "Steam Achievements",
+          "Full controller support",
+          "Stats",
+          "Multi-player",
+          "PvP",
+          "Shared/Split Screen PvP",
+          "Shared/Split Screen",
+          "Remote Play Together"
+        ]
+      },
+      "processed_at": "2025-07-22T16:53:22.319Z",
+      "api_version": "5.2-fallback-api"
+    },
+    {
+      "packageids": [
+        73553,
+        77214,
+        96551,
+        113641,
+        187528,
+        245682,
+        269323
+      ],
+      "appids": [
+        388390,
+        399090,
+        449940,
+        497590,
+        661530,
+        806150,
+        856420
+      ],
+      "bundleid": 3001,
+      "name": "WTFOMGOTYGames bundle",
+      "header_image_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/3001/iifm36jq947zq8y0/header_ratio.jpg?t=1551860087",
+      "main_capsule": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/3001/iifm36jq947zq8y0/capsule_616x353.jpg?t=1551860087",
+      "initial_price": 7673,
+      "final_price": 3072,
+      "formatted_orig_price": "R$ 30,69",
+      "formatted_final_price": "R$ 30,72",
+      "discount_percent": 0,
+      "bundle_base_discount": 60,
+      "available_windows": true,
+      "available_mac": false,
+      "available_linux": false,
+      "support_vrhmd": false,
+      "support_vrhmd_only": false,
+      "creator_clan_ids": [],
+      "localized_langs": [],
+      "coming_soon": false,
+      "library_asset": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/3001/iifm36jq947zq8y0/library_600x900.jpg?t=1551860087",
+      "no_main_cap": false,
+      "deck_compatibility_category": 0,
+      "page_details": {
+        "gênero": [
+          "Casual",
+          "Indie",
+          "Esportes",
+          "Estratégia",
+          "Ação",
+          "Aventura",
+          "RPG"
+        ],
+        "desenvolvedor": [
+          "WTFOMGames"
+        ],
+        "distribuidora": [
+          "WTFOMGames"
+        ],
+        "série": [],
+        "idiomas": [
+          "Inglês"
+        ]
+      },
+      "processed_at": "2025-07-22T16:53:18.789Z",
+      "api_version": "5.2-fallback-api"
+    },
+    {
+      "packageids": [
+        270918,
+        412727
+      ],
+      "appids": [
+        860450,
+        1197530
+      ],
+      "bundleid": 12938,
+      "name": "Modular Bundle",
+      "header_image_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/12938/wlmis0yu1uluo4tj/header_ratio.jpg?t=1576485403",
+      "main_capsule": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/12938/wlmis0yu1uluo4tj/capsule_616x353.jpg?t=1576485403",
+      "initial_price": 4138,
+      "final_price": 2896,
+      "formatted_orig_price": "R$ 28,97",
+      "formatted_final_price": "R$ 28,96",
+      "discount_percent": 0,
+      "bundle_base_discount": 30,
+      "available_windows": true,
+      "available_mac": false,
+      "available_linux": false,
+      "support_vrhmd": false,
+      "support_vrhmd_only": false,
+      "creator_clan_ids": [],
+      "localized_langs": [],
+      "coming_soon": false,
+      "library_asset": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1197530/library_600x900.jpg?t=1576486502",
+      "no_main_cap": false,
+      "deck_compatibility_category": 0,
+      "page_details": {
+        "gênero": [
+          "Indie",
+          "Estratégia"
+        ],
+        "desenvolvedor": [
+          "Gyro-Games Inc."
+        ],
+        "distribuidora": [
+          "Gyro-Games Inc."
+        ],
+        "série": [],
+        "idiomas": [
+          "Inglês",
+          "Alemão",
+          "Espanhol (Espanha)",
+          "Chinês simplificado",
+          "Russo",
+          "Coreano",
+          "Francês",
+          "Português (Portugal)"
+        ]
+      },
+      "processed_at": "2025-07-22T16:53:16.793Z",
+      "api_version": "5.2-fallback-api"
+    },
+    {
+      "packageids": [
+        209960,
+        247113
+      ],
+      "appids": [
+        722570,
+        809760
+      ],
+      "bundleid": 7281,
+      "name": "\"Shoot\" Bundle",
+      "header_image_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/7281/51yx7gxqdn88t3k4/header_ratio.jpg?t=1526551278",
+      "main_capsule": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/7281/51yx7gxqdn88t3k4/capsule_616x353.jpg?t=1526551278",
+      "initial_price": 3398,
+      "final_price": 1698,
+      "formatted_orig_price": "R$ 16,99",
+      "formatted_final_price": "R$ 16,98",
+      "discount_percent": 0,
+      "bundle_base_discount": 50,
+      "available_windows": true,
+      "available_mac": false,
+      "available_linux": false,
+      "support_vrhmd": false,
+      "support_vrhmd_only": false,
+      "creator_clan_ids": [],
+      "localized_langs": [],
+      "coming_soon": false,
+      "library_asset": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/7281/51yx7gxqdn88t3k4/library_600x900.jpg?t=1526551278",
+      "no_main_cap": false,
+      "deck_compatibility_category": 0,
+      "page_details": {
+        "gênero": [
+          "Ação",
+          "Casual",
+          "Indie"
+        ],
+        "desenvolvedor": [
+          "EcoShooter"
+        ],
+        "distribuidora": [
+          "EcoShooter"
+        ],
+        "série": [],
+        "idiomas": [
+          "Inglês"
+        ]
+      },
+      "processed_at": "2025-07-22T16:55:01.608Z",
+      "api_version": "5.2-fallback-api"
+    },
+    {
+      "packageids": [
+        216121,
+        252682,
+        285503
+      ],
+      "appids": [
+        738760,
+        823330,
+        894080
+      ],
+      "bundleid": 7926,
+      "name": "Renaissance bundle",
+      "header_image_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/7926/12k710rn2oekrpw9/header_ratio.jpg?t=1557600821",
+      "main_capsule": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/7926/12k710rn2oekrpw9/capsule_616x353.jpg?t=1557600821",
+      "initial_price": 4817,
+      "final_price": 2407,
+      "formatted_orig_price": "R$ 24,09",
+      "formatted_final_price": "R$ 24,07",
+      "discount_percent": 0,
+      "bundle_base_discount": 50,
+      "available_windows": true,
+      "available_mac": false,
+      "available_linux": true,
+      "support_vrhmd": false,
+      "support_vrhmd_only": false,
+      "creator_clan_ids": [
+        33559071
+      ],
+      "localized_langs": [],
+      "coming_soon": false,
+      "library_asset": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/7926/12k710rn2oekrpw9/library_600x900.jpg?t=1557600821",
+      "no_main_cap": false,
+      "deck_compatibility_category": 0,
+      "page_details": {
+        "gênero": [
+          "Aventura",
+          "Indie",
+          "Simulação",
+          "Violência",
+          "Violência detalhada"
+        ],
+        "desenvolvedor": [
+          "Marginal act",
+          "Marginalact"
+        ],
+        "distribuidora": [
+          "Marginal act",
+          "Marginalact"
+        ],
+        "série": [
+          "the Line"
+        ],
+        "idiomas": [
+          "Inglês",
+          "Russo"
+        ]
+      },
+      "processed_at": "2025-07-22T16:55:01.286Z",
+      "api_version": "5.2-fallback-api"
+    },
+    {
+      "packageids": [
+        104767,
+        248355
+      ],
+      "appids": [
+        427910,
+        812960
+      ],
+      "bundleid": 10562,
+      "name": "Delenar Bundle",
+      "header_image_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/10562/lfxtdt0ys7kda8kd/header_ratio.jpg?t=1553271725",
+      "main_capsule": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/10562/lfxtdt0ys7kda8kd/capsule_616x353.jpg?t=1553271725",
+      "initial_price": 4898,
+      "final_price": 3918,
+      "formatted_orig_price": "R$ 39,18",
+      "formatted_final_price": "R$ 39,18",
+      "discount_percent": 0,
+      "bundle_base_discount": 20,
+      "available_windows": true,
+      "available_mac": false,
+      "available_linux": false,
+      "support_vrhmd": false,
+      "support_vrhmd_only": false,
+      "creator_clan_ids": [
+        33380423
+      ],
+      "localized_langs": [],
+      "coming_soon": false,
+      "library_asset": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/10562/lfxtdt0ys7kda8kd/library_600x900.jpg?t=1553271725",
+      "no_main_cap": false,
+      "deck_compatibility_category": 0,
+      "page_details": {
+        "gênero": [
+          "Aventura",
+          "Casual",
+          "Indie",
+          "RPG",
+          "Estratégia",
+          "Acesso Antecipado"
+        ],
+        "desenvolvedor": [
+          "Batholith Entertainment"
+        ],
+        "distribuidora": [
+          "Indie Voyage",
+          "Batholith Entertainment"
+        ],
+        "série": [
+          "Delenar"
+        ],
+        "idiomas": [
+          "Inglês"
+        ]
+      },
+      "processed_at": "2025-07-22T16:53:47.948Z",
+      "api_version": "5.2-fallback-api"
+    },
+    {
+      "packageids": [
+        186468,
+        191394,
+        217553,
+        276341,
+        300258
+      ],
+      "appids": [
+        659110,
+        672460,
+        742530,
+        873850,
+        928130
+      ],
+      "bundleid": 10983,
+      "name": "Roguelike Bundle",
+      "header_image_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/10983/7012riuyjpqlf29b/header_ratio.jpg?t=1557939868",
+      "main_capsule": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/10983/7012riuyjpqlf29b/capsule_616x353.jpg?t=1557939868",
+      "initial_price": 9155,
+      "final_price": 5491,
+      "formatted_orig_price": "R$ 54,93",
+      "formatted_final_price": "R$ 54,91",
+      "discount_percent": 0,
+      "bundle_base_discount": 40,
+      "available_windows": true,
+      "available_mac": false,
+      "available_linux": false,
+      "support_vrhmd": false,
+      "support_vrhmd_only": false,
+      "creator_clan_ids": [
+        33009722,
+        45604596
+      ],
+      "localized_langs": [],
+      "coming_soon": false,
+      "library_asset": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/10983/7012riuyjpqlf29b/library_600x900.jpg?t=1557939868",
+      "no_main_cap": false,
+      "deck_compatibility_category": 0,
+      "page_details": {
+        "gênero": [
+          "Ação",
+          "Indie",
+          "RPG",
+          "Estratégia",
+          "Aventura",
+          "Casual"
+        ],
+        "desenvolvedor": [
+          "RogueCode (PTY) LTD",
+          "Team8 Studio",
+          "Lucas Molina",
+          "Magic Time Software",
+          "wagnersoft"
+        ],
+        "distribuidora": [
+          "RogueCode (PTY) LTD",
+          "Team8 Studio",
+          "Lucas Molina",
+          "Magic Time Software",
+          "wagnersoft"
+        ],
+        "série": [],
+        "idiomas": [
+          "Inglês",
+          "Francês",
+          "Alemão",
+          "Espanhol (Espanha)",
+          "Coreano",
+          "Russo",
+          "Espanhol (América Latina)"
+        ]
+      },
+      "processed_at": "2025-07-22T16:54:53.550Z",
+      "api_version": "5.2-fallback-api"
+    },
+    {
+      "packageids": [
+        184571,
+        225517
+      ],
+      "appids": [
+        654710,
+        763070
+      ],
+      "bundleid": 5960,
+      "name": "Survival Bundle",
+      "header_image_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/5960/1270twypfub5tjw9/header_ratio.jpg?t=1515757118",
+      "main_capsule": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/5960/1270twypfub5tjw9/capsule_616x353.jpg?t=1515757118",
+      "initial_price": 878,
+      "final_price": 702,
+      "formatted_orig_price": "R$ 7,02",
+      "formatted_final_price": "R$ 7,02",
+      "discount_percent": 0,
+      "bundle_base_discount": 20,
+      "available_windows": true,
+      "available_mac": false,
+      "available_linux": false,
+      "support_vrhmd": false,
+      "support_vrhmd_only": false,
+      "creator_clan_ids": [
+        33199601
+      ],
+      "localized_langs": [],
+      "coming_soon": false,
+      "library_asset": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/5960/1270twypfub5tjw9/library_600x900.jpg?t=1515757118",
+      "no_main_cap": false,
+      "deck_compatibility_category": 0,
+      "page_details": {
+        "gênero": [
+          "Ação",
+          "Aventura",
+          "Indie",
+          "Violência",
+          "Violência detalhada"
+        ],
+        "desenvolvedor": [
+          "FurGoldGames"
+        ],
+        "distribuidora": [
+          "FurGoldGames"
+        ],
+        "série": [
+          "Ashes"
+        ],
+        "idiomas": [
+          "Inglês",
+          "Russo"
+        ]
+      },
+      "processed_at": "2025-07-22T16:55:08.880Z",
+      "api_version": "5.2-fallback-api"
+    },
+    {
+      "packageids": [
+        107973,
+        162980,
+        212735,
+        206114
+      ],
+      "appids": [
+        481870,
+        610570,
+        729720,
+        712530
+      ],
+      "bundleid": 8601,
+      "name": "Arcade Bundle",
+      "header_image_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/8601/s3knjyimjaaethg1/header_ratio.jpg?t=1566590293",
+      "main_capsule": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/8601/s3knjyimjaaethg1/capsule_616x353.jpg?t=1566590293",
+      "initial_price": 6476,
+      "final_price": 3884,
+      "formatted_orig_price": "R$ 38,86",
+      "formatted_final_price": "R$ 38,84",
+      "discount_percent": 0,
+      "bundle_base_discount": 40,
+      "available_windows": true,
+      "available_mac": false,
+      "available_linux": false,
+      "support_vrhmd": false,
+      "support_vrhmd_only": false,
+      "creator_clan_ids": [
+        33066823
+      ],
+      "localized_langs": [],
+      "coming_soon": false,
+      "library_asset": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/610570/library_600x900.jpg?t=1750321850",
+      "no_main_cap": false,
+      "deck_compatibility_category": 0,
+      "page_details": {
+        "gênero": [
+          "Casual",
+          "Indie",
+          "Estratégia",
+          "Ação",
+          "Aventura"
+        ],
+        "desenvolvedor": [
+          "Stranga",
+          "TommahGames",
+          "Ritual Games",
+          "GameDevLab",
+          "The Crow Studios"
+        ],
+        "distribuidora": [
+          "GrabTheGames"
+        ],
+        "série": [
+          "GrabTheGames Publishing"
+        ],
+        "idiomas": [
+          "Inglês",
+          "Italiano",
+          "Alemão",
+          "Espanhol (Espanha)",
+          "Japonês",
+          "Polonês",
+          "Português (Brasil)",
+          "Romeno",
+          "Russo",
+          "Chinês simplificado",
+          "Tailandês",
+          "Francês",
+          "Português (Portugal)",
+          "Norueguês",
+          "Grego",
+          "Turco"
+        ]
+      },
+      "processed_at": "2025-07-22T16:53:54.683Z",
+      "api_version": "5.2-fallback-api"
+    },
+    {
+      "packageids": [
+        61803,
+        133235
+      ],
+      "appids": [
+        353080,
+        541720
+      ],
+      "bundleid": 9201,
+      "name": "Redrum Bundle",
+      "header_image_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/9201/9w3cfb972wyxq66f/header_ratio.jpg?t=1541622576",
+      "main_capsule": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/9201/9w3cfb972wyxq66f/capsule_616x353.jpg?t=1541622576",
+      "initial_price": 4700,
+      "final_price": 3760,
+      "formatted_orig_price": "R$ 37,60",
+      "formatted_final_price": "R$ 37,60",
+      "discount_percent": 0,
+      "bundle_base_discount": 20,
+      "available_windows": true,
+      "available_mac": false,
+      "available_linux": false,
+      "support_vrhmd": false,
+      "support_vrhmd_only": false,
+      "creator_clan_ids": [
+        33823937
+      ],
+      "localized_langs": [],
+      "coming_soon": false,
+      "library_asset": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/353080/library_600x900.jpg?t=1679358662",
+      "no_main_cap": false,
+      "deck_compatibility_category": 0,
+      "page_details": {
+        "gênero": [
+          "Aventura",
+          "Casual",
+          "Indie"
+        ],
+        "desenvolvedor": [
+          "Anarchy Enterprises"
+        ],
+        "distribuidora": [
+          "Anarchy Enterprises"
+        ],
+        "série": [],
+        "idiomas": [
+          "Inglês"
+        ]
+      },
+      "processed_at": "2025-07-22T16:53:56.336Z",
+      "api_version": "5.2-fallback-api"
+    },
+    {
+      "packageids": [
+        184065,
+        217165
+      ],
+      "appids": [
+        653210,
+        741380
+      ],
+      "bundleid": 9223,
+      "name": "Prisoner Bundle",
+      "header_image_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/9223/u0ny7kuxot6om6uv/header_ratio.jpg?t=1544992970",
+      "main_capsule": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/9223/u0ny7kuxot6om6uv/capsule_616x353.jpg?t=1544992970",
+      "initial_price": 1398,
+      "final_price": 1189,
+      "formatted_orig_price": "R$ 11,88",
+      "formatted_final_price": "R$ 11,89",
+      "discount_percent": 0,
+      "bundle_base_discount": 15,
+      "available_windows": true,
+      "available_mac": false,
+      "available_linux": false,
+      "support_vrhmd": false,
+      "support_vrhmd_only": false,
+      "creator_clan_ids": [
+        45434144
+      ],
+      "localized_langs": [],
+      "coming_soon": false,
+      "library_asset": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/9223/u0ny7kuxot6om6uv/library_600x900.jpg?t=1544992970",
+      "no_main_cap": false,
+      "deck_compatibility_category": 0,
+      "page_details": {
+        "gênero": [
+          "Aventura",
+          "Indie"
+        ],
+        "desenvolvedor": [
+          "Polovey Alexander"
+        ],
+        "distribuidora": [
+          "Polovey Alexander"
+        ],
+        "série": [],
+        "idiomas": [
+          "Inglês",
+          "Russo"
+        ]
+      },
+      "processed_at": "2025-07-22T16:54:02.173Z",
+      "api_version": "5.2-fallback-api"
+    },
+    {
+      "packageids": [
+        610837,
+        835794,
+        972863
+      ],
+      "appids": [
+        1706220,
+        2326720,
+        2718030
+      ],
+      "bundleid": 38504,
+      "name": "Scream bundle",
+      "header_image_url": "",
+      "main_capsule": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/38504/b9m3hh1rpaz0hl43/capsule_616x353.jpg?t=1707384797",
+      "initial_price": 6947,
+      "final_price": 3472,
+      "formatted_orig_price": "R$ 34,74",
+      "formatted_final_price": "R$ 34,72",
+      "discount_percent": 0,
+      "bundle_base_discount": 50,
+      "available_windows": true,
+      "available_mac": false,
+      "available_linux": false,
+      "support_vrhmd": false,
+      "support_vrhmd_only": false,
+      "creator_clan_ids": [
+        33559071
+      ],
+      "localized_langs": [],
+      "coming_soon": false,
+      "library_asset": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1706220/library_600x900.jpg?t=1750624785",
+      "no_main_cap": false,
+      "deck_compatibility_category": 0,
+      "page_details": {
+        "gênero": [
+          "Adventure",
+          "Action"
+        ],
+        "desenvolvedor": [
+          "Marginalact",
+          "Marginal act"
+        ],
+        "distribuidora": [],
+        "série": [],
+        "categoria": [
+          "Single-player",
+          "Steam Achievements",
+          "Family Sharing"
+        ]
+      },
+      "processed_at": "2025-07-22T16:54:06.138Z",
+      "api_version": "5.2-fallback-api"
+    },
+    {
+      "packageids": [
+        836564,
+        839718,
+        836823,
+        887153
+      ],
+      "appids": [
+        2329160,
+        2338040,
+        2329880,
+        2464770
+      ],
+      "bundleid": 41699,
+      "name": "Roguelikes Bundle",
+      "header_image_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/41699/1154nu769teobkv9/header_ratio.jpg?t=1718891782",
+      "main_capsule": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/41699/1154nu769teobkv9/capsule_616x353.jpg?t=1718891782",
+      "initial_price": 10349,
+      "final_price": 7760,
+      "formatted_orig_price": "R$ 77,62",
+      "formatted_final_price": "R$ 77,60",
+      "discount_percent": 0,
+      "bundle_base_discount": 25,
+      "available_windows": true,
+      "available_mac": false,
+      "available_linux": false,
+      "support_vrhmd": false,
+      "support_vrhmd_only": false,
+      "creator_clan_ids": [],
+      "localized_langs": [],
+      "coming_soon": false,
+      "library_asset": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/2329160/library_600x900.jpg?t=1728637025",
+      "no_main_cap": false,
+      "deck_compatibility_category": 0,
+      "page_details": {
+        "gênero": [
+          "Ação",
+          "Indie",
+          "Estratégia"
+        ],
+        "desenvolvedor": [
+          "Family Devs"
+        ],
+        "distribuidora": [
+          "Family Devs"
+        ],
+        "série": [],
+        "idiomas": [
+          "Inglês",
+          "Espanhol (Espanha)",
+          "Japonês",
+          "Coreano",
+          "Chinês simplificado",
+          "Catalão",
+          "Português (Brasil)",
+          "Francês",
+          "Italiano",
+          "Alemão",
+          "Holandês",
+          "Húngaro",
+          "Norueguês",
+          "Polonês",
+          "Português (Portugal)",
+          "Romeno",
+          "Russo",
+          "Espanhol (América Latina)",
+          "Tailandês",
+          "Chinês tradicional",
+          "Turco",
+          "Ucraniano",
+          "Vietnamita"
+        ]
+      },
+      "processed_at": "2025-07-22T16:54:03.315Z",
+      "api_version": "5.2-fallback-api"
+    },
+    {
+      "packageids": [
+        244855,
+        247783
+      ],
+      "appids": [
+        803980,
+        811550
+      ],
+      "bundleid": 26414,
+      "name": "Toolbox Bundle",
+      "header_image_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/26414/ssb9txr1fixnl1tu/header_ratio.jpg?t=1663841317",
+      "main_capsule": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/26414/ssb9txr1fixnl1tu/capsule_616x353.jpg?t=1663841317",
+      "initial_price": 5178,
+      "final_price": 4402,
+      "formatted_orig_price": "R$ 44,01",
+      "formatted_final_price": "R$ 44,02",
+      "discount_percent": 0,
+      "bundle_base_discount": 15,
+      "available_windows": true,
+      "available_mac": false,
+      "available_linux": false,
+      "support_vrhmd": false,
+      "support_vrhmd_only": false,
+      "creator_clan_ids": [
+        35983346,
+        33701576
+      ],
+      "localized_langs": [],
+      "coming_soon": false,
+      "library_asset": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/803980/library_600x900.jpg?t=1730368446",
+      "no_main_cap": false,
+      "deck_compatibility_category": 0,
+      "page_details": {
+        "gênero": [
+          "Aventura",
+          "Indie",
+          "Simulação",
+          "Ação"
+        ],
+        "desenvolvedor": [
+          "Cobble Games",
+          "Disaster Studio",
+          "Byte Barrel"
+        ],
+        "distribuidora": [
+          "Movie Games S.A."
+        ],
+        "série": [
+          "Movie Games S.A."
+        ],
+        "idiomas": [
+          "Inglês",
+          "Francês",
+          "Alemão",
+          "Espanhol (Espanha)",
+          "Polonês",
+          "Russo",
+          "Chinês simplificado",
+          "Italiano",
+          "Turco",
+          "Coreano",
+          "Japonês",
+          "Português (Brasil)"
+        ]
+      },
+      "processed_at": "2025-07-22T16:54:13.236Z",
+      "api_version": "5.2-fallback-api"
+    },
+    {
+      "packageids": [
+        191766,
+        202234
+      ],
+      "appids": [
+        673660,
+        701720
+      ],
+      "bundleid": 26666,
+      "name": " Discount Bundle",
+      "header_image_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/26666/dw135b1eavjsmupp/header_ratio.jpg?t=1655123718",
+      "main_capsule": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/26666/dw135b1eavjsmupp/capsule_616x353.jpg?t=1655123718",
+      "initial_price": 2758,
+      "final_price": 828,
+      "formatted_orig_price": "R$ 8,27",
+      "formatted_final_price": "R$ 8,28",
+      "discount_percent": 0,
+      "bundle_base_discount": 70,
+      "available_windows": true,
+      "available_mac": false,
+      "available_linux": false,
+      "support_vrhmd": false,
+      "support_vrhmd_only": false,
+      "creator_clan_ids": [
+        33019586
+      ],
+      "localized_langs": [],
+      "coming_soon": false,
+      "library_asset": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/26666/dw135b1eavjsmupp/library_600x900.jpg?t=1655123718",
+      "no_main_cap": false,
+      "deck_compatibility_category": 0,
+      "page_details": {
+        "gênero": [
+          "Ação",
+          "Indie"
+        ],
+        "desenvolvedor": [
+          "Laush Dmitriy Sergeevich"
+        ],
+        "distribuidora": [
+          "Laush Studio"
+        ],
+        "série": [],
+        "idiomas": [
+          "Inglês",
+          "Francês",
+          "Italiano",
+          "Alemão",
+          "Espanhol (Espanha)",
+          "Árabe",
+          "Búlgaro",
+          "Português (Brasil)",
+          "Húngaro",
+          "Grego",
+          "Dinamarquês",
+          "Chinês tradicional",
+          "Chinês simplificado",
+          "Coreano",
+          "Holandês",
+          "Norueguês",
+          "Polonês",
+          "Português (Portugal)",
+          "Romeno",
+          "Russo",
+          "Tailandês",
+          "Turco",
+          "Ucraniano",
+          "Finlandês",
+          "Tcheco",
+          "Sueco",
+          "Japonês"
+        ]
+      },
+      "processed_at": "2025-07-22T16:54:21.401Z",
+      "api_version": "5.2-fallback-api"
+    },
+    {
+      "packageids": [
+        477819,
+        338726
+      ],
+      "appids": [
+        1362560,
+        1021100
+      ],
+      "bundleid": 27193,
+      "name": "Commander Bundle",
+      "header_image_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/27193/zufol5gjqhhu5krs/header_ratio.jpg?t=1658928055",
+      "main_capsule": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/27193/zufol5gjqhhu5krs/capsule_616x353.jpg?t=1658928055",
+      "initial_price": 6698,
+      "final_price": 5693,
+      "formatted_orig_price": "R$ 56,93",
+      "formatted_final_price": "R$ 56,93",
+      "discount_percent": 0,
+      "bundle_base_discount": 15,
+      "available_windows": true,
+      "available_mac": false,
+      "available_linux": false,
+      "support_vrhmd": false,
+      "support_vrhmd_only": false,
+      "creator_clan_ids": [
+        35983346,
+        33025535,
+        39974703
+      ],
+      "localized_langs": [],
+      "coming_soon": false,
+      "library_asset": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1362560/library_600x900.jpg?t=1730367640",
+      "no_main_cap": false,
+      "deck_compatibility_category": 0,
+      "page_details": {
+        "gênero": [
+          "Action",
+          "Indie",
+          "Simulation",
+          "Strategy"
+        ],
+        "desenvolvedor": [
+          "Atomic Wolf",
+          "Pixel Crow Games",
+          "Gambit Games Studio"
+        ],
+        "distribuidora": [],
+        "série": [],
+        "categoria": [
+          "Single-player",
+          "Steam Achievements",
+          "Family Sharing",
+          "Steam Trading Cards"
+        ]
+      },
+      "processed_at": "2025-07-22T16:54:25.964Z",
+      "api_version": "5.2-fallback-api"
+    },
+    {
+      "packageids": [
+        58383,
+        71217,
+        227857,
+        137794,
+        320220,
+        453289
+      ],
+      "appids": [
+        343710,
+        380800,
+        768730,
+        553960,
+        975470,
+        1299480
+      ],
+      "bundleid": 37570,
+      "name": "Scary Bundle",
+      "header_image_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/37570/12ars35si1ab2f8z/header_ratio.jpg?t=1710261228",
+      "main_capsule": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/37570/12ars35si1ab2f8z/capsule_616x353.jpg?t=1710261228",
+      "initial_price": 25444,
+      "final_price": 17809,
+      "formatted_orig_price": "R$ 178,11",
+      "formatted_final_price": "R$ 178,09",
+      "discount_percent": 0,
+      "bundle_base_discount": 30,
+      "available_windows": true,
+      "available_mac": false,
+      "available_linux": false,
+      "support_vrhmd": false,
+      "support_vrhmd_only": false,
+      "creator_clan_ids": [
+        33020792,
+        32941522
+      ],
+      "localized_langs": [],
+      "coming_soon": false,
+      "library_asset": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/343710/library_600x900.jpg?t=1589292099",
+      "no_main_cap": false,
+      "deck_compatibility_category": 0,
+      "page_details": {
+        "gênero": [
+          "Adventure",
+          "Indie",
+          "Action",
+          "Casual"
+        ],
+        "desenvolvedor": [
+          "IMGN.PRO",
+          "UndeadScout",
+          "Cracked Heads Games",
+          "CyberPunch Studios"
+        ],
+        "distribuidora": [],
+        "série": [],
+        "categoria": [
+          "Single-player",
+          "Steam Achievements",
+          "Full controller support",
+          "Steam Trading Cards",
+          "Steam Cloud",
+          "Family Sharing",
+          "Downloadable Content",
+          "Partial Controller Support"
+        ]
+      },
+      "processed_at": "2025-07-22T16:54:29.298Z",
+      "api_version": "5.2-fallback-api"
+    },
+    {
+      "packageids": [
+        795569,
+        997024
+      ],
+      "appids": [
+        2219800,
+        2790680
+      ],
+      "bundleid": 44605,
+      "name": "Resta! Bundle",
+      "header_image_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/44605/5pcv1iyducouhfo7/01694415e710f32fab6a9bc8e8b477dccea01c21/header_ratio.jpg?t=1725076832",
+      "main_capsule": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/44605/5pcv1iyducouhfo7/1176dfb713d69b9f6ea117f3405f16049651f811/capsule_616x353.jpg?t=1725076832",
+      "initial_price": 9398,
+      "final_price": 6132,
+      "formatted_orig_price": "R$ 84,58",
+      "formatted_final_price": "R$ 61,32",
+      "discount_percent": 28,
+      "bundle_base_discount": 10,
+      "available_windows": true,
+      "available_mac": false,
+      "available_linux": false,
+      "support_vrhmd": false,
+      "support_vrhmd_only": false,
+      "creator_clan_ids": [
+        32398519
+      ],
+      "localized_langs": [],
+      "coming_soon": false,
+      "library_asset": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/2219800/library_600x900.jpg?t=1749284239",
+      "no_main_cap": false,
+      "deck_compatibility_category": 2,
+      "page_details": {
+        "gênero": [
+          "Action",
+          "Indie",
+          "RPG"
+        ],
+        "desenvolvedor": [
+          "Resta!"
+        ],
+        "distribuidora": [],
+        "série": [],
+        "categoria": [
+          "Single-player",
+          "Steam Cloud",
+          "Family Sharing"
+        ]
+      },
+      "processed_at": "2025-07-22T16:54:38.477Z",
+      "api_version": "5.2-fallback-api"
+    },
+    {
+      "packageids": [
+        380984,
+        469274
+      ],
+      "appids": [
+        1122730,
+        1342090
+      ],
+      "bundleid": 30708,
+      "name": " DOPPELGESICHT Bundle",
+      "header_image_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/30708/zxxqgrts7vgb7ftj/header_ratio.jpg?t=1676696704",
+      "main_capsule": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/30708/zxxqgrts7vgb7ftj/capsule_616x353.jpg?t=1676696704",
+      "initial_price": 7598,
+      "final_price": 3841,
+      "formatted_orig_price": "R$ 68,38",
+      "formatted_final_price": "R$ 38,41",
+      "discount_percent": 44,
+      "bundle_base_discount": 10,
+      "available_windows": true,
+      "available_mac": false,
+      "available_linux": false,
+      "support_vrhmd": false,
+      "support_vrhmd_only": false,
+      "creator_clan_ids": [
+        32398519
+      ],
+      "localized_langs": [],
+      "coming_soon": false,
+      "library_asset": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1122730/library_600x900.jpg?t=1718379146",
+      "no_main_cap": false,
+      "deck_compatibility_category": 0,
+      "page_details": {
+        "gênero": [
+          "Indie",
+          "RPG",
+          "Action",
+          "Adventure"
+        ],
+        "desenvolvedor": [
+          "DOPPELGESICHT"
+        ],
+        "distribuidora": [],
+        "série": [],
+        "categoria": [
+          "Single-player",
+          "Steam Cloud",
+          "Family Sharing"
+        ]
+      },
+      "processed_at": "2025-07-22T16:54:39.178Z",
+      "api_version": "5.2-fallback-api"
+    },
+    {
+      "packageids": [
+        627150,
+        631180
+      ],
+      "appids": [
+        1748910,
+        1760300
+      ],
+      "bundleid": 28830,
+      "name": "VRAAR Bundle",
+      "header_image_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/28830/2yprmz45qurig7lu/header_ratio.jpg?t=1669372506",
+      "main_capsule": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/28830/2yprmz45qurig7lu/capsule_616x353.jpg?t=1669372506",
+      "initial_price": 4138,
+      "final_price": 3724,
+      "formatted_orig_price": "R$ 37,24",
+      "formatted_final_price": "R$ 37,24",
+      "discount_percent": 0,
+      "bundle_base_discount": 10,
+      "available_windows": true,
+      "available_mac": false,
+      "available_linux": false,
+      "support_vrhmd": false,
+      "support_vrhmd_only": true,
+      "creator_clan_ids": [
+        35377707
+      ],
+      "localized_langs": [],
+      "coming_soon": false,
+      "library_asset": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1748910/library_600x900.jpg?t=1667385032",
+      "no_main_cap": false,
+      "deck_compatibility_category": 0,
+      "page_details": {
+        "gênero": [
+          "Ação",
+          "Casual",
+          "Indie",
+          "Simulação",
+          "Esportes"
+        ],
+        "desenvolvedor": [
+          "VRAAR S.A."
+        ],
+        "distribuidora": [
+          "VRAAR S.A."
+        ],
+        "série": [],
+        "idiomas": [
+          "Inglês"
+        ]
+      },
+      "processed_at": "2025-07-22T16:54:44.608Z",
+      "api_version": "5.2-fallback-api"
+    },
+    {
+      "packageids": [
+        552288,
+        774843
+      ],
+      "appids": [
+        1499240,
+        2165720
+      ],
+      "bundleid": 29209,
+      "name": "Developer Bundle",
+      "header_image_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/29209/mlum2qm3dv36yozj/header_ratio.jpg?t=1676651531",
+      "main_capsule": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/29209/mlum2qm3dv36yozj/capsule_616x353.jpg?t=1676651531",
+      "initial_price": 7998,
+      "final_price": 3399,
+      "formatted_orig_price": "R$ 67,98",
+      "formatted_final_price": "R$ 33,99",
+      "discount_percent": 50,
+      "bundle_base_discount": 15,
+      "available_windows": true,
+      "available_mac": false,
+      "available_linux": false,
+      "support_vrhmd": false,
+      "support_vrhmd_only": false,
+      "creator_clan_ids": [],
+      "localized_langs": [],
+      "coming_soon": false,
+      "library_asset": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1499240/library_600x900.jpg?t=1674076641",
+      "no_main_cap": false,
+      "deck_compatibility_category": 0,
+      "page_details": {
+        "gênero": [
+          "Aventura",
+          "Casual",
+          "Indie",
+          "RPG"
+        ],
+        "desenvolvedor": [
+          "Little_Amethyst"
+        ],
+        "distribuidora": [
+          "Little_Amethyst"
+        ],
+        "série": [],
+        "idiomas": [
+          "Inglês",
+          "Francês",
+          "Alemão",
+          "Espanhol (Espanha)"
+        ]
+      },
+      "processed_at": "2025-07-22T16:54:45.656Z",
+      "api_version": "5.2-fallback-api"
+    },
+    {
+      "packageids": [
+        767239,
+        482031
+      ],
+      "appids": [
+        2144830,
+        1374350
+      ],
+      "bundleid": 32764,
+      "name": "Chaos Bundle",
+      "header_image_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/32764/gv9r0f6keg5xoom3/header_ratio.jpg?t=1718897248",
+      "main_capsule": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/32764/gv9r0f6keg5xoom3/capsule_616x353.jpg?t=1718897248",
+      "initial_price": 12298,
+      "final_price": 10453,
+      "formatted_orig_price": "R$ 104,53",
+      "formatted_final_price": "R$ 104,53",
+      "discount_percent": 0,
+      "bundle_base_discount": 15,
+      "available_windows": true,
+      "available_mac": false,
+      "available_linux": false,
+      "support_vrhmd": false,
+      "support_vrhmd_only": false,
+      "creator_clan_ids": [
+        33222867,
+        33134072
+      ],
+      "localized_langs": [],
+      "coming_soon": false,
+      "library_asset": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/2144830/library_600x900.jpg?t=1737024006",
+      "no_main_cap": false,
+      "deck_compatibility_category": 0,
+      "page_details": {
+        "gênero": [
+          "Action",
+          "Strategy",
+          "Indie"
+        ],
+        "desenvolvedor": [
+          "SideRift",
+          "Epiphany Games",
+          "Kukouri Mobile Entertainment"
+        ],
+        "distribuidora": [],
+        "série": [],
+        "categoria": [
+          "Single-player",
+          "Steam Achievements",
+          "Partial Controller Support",
+          "Steam Cloud",
+          "Family Sharing",
+          "Multi-player",
+          "Co-op",
+          "Online Co-op",
+          "Shared/Split Screen Co-op",
+          "Shared/Split Screen",
+          "Cross-Platform Multiplayer",
+          "Full controller support"
+        ]
+      },
+      "processed_at": "2025-07-22T16:54:46.492Z",
+      "api_version": "5.2-fallback-api"
+    },
+    {
+      "packageids": [
+        456357,
+        880983
+      ],
+      "appids": [
+        1307660,
+        2447860
+      ],
+      "bundleid": 33389,
+      "name": "Ravenbound Bundle",
+      "header_image_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/33389/f54kaifirgp2vhvc/header_ratio.jpg?t=1688632125",
+      "main_capsule": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/33389/f54kaifirgp2vhvc/capsule_616x353.jpg?t=1688632125",
+      "initial_price": 10278,
+      "final_price": 8736,
+      "formatted_orig_price": "R$ 87,36",
+      "formatted_final_price": "R$ 87,36",
+      "discount_percent": 0,
+      "bundle_base_discount": 15,
+      "available_windows": true,
+      "available_mac": false,
+      "available_linux": false,
+      "support_vrhmd": false,
+      "support_vrhmd_only": false,
+      "creator_clan_ids": [
+        1080307
+      ],
+      "localized_langs": [],
+      "coming_soon": false,
+      "library_asset": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1307660/library_600x900.jpg?t=1743067382",
+      "no_main_cap": false,
+      "deck_compatibility_category": 2,
+      "page_details": {
+        "gênero": [
+          "Action"
+        ],
+        "desenvolvedor": [
+          "Systemic Reaction™"
+        ],
+        "distribuidora": [],
+        "série": [],
+        "categoria": [
+          "Single-player",
+          "Steam Achievements",
+          "Partial Controller Support",
+          "Steam Cloud",
+          "Family Sharing",
+          "Downloadable Content"
+        ]
+      },
+      "processed_at": "2025-07-22T16:54:56.309Z",
+      "api_version": "5.2-fallback-api"
+    },
+    {
+      "packageids": [
+        251842,
+        380196,
+        821543,
+        877597,
+        894481
+      ],
+      "appids": [
+        821250,
+        1121640,
+        2290000,
+        2438680,
+        2485350
+      ],
+      "bundleid": 49082,
+      "name": "City Builder Bundle",
+      "header_image_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/49082/42s74pippkoxstjr/9a4085df9caa939eab101748b82601eca1bb8d66/header_ratio.jpg?t=1742830006",
+      "main_capsule": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/49082/42s74pippkoxstjr/992f3fcd3f90927b0d5830eba23c6671df7fb649/capsule_616x353.jpg?t=1742830006",
+      "initial_price": 31945,
+      "final_price": 12991,
+      "formatted_orig_price": "R$ 191,67",
+      "formatted_final_price": "R$ 129,91",
+      "discount_percent": 32,
+      "bundle_base_discount": 40,
+      "available_windows": true,
+      "available_mac": false,
+      "available_linux": false,
+      "support_vrhmd": false,
+      "support_vrhmd_only": false,
+      "creator_clan_ids": [
+        32943613,
+        33182515,
+        44677084,
+        40257677,
+        44232295,
+        41403038,
+        44892821
+      ],
+      "localized_langs": [],
+      "coming_soon": false,
+      "library_asset": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/821250/library_600x900.jpg?t=1750671988",
+      "no_main_cap": false,
+      "deck_compatibility_category": 2,
+      "page_details": {
+        "gênero": [
+          "Indie",
+          "Simulação",
+          "Estratégia",
+          "Acesso Antecipado",
+          "Casual",
+          "Ação",
+          "Aventura",
+          "RPG"
+        ],
+        "desenvolvedor": [
+          "Pajama Llama Games",
+          "Stray Fawn Studio",
+          "Bitfall Studios",
+          "The Wandering Band LLC",
+          "Frogsong Studios"
+        ],
+        "distribuidora": [
+          "Stray Fawn Publishing",
+          "WhisperGames",
+          "INSTINCT3",
+          "The Wandering Band LLC",
+          "Metaroot"
+        ],
+        "série": [
+          "Stray Fawn Studio",
+          "Metaroot",
+          "Frogsong Studios"
+        ],
+        "idiomas": [
+          "Inglês",
+          "Francês",
+          "Italiano",
+          "Alemão",
+          "Espanhol (Espanha)",
+          "Holandês",
+          "Japonês",
+          "Coreano",
+          "Português (Brasil)",
+          "Russo",
+          "Chinês simplificado",
+          "Chinês tradicional",
+          "Polonês",
+          "Árabe",
+          "Turco"
+        ]
+      },
+      "processed_at": "2025-07-22T16:55:06.953Z",
+      "api_version": "5.2-fallback-api"
+    },
+    {
+      "packageids": [
+        28233,
+        84002
+      ],
+      "appids": [
+        241600,
+        416600
+      ],
+      "bundleid": 6789,
+      "name": "Rogue Legacy + Full Metal Furies Super Discount Bundle Bundle Bundle",
+      "header_image_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/6789/4h520do8sndxx9ls/header_ratio.jpg?t=1522763981",
+      "main_capsule": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/6789/4h520do8sndxx9ls/capsule_616x353.jpg?t=1522763981",
+      "initial_price": 10698,
+      "final_price": 8558,
+      "formatted_orig_price": "R$ 85,58",
+      "formatted_final_price": "R$ 85,58",
+      "discount_percent": 0,
+      "bundle_base_discount": 20,
+      "available_windows": true,
+      "available_mac": true,
+      "available_linux": true,
+      "support_vrhmd": false,
+      "support_vrhmd_only": false,
+      "creator_clan_ids": [
+        4868201
+      ],
+      "localized_langs": [],
+      "coming_soon": false,
+      "library_asset": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/241600/library_600x900.jpg?t=1743078622",
+      "no_main_cap": false,
+      "deck_compatibility_category": 0,
+      "page_details": {
+        "gênero": [
+          "Ação",
+          "Aventura",
+          "Indie",
+          "RPG"
+        ],
+        "desenvolvedor": [
+          "Cellar Door Games"
+        ],
+        "distribuidora": [
+          "Cellar Door Games"
+        ],
+        "série": [],
+        "idiomas": [
+          "Inglês",
+          "Francês",
+          "Alemão",
+          "Espanhol (Espanha)",
+          "Polonês",
+          "Português (Brasil)",
+          "Russo",
+          "Chinês simplificado",
+          "Coreano"
+        ]
+      },
+      "processed_at": "2025-07-22T16:55:21.418Z",
+      "api_version": "5.2-fallback-api"
+    },
+    {
+      "packageids": [
+        126353,
+        956094
+      ],
+      "appids": [
+        527230,
+        1676840
+      ],
+      "bundleid": 39263,
+      "name": "For The King Franchise Bundle",
+      "header_image_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/39263/ui8lhr0ipxzjucsj/header_ratio.jpg?t=1709315166",
+      "main_capsule": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/39263/ui8lhr0ipxzjucsj/capsule_616x353.jpg?t=1709315166",
+      "initial_price": 11298,
+      "final_price": 6118,
+      "formatted_orig_price": "R$ 101,68",
+      "formatted_final_price": "R$ 61,18",
+      "discount_percent": 40,
+      "bundle_base_discount": 10,
+      "available_windows": true,
+      "available_mac": false,
+      "available_linux": false,
+      "support_vrhmd": false,
+      "support_vrhmd_only": false,
+      "creator_clan_ids": [
+        33019968
+      ],
+      "localized_langs": [],
+      "coming_soon": false,
+      "library_asset": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/527230/library_600x900.jpg?t=1747735376",
+      "no_main_cap": false,
+      "deck_compatibility_category": 2,
+      "page_details": {
+        "gênero": [
+          "Aventura",
+          "Indie",
+          "RPG",
+          "Estratégia"
+        ],
+        "desenvolvedor": [
+          "IronOak Games"
+        ],
+        "distribuidora": [
+          "Curve Games"
+        ],
+        "série": [
+          "Curve Games"
+        ],
+        "idiomas": [
+          "Inglês",
+          "Francês",
+          "Italiano",
+          "Alemão",
+          "Espanhol (Espanha)",
+          "Português (Brasil)",
+          "Russo",
+          "Chinês simplificado",
+          "Chinês tradicional",
+          "Polonês",
+          "Japonês",
+          "Coreano",
+          "Ucraniano"
+        ]
+      },
+      "processed_at": "2025-07-22T16:55:22.550Z",
+      "api_version": "5.2-fallback-api"
+    },
+    {
+      "packageids": [
+        322992,
+        1175603
+      ],
+      "appids": [
+        981750,
+        3320120
+      ],
+      "bundleid": 47463,
+      "name": "CRYSTAR SOUNDTRACK BUNDLE",
+      "header_image_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/47463/8gp1nqpuaxwutrfz/b1fe8428e0e52b33621aa65f49aa3e21e2c35ef9/header_ratio.jpg?t=1733387195",
+      "main_capsule": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/47463/8gp1nqpuaxwutrfz/01b3eac530eac54c4c1fcf0849e8ca685db3eb1b/capsule_616x353.jpg?t=1733387195",
+      "initial_price": 20399,
+      "final_price": 14279,
+      "formatted_orig_price": "R$ 142,79",
+      "formatted_final_price": "R$ 142,79",
+      "discount_percent": 0,
+      "bundle_base_discount": 30,
+      "available_windows": true,
+      "available_mac": false,
+      "available_linux": false,
+      "support_vrhmd": false,
+      "support_vrhmd_only": false,
+      "creator_clan_ids": [
+        32618574
+      ],
+      "localized_langs": [],
+      "coming_soon": false,
+      "library_asset": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/981750/library_600x900.jpg?t=1740581952",
+      "no_main_cap": false,
+      "deck_compatibility_category": 3,
+      "page_details": {
+        "gênero": [
+          "Action",
+          "RPG"
+        ],
+        "desenvolvedor": [
+          "FURYU Corporation"
+        ],
+        "distribuidora": [],
+        "série": [],
+        "categoria": [
+          "Single-player",
+          "Steam Achievements",
+          "Steam Trading Cards",
+          "Partial Controller Support",
+          "Steam Cloud",
+          "Family Sharing"
+        ]
+      },
+      "processed_at": "2025-07-22T16:55:24.791Z",
+      "api_version": "5.2-fallback-api"
+    },
+    {
+      "packageids": [
+        2068,
+        25604,
+        38612,
+        52715,
+        53035
+      ],
+      "appids": [
+        25990,
+        202130,
+        281511,
+        203630,
+        206550,
+        206560,
+        206570,
+        206580,
+        206590,
+        205990,
+        320740
+      ],
+      "bundleid": 9529,
+      "name": "World of Ardania Bundle",
+      "header_image_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/9529/10j03eeqx6tps78n/header_ratio.jpg?t=1545300707",
+      "main_capsule": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/9529/10j03eeqx6tps78n/capsule_616x353.jpg?t=1545300707",
+      "initial_price": 28795,
+      "final_price": 25915,
+      "formatted_orig_price": "R$ 259,16",
+      "formatted_final_price": "R$ 259,15",
+      "discount_percent": 0,
+      "bundle_base_discount": 10,
+      "available_windows": true,
+      "available_mac": false,
+      "available_linux": false,
+      "support_vrhmd": false,
+      "support_vrhmd_only": false,
+      "creator_clan_ids": [
+        6859167,
+        622662
+      ],
+      "localized_langs": [],
+      "coming_soon": false,
+      "library_asset": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/9529/10j03eeqx6tps78n/library_600x900.jpg?t=1545300707",
+      "no_main_cap": false,
+      "deck_compatibility_category": 0,
+      "page_details": {
+        "gênero": [
+          "Simulação",
+          "Estratégia"
+        ],
+        "desenvolvedor": [
+          "Cyberlore",
+          "Cyanide Montreal",
+          "InoCo",
+          "Ino-Co Plus"
+        ],
+        "distribuidora": [
+          "Paradox Interactive"
+        ],
+        "série": [],
+        "idiomas": [
+          "Inglês",
+          "Alemão",
+          "Francês",
+          "Russo",
+          "Espanhol (Espanha)"
+        ]
+      },
+      "processed_at": "2025-07-22T16:55:31.710Z",
+      "api_version": "5.2-fallback-api"
+    },
+    {
+      "packageids": [
+        863768,
+        592254
+      ],
+      "appids": [
+        1150440,
+        1549970
+      ],
+      "bundleid": 36059,
+      "name": "Aliens: Fireteam Elite + Aliens: Dark Descent Bundle",
+      "header_image_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/36059/nbit7u5bl9uunfkr/header_ratio.jpg?t=1698249371",
+      "main_capsule": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/36059/nbit7u5bl9uunfkr/capsule_616x353.jpg?t=1698249371",
+      "initial_price": 23989,
+      "final_price": 6835,
+      "formatted_orig_price": "R$ 215,90",
+      "formatted_final_price": "R$ 68,35",
+      "discount_percent": 68,
+      "bundle_base_discount": 10,
+      "available_windows": true,
+      "available_mac": false,
+      "available_linux": false,
+      "support_vrhmd": false,
+      "support_vrhmd_only": false,
+      "creator_clan_ids": [
+        45603271,
+        21394,
+        44083987
+      ],
+      "localized_langs": [],
+      "coming_soon": false,
+      "library_asset": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1150440/library_600x900.jpg?t=1723627822",
+      "no_main_cap": false,
+      "deck_compatibility_category": 1,
+      "page_details": {
+        "gênero": [
+          "Action",
+          "Strategy",
+          "RPG"
+        ],
+        "desenvolvedor": [
+          "Tindalos Interactive",
+          "Cold Iron Studios"
+        ],
+        "distribuidora": [],
+        "série": [],
+        "categoria": [
+          "Single-player",
+          "Steam Achievements",
+          "Full controller support",
+          "Steam Cloud",
+          "Family Sharing",
+          "Multi-player",
+          "Co-op",
+          "Online Co-op",
+          "Cross-Platform Multiplayer"
+        ]
+      },
+      "processed_at": "2025-07-22T16:55:32.723Z",
+      "api_version": "5.2-fallback-api"
+    },
+    {
+      "packageids": [
+        191913,
+        37044
+      ],
+      "appids": [
+        674140,
+        224480
+      ],
+      "bundleid": 25671,
+      "name": "Bugsnax + Octodad Bundle",
+      "header_image_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/25671/4fq9pmvy79g3ir0u/header_ratio.jpg?t=1649967253",
+      "main_capsule": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/25671/4fq9pmvy79g3ir0u/capsule_616x353.jpg?t=1649967253",
+      "initial_price": 7248,
+      "final_price": 2018,
+      "formatted_orig_price": "R$ 57,98",
+      "formatted_final_price": "R$ 20,18",
+      "discount_percent": 65,
+      "bundle_base_discount": 20,
+      "available_windows": true,
+      "available_mac": true,
+      "available_linux": false,
+      "support_vrhmd": false,
+      "support_vrhmd_only": false,
+      "creator_clan_ids": [
+        6856399
+      ],
+      "localized_langs": [],
+      "coming_soon": false,
+      "library_asset": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/674140/library_600x900.jpg?t=1731435409",
+      "no_main_cap": false,
+      "deck_compatibility_category": 3,
+      "page_details": {
+        "gênero": [
+          "Ação",
+          "Aventura",
+          "Casual",
+          "Indie"
+        ],
+        "desenvolvedor": [
+          "Young Horses"
+        ],
+        "distribuidora": [
+          "Young Horses"
+        ],
+        "série": [],
+        "idiomas": [
+          "Inglês",
+          "Francês",
+          "Italiano",
+          "Alemão",
+          "Espanhol (Espanha)",
+          "Japonês",
+          "Coreano",
+          "Polonês",
+          "Português (Brasil)",
+          "Russo",
+          "Chinês simplificado",
+          "Espanhol (América Latina)",
+          "Húngaro",
+          "Romeno"
+        ]
+      },
+      "processed_at": "2025-07-22T16:55:30.384Z",
+      "api_version": "5.2-fallback-api"
+    },
+    {
+      "packageids": [
+        558882,
+        270077,
+        878686
+      ],
+      "appids": [
+        1579880,
+        858260,
+        2441700
+      ],
+      "bundleid": 46682,
+      "name": "VR Roguelike Essentials Bundle",
+      "header_image_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/46682/g09vqpk4jnobyeph/6c198cd2e508e3ec6ac4b0239882f8a8430fffd6/header_ratio.jpg?t=1731605563",
+      "main_capsule": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/46682/g09vqpk4jnobyeph/492b81bc068c78ecc22ee9054ba5a3e4dda78fb3/capsule_616x353.jpg?t=1731605563",
+      "initial_price": 23797,
+      "final_price": 11976,
+      "formatted_orig_price": "R$ 166,58",
+      "formatted_final_price": "R$ 119,76",
+      "discount_percent": 28,
+      "bundle_base_discount": 30,
+      "available_windows": true,
+      "available_mac": false,
+      "available_linux": false,
+      "support_vrhmd": false,
+      "support_vrhmd_only": true,
+      "creator_clan_ids": [
+        29058159,
+        45466109,
+        33528044,
+        44859841
+      ],
+      "localized_langs": [],
+      "coming_soon": false,
+      "library_asset": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1579880/library_600x900.jpg?t=1748535456",
+      "no_main_cap": false,
+      "deck_compatibility_category": 1,
+      "page_details": {
+        "gênero": [
+          "Action",
+          "RPG",
+          "Strategy",
+          "Adventure",
+          "Indie",
+          "Simulation"
+        ],
+        "desenvolvedor": [
+          "Funktronic Labs",
+          "Schell Games",
+          "One Hamsa"
+        ],
+        "distribuidora": [],
+        "série": [],
+        "categoria": [
+          "Single-player",
+          "Steam Achievements",
+          "Tracked Controller Support",
+          "VR Only",
+          "Steam Trading Cards",
+          "Steam Cloud",
+          "Steam Leaderboards",
+          "Family Sharing"
+        ]
+      },
+      "processed_at": "2025-07-22T16:55:42.668Z",
+      "api_version": "5.2-fallback-api"
+    },
+    {
+      "packageids": [
+        286474,
+        356165,
+        662180
+      ],
+      "appids": [
+        896520,
+        1064460,
+        1840490
+      ],
+      "bundleid": 28510,
+      "name": "Puppet Combo Bundle",
+      "header_image_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/28510/cwgxlak0rdczbn0u/header_ratio.jpg?t=1665695511",
+      "main_capsule": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/28510/cwgxlak0rdczbn0u/capsule_616x353.jpg?t=1665695511",
+      "initial_price": 7047,
+      "final_price": 5990,
+      "formatted_orig_price": "R$ 59,90",
+      "formatted_final_price": "R$ 59,90",
+      "discount_percent": 0,
+      "bundle_base_discount": 15,
+      "available_windows": true,
+      "available_mac": false,
+      "available_linux": false,
+      "support_vrhmd": false,
+      "support_vrhmd_only": false,
+      "creator_clan_ids": [
+        42220014
+      ],
+      "localized_langs": [],
+      "coming_soon": false,
+      "library_asset": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/896520/library_600x900.jpg?t=1689365167",
+      "no_main_cap": false,
+      "deck_compatibility_category": 2,
+      "page_details": {
+        "gênero": [
+          "Action",
+          "Adventure",
+          "Indie",
+          "Simulation"
+        ],
+        "desenvolvedor": [
+          "Puppet Combo"
+        ],
+        "distribuidora": [],
+        "série": [],
+        "categoria": [
+          "Single-player",
+          "Partial Controller Support",
+          "Family Sharing",
+          "Steam Achievements",
+          "Full controller support"
+        ]
+      },
+      "processed_at": "2025-07-22T16:55:43.227Z",
+      "api_version": "5.2-fallback-api"
+    },
+    {
+      "packageids": [
+        26276,
+        223872
+      ],
+      "appids": [
+        227860,
+        758720
+      ],
+      "bundleid": 5761,
+      "name": "Castle Story + OST Bundle",
+      "header_image_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/5761/78kprl3ak6acg1sh/header_ratio.jpg?t=1516650894",
+      "main_capsule": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/5761/78kprl3ak6acg1sh/capsule_616x353.jpg?t=1516650894",
+      "initial_price": 4348,
+      "final_price": 1847,
+      "formatted_orig_price": "R$ 36,96",
+      "formatted_final_price": "R$ 18,47",
+      "discount_percent": 50,
+      "bundle_base_discount": 15,
+      "available_windows": true,
+      "available_mac": true,
+      "available_linux": true,
+      "support_vrhmd": false,
+      "support_vrhmd_only": false,
+      "creator_clan_ids": [
+        33028557
+      ],
+      "localized_langs": [],
+      "coming_soon": false,
+      "library_asset": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/227860/library_600x900.jpg?t=1667578994",
+      "no_main_cap": false,
+      "deck_compatibility_category": 2,
+      "page_details": {
+        "gênero": [
+          "Indie",
+          "Simulação",
+          "Estratégia",
+          "Aventura"
+        ],
+        "desenvolvedor": [
+          "Sauropod Studio"
+        ],
+        "distribuidora": [
+          "Sauropod Studio"
+        ],
+        "série": [],
+        "idiomas": [
+          "Inglês",
+          "Francês"
+        ]
+      },
+      "processed_at": "2025-07-22T16:55:38.758Z",
+      "api_version": "5.2-fallback-api"
+    },
+    {
+      "packageids": [
+        658999,
+        182931
+      ],
+      "appids": [
+        1832040,
+        649950
+      ],
+      "bundleid": 42628,
+      "name": "A44 Bundle",
+      "header_image_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/42628/hee7081grujtxnv6/header_ratio.jpg?t=1719997925",
+      "main_capsule": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/42628/hee7081grujtxnv6/capsule_616x353.jpg?t=1719997925",
+      "initial_price": 20498,
+      "final_price": 4354,
+      "formatted_orig_price": "R$ 174,23",
+      "formatted_final_price": "R$ 43,54",
+      "discount_percent": 75,
+      "bundle_base_discount": 15,
+      "available_windows": true,
+      "available_mac": false,
+      "available_linux": false,
+      "support_vrhmd": false,
+      "support_vrhmd_only": false,
+      "creator_clan_ids": [
+        44017243,
+        33023506
+      ],
+      "localized_langs": [],
+      "coming_soon": false,
+      "library_asset": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1832040/library_600x900.jpg?t=1727259687",
+      "no_main_cap": false,
+      "deck_compatibility_category": 2,
+      "page_details": {
+        "gênero": [
+          "Action",
+          "Adventure",
+          "RPG"
+        ],
+        "desenvolvedor": [
+          "A44 Games",
+          "A44"
+        ],
+        "distribuidora": [],
+        "série": [],
+        "categoria": [
+          "Single-player",
+          "Steam Achievements",
+          "Full controller support",
+          "Steam Cloud",
+          "Stats",
+          "Family Sharing",
+          "Multi-player",
+          "Co-op",
+          "Online Co-op",
+          "Remote Play on Phone",
+          "Remote Play on Tablet",
+          "Remote Play on TV"
+        ]
+      },
+      "processed_at": "2025-07-22T16:55:53.262Z",
+      "api_version": "5.2-fallback-api"
+    },
+    {
+      "packageids": [
+        69486,
+        125753,
+        125756,
+        185574,
+        200456,
+        200474,
+        201111,
+        217213,
+        548078
+      ],
+      "appids": [
+        375840,
+        525970,
+        525971,
+        657280,
+        697380,
+        697410,
+        699060,
+        741540,
+        1552100
+      ],
+      "bundleid": 6216,
+      "name": "Rytmik Supporter Bundle",
+      "header_image_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/6216/d5potgxpdr7wrqqy/header_ratio.jpg?t=1533648937",
+      "main_capsule": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/6216/d5potgxpdr7wrqqy/capsule_616x353.jpg?t=1533648937",
+      "initial_price": 30371,
+      "final_price": 5530,
+      "formatted_orig_price": "R$ 151,86",
+      "formatted_final_price": "R$ 55,30",
+      "discount_percent": 64,
+      "bundle_base_discount": 50,
+      "available_windows": true,
+      "available_mac": true,
+      "available_linux": false,
+      "support_vrhmd": false,
+      "support_vrhmd_only": false,
+      "creator_clan_ids": [
+        33033713,
+        44880253,
+        12064890
+      ],
+      "localized_langs": [],
+      "coming_soon": false,
+      "library_asset": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/375840/library_600x900.jpg?t=1728102745",
+      "no_main_cap": false,
+      "deck_compatibility_category": 1,
+      "page_details": {
+        "gênero": [
+          "Produção de áudio",
+          "Utilitários",
+          "Acesso Antecipado"
+        ],
+        "desenvolvedor": [
+          "CINEMAX GAMES"
+        ],
+        "distribuidora": [
+          "CINEMAX GAMES"
+        ],
+        "série": [
+          "Rytmik"
+        ],
+        "idiomas": [
+          "Inglês",
+          "Tcheco",
+          "Russo",
+          "Ucraniano"
+        ]
+      },
+      "processed_at": "2025-07-22T16:56:03.579Z",
+      "api_version": "5.2-fallback-api"
+    },
+    {
+      "packageids": [
+        456320,
+        576498
+      ],
+      "appids": [
+        1307550,
+        1623730
+      ],
+      "bundleid": 38048,
+      "name": "Palworld + Craftopia Bundle",
+      "header_image_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/38048/bmicm9mq953eghqs/header_ratio.jpg?t=1716787716",
+      "main_capsule": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/38048/bmicm9mq953eghqs/capsule_616x353.jpg?t=1716787716",
+      "initial_price": 16298,
+      "final_price": 14668,
+      "formatted_orig_price": "R$ 146,68",
+      "formatted_final_price": "R$ 146,68",
+      "discount_percent": 0,
+      "bundle_base_discount": 10,
+      "available_windows": true,
+      "available_mac": false,
+      "available_linux": false,
+      "support_vrhmd": false,
+      "support_vrhmd_only": false,
+      "creator_clan_ids": [
+        41648656
+      ],
+      "localized_langs": [],
+      "coming_soon": false,
+      "library_asset": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1307550/library_600x900.jpg?t=1750302934",
+      "no_main_cap": false,
+      "deck_compatibility_category": 2,
+      "page_details": {
+        "gênero": [
+          "Ação",
+          "Aventura",
+          "Indie",
+          "RPG",
+          "Acesso Antecipado"
+        ],
+        "desenvolvedor": [
+          "Pocketpair"
+        ],
+        "distribuidora": [
+          "Pocketpair"
+        ],
+        "série": [],
+        "idiomas": [
+          "Inglês",
+          "Japonês",
+          "Chinês simplificado",
+          "Chinês tradicional",
+          "Francês",
+          "Italiano",
+          "Alemão",
+          "Espanhol (Espanha)",
+          "Português (Brasil)",
+          "Russo",
+          "Coreano",
+          "Indonésio",
+          "Espanhol (América Latina)",
+          "Tailandês",
+          "Turco",
+          "Vietnamita",
+          "Polonês"
+        ]
+      },
+      "processed_at": "2025-07-22T16:56:03.068Z",
+      "api_version": "5.2-fallback-api"
+    },
+    {
+      "packageids": [
+        359541,
+        1337048
+      ],
+      "appids": [
+        1072400,
+        3801460
+      ],
+      "bundleid": 55137,
+      "name": "Original Soundtrack Bundle",
+      "header_image_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/55137/5tiqeulggdclysux/8e8366de657de77e3b78c35fa58ee5ca335c2b88/header_ratio.jpg?t=1750661881",
+      "main_capsule": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/55137/5tiqeulggdclysux/d0d7b51407e22006c930e53c42996ee51bac084a/capsule_616x353.jpg?t=1750661881",
+      "initial_price": 7548,
+      "final_price": 6793,
+      "formatted_orig_price": "R$ 67,93",
+      "formatted_final_price": "R$ 67,93",
+      "discount_percent": 0,
+      "bundle_base_discount": 10,
+      "available_windows": true,
+      "available_mac": false,
+      "available_linux": false,
+      "support_vrhmd": false,
+      "support_vrhmd_only": false,
+      "creator_clan_ids": [
+        8438467
+      ],
+      "localized_langs": [],
+      "coming_soon": false,
+      "library_asset": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1072400/library_600x900.jpg?t=1750661973",
+      "no_main_cap": false,
+      "deck_compatibility_category": 3,
+      "page_details": {
+        "gênero": [
+          "Ação",
+          "Aventura",
+          "Indie"
+        ],
+        "desenvolvedor": [
+          "Asamado Games"
+        ],
+        "distribuidora": [
+          "PLAYISM"
+        ],
+        "série": [
+          "PLAYISM"
+        ],
+        "idiomas": [
+          "Japonês",
+          "Inglês",
+          "Chinês simplificado"
+        ]
+      },
+      "processed_at": "2025-07-22T16:56:08.891Z",
+      "api_version": "5.2-fallback-api"
+    },
+    {
+      "packageids": [
+        53619,
+        62038,
+        85567,
+        586532,
+        700,
+        3083,
+        292269,
+        37696,
+        215271,
+        247989,
+        791024,
+        7368,
+        11990,
+        36706,
+        1079196,
+        1121268
+      ],
+      "appids": [
+        289650,
+        311560,
+        368500,
+        242050,
+        260473,
+        260474,
+        260476,
+        260477,
+        260950,
+        264812,
+        15100,
+        33230,
+        911400,
+        277590,
+        582160,
+        812140,
+        2208920,
+        48190,
+        201870,
+        260210,
+        3035570,
+        3159330
+      ],
+      "bundleid": 757,
+      "name": "Assassin's Creed Bundle",
+      "header_image_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/757/30mft8ys4ip6f062/adcfcd1b597720adf27e9a28c10ec99584f8e91e/header_ratio.jpg?t=1742837919",
+      "main_capsule": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/757/30mft8ys4ip6f062/b952a315f708180312313cf67431ed6c74879511/capsule_616x353.jpg?t=1742837919",
+      "initial_price": 192484,
+      "final_price": 118447,
+      "formatted_orig_price": "R$ 1.732,36",
+      "formatted_final_price": "R$ 1.184,47",
+      "discount_percent": 32,
+      "bundle_base_discount": 10,
+      "available_windows": true,
+      "available_mac": false,
+      "available_linux": false,
+      "support_vrhmd": false,
+      "support_vrhmd_only": false,
+      "creator_clan_ids": [
+        33075774,
+        185907
+      ],
+      "localized_langs": [],
+      "coming_soon": false,
+      "library_asset": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/289650/library_600x900.jpg?t=1751969095",
+      "no_main_cap": false,
+      "deck_compatibility_category": 1,
+      "page_details": {
+        "gênero": [
+          "Action",
+          "Adventure",
+          "RPG"
+        ],
+        "desenvolvedor": [
+          "Ubisoft",
+          "Ubisoft Sofia",
+          "Ubisoft Kiev",
+          "Ubisoft Quebec, in collaboration with Ubisoft Annecy, Bucharest, Kiev, Montreal, Montpellier, Shanghai, Singapore, Sofia, Toronto studios",
+          "Ubisoft Montreal",
+          "Ubisoft Entertainment",
+          "Ubisoft Quebec",
+          "Ubisoft Bucharest",
+          "Ubisoft Singapore",
+          "Ubisoft Montpellier",
+          "Ubisoft Shanghai"
+        ],
+        "distribuidora": [],
+        "série": [],
+        "categoria": [
+          "Single-player",
+          "Multi-player",
+          "Co-op",
+          "Steam Achievements",
+          "In-App Purchases",
+          "Custom Volume Controls",
+          "Adjustable Difficulty",
+          "Mouse Only Option",
+          "Playable without Timed Input",
+          "Save Anytime",
+          "Stereo Sound",
+          "Surround Sound",
+          "Partial Controller Support",
+          "Downloadable Content",
+          "Family Sharing",
+          "Steam Trading Cards",
+          "Captions available",
+          "Camera Comfort",
+          "Keyboard Only Option",
+          "Remote Play on Tablet",
+          "HDR available",
+          "Remote Play on Phone",
+          "Adjustable Text Size",
+          "Color Alternatives",
+          "Narrated Game Menus"
+        ]
+      },
+      "processed_at": "2025-07-22T16:56:30.285Z",
+      "api_version": "5.2-fallback-api"
+    },
+    {
+      "packageids": [
+        939136,
+        1306421
+      ],
+      "appids": [
+        2617700,
+        3710880
+      ],
+      "bundleid": 53518,
+      "name": "Tinkerlands - Supporter Bundle",
+      "header_image_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/53518/cms4an5hd19obf6f/ebac5240cdcdd1d0988846f24378ab814497d0ad/header_ratio.jpg?t=1747395945",
+      "main_capsule": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/53518/cms4an5hd19obf6f/e67a0a6906482b8f8494007665627c7016653126/capsule_616x353.jpg?t=1747395945",
+      "initial_price": 4198,
+      "final_price": 3778,
+      "formatted_orig_price": "R$ 37,78",
+      "formatted_final_price": "R$ 37,78",
+      "discount_percent": 0,
+      "bundle_base_discount": 10,
+      "available_windows": true,
+      "available_mac": false,
+      "available_linux": false,
+      "support_vrhmd": false,
+      "support_vrhmd_only": false,
+      "creator_clan_ids": [
+        26684285
+      ],
+      "localized_langs": [],
+      "coming_soon": false,
+      "library_asset": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/2617700/f7b566631a6648a7f9e119588960208bc0053070/library_600x900.jpg?t=1752246476",
+      "no_main_cap": false,
+      "deck_compatibility_category": 3,
+      "page_details": {
+        "gênero": [
+          "Ação",
+          "Aventura",
+          "Casual",
+          "Indie",
+          "RPG",
+          "Simulação",
+          "Estratégia",
+          "Acesso Antecipado"
+        ],
+        "desenvolvedor": [
+          "CodeManu",
+          "Endless Coffee"
+        ],
+        "distribuidora": [
+          "HypeTrain Digital"
+        ],
+        "série": [
+          "HypeTrain Digital"
+        ],
+        "idiomas": [
+          "Inglês",
+          "Francês",
+          "Alemão",
+          "Espanhol (Espanha)",
+          "Coreano",
+          "Português (Brasil)",
+          "Russo",
+          "Chinês simplificado",
+          "Chinês tradicional",
+          "Japonês"
+        ]
+      },
+      "processed_at": "2025-07-22T16:56:08.614Z",
+      "api_version": "5.2-fallback-api"
+    },
+    {
+      "packageids": [
+        314968,
+        166703,
+        361070
+      ],
+      "appids": [
+        962750,
+        620610,
+        1076080
+      ],
+      "bundleid": 9395,
+      "name": "Exceptional Cargo Bundle",
+      "header_image_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/9395/4vag62nu9z65h7g4/header_ratio.jpg?t=1543344910",
+      "main_capsule": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/9395/4vag62nu9z65h7g4/capsule_616x353.jpg?t=1543344910",
+      "initial_price": 4827,
+      "final_price": 1929,
+      "formatted_orig_price": "R$ 38,62",
+      "formatted_final_price": "R$ 19,29",
+      "discount_percent": 50,
+      "bundle_base_discount": 20,
+      "available_windows": true,
+      "available_mac": true,
+      "available_linux": true,
+      "support_vrhmd": false,
+      "support_vrhmd_only": false,
+      "creator_clan_ids": [
+        4036972
+      ],
+      "localized_langs": [],
+      "coming_soon": false,
+      "library_asset": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/9395/4vag62nu9z65h7g4/library_600x900.jpg?t=1543344910",
+      "no_main_cap": false,
+      "deck_compatibility_category": 0,
+      "page_details": {
+        "gênero": [
+          "Indie",
+          "Simulação"
+        ],
+        "desenvolvedor": [
+          "SCS Software"
+        ],
+        "distribuidora": [
+          "SCS Software"
+        ],
+        "série": [
+          "SCS Software"
+        ],
+        "idiomas": [
+          "Inglês",
+          "Francês",
+          "Italiano",
+          "Alemão",
+          "Espanhol (Espanha)",
+          "Búlgaro",
+          "Tcheco",
+          "Dinamarquês",
+          "Holandês",
+          "Finlandês",
+          "Grego",
+          "Húngaro",
+          "Japonês",
+          "Coreano",
+          "Norueguês",
+          "Polonês",
+          "Português (Portugal)",
+          "Português (Brasil)",
+          "Romeno",
+          "Russo",
+          "Chinês simplificado",
+          "Sueco",
+          "Turco",
+          "Ucraniano"
+        ]
+      },
+      "processed_at": "2025-07-22T16:56:35.268Z",
+      "api_version": "5.2-fallback-api"
+    },
+    {
+      "packageids": [
+        764995,
+        588057
+      ],
+      "appids": [
+        2138710,
+        1654660
+      ],
+      "bundleid": 36074,
+      "name": "Action Fighting Bundle",
+      "header_image_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/36074/5i91gjfj9z8ltbmi/header_ratio.jpg?t=1699348294",
+      "main_capsule": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/36074/5i91gjfj9z8ltbmi/capsule_616x353.jpg?t=1699348294",
+      "initial_price": 13598,
+      "final_price": 8188,
+      "formatted_orig_price": "R$ 122,38",
+      "formatted_final_price": "R$ 81,88",
+      "discount_percent": 33,
+      "bundle_base_discount": 10,
+      "available_windows": true,
+      "available_mac": false,
+      "available_linux": false,
+      "support_vrhmd": false,
+      "support_vrhmd_only": false,
+      "creator_clan_ids": [
+        44719224,
+        44017243
+      ],
+      "localized_langs": [],
+      "coming_soon": false,
+      "library_asset": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/2138710/library_600x900.jpg?t=1750341389",
+      "no_main_cap": false,
+      "deck_compatibility_category": 3,
+      "page_details": {
+        "gênero": [
+          "Action",
+          "Indépendant",
+          "Adventure",
+          "Indie"
+        ],
+        "desenvolvedor": [
+          "Sloclap",
+          "Fireplace Games"
+        ],
+        "distribuidora": [],
+        "série": [],
+        "categoria": [
+          "Solo",
+          "Succès Steam",
+          "Compat. contrôleurs complète",
+          "Steam Cloud",
+          "Partage familial",
+          "Single-player",
+          "Steam Achievements",
+          "Full controller support",
+          "Family Sharing"
+        ]
+      },
+      "processed_at": "2025-07-22T16:56:40.643Z",
+      "api_version": "5.2-fallback-api"
+    },
+    {
+      "packageids": [
+        38760,
+        1013416,
+        1021136,
+        1021143,
+        1037905,
+        137539,
+        207720,
+        306975,
+        387847,
+        536941,
+        680475,
+        856101,
+        910651,
+        121840,
+        179267,
+        627210,
+        264103,
+        348631,
+        817085,
+        114123,
+        222899,
+        387844,
+        469054,
+        756843,
+        165222
+      ],
+      "appids": [
+        281990,
+        2840100,
+        2863060,
+        2863080,
+        2863180,
+        553280,
+        716670,
+        944290,
+        1140001,
+        1522090,
+        1889490,
+        2380030,
+        2534090,
+        518910,
+        642750,
+        1749080,
+        844810,
+        1045980,
+        2277860,
+        498870,
+        756010,
+        1140000,
+        1341520,
+        2115770,
+        616191
+      ],
+      "bundleid": 21037,
+      "name": "Stellaris: Ultimate Bundle",
+      "header_image_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/21037/ocws7ua5w37wly5c/header_ratio.jpg?t=1736431918",
+      "main_capsule": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/21037/ocws7ua5w37wly5c/capsule_616x353.jpg?t=1736431918",
+      "initial_price": 135376,
+      "final_price": 98818,
+      "formatted_orig_price": "R$ 988,24",
+      "formatted_final_price": "R$ 988,18",
+      "discount_percent": 0,
+      "bundle_base_discount": 27,
+      "available_windows": true,
+      "available_mac": true,
+      "available_linux": true,
+      "support_vrhmd": false,
+      "support_vrhmd_only": false,
+      "creator_clan_ids": [
+        4117016,
+        6859167,
+        32978458
+      ],
+      "localized_langs": [],
+      "coming_soon": false,
+      "library_asset": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/281990/9fb67f416cc0043ce46d7cd3a45bbfc16232bf91/library_600x900.jpg?t=1746546960",
+      "no_main_cap": false,
+      "deck_compatibility_category": 2,
+      "page_details": {
+        "gênero": [
+          "Simulation",
+          "Strategy"
+        ],
+        "desenvolvedor": [
+          "Paradox Development Studio",
+          "Behaviour Rotterdam",
+          "Abrakam Entertainment SA",
+          "Paradox Arctic"
+        ],
+        "distribuidora": [],
+        "série": [],
+        "categoria": [
+          "Single-player",
+          "Multi-player",
+          "Cross-Platform Multiplayer",
+          "Steam Achievements",
+          "Steam Trading Cards",
+          "Steam Workshop",
+          "Steam Cloud",
+          "Family Sharing",
+          "Downloadable Content"
+        ]
+      },
+      "processed_at": "2025-07-22T16:56:55.116Z",
+      "api_version": "5.2-fallback-api"
+    },
+    {
+      "packageids": [
+        119776,
+        718756,
+        852635,
+        1013999
+      ],
+      "appids": [
+        513710,
+        1990860,
+        2371620,
+        2841840
+      ],
+      "bundleid": 33038,
+      "name": "SCUM Character Bundle",
+      "header_image_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/33038/2nwjtcidtaydy9p0/b1909046dc76047232ae16ca0b84e10eb793250c/header_ratio_brazilian.jpg?t=1723562023",
+      "main_capsule": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/33038/2nwjtcidtaydy9p0/1586370880d7bc08d92192026f20ff7f6fb99270/capsule_616x353_brazilian.jpg?t=1723562023",
+      "initial_price": 30096,
+      "final_price": 17139,
+      "formatted_orig_price": "R$ 270,86",
+      "formatted_final_price": "R$ 171,39",
+      "discount_percent": 37,
+      "bundle_base_discount": 10,
+      "available_windows": true,
+      "available_mac": false,
+      "available_linux": false,
+      "support_vrhmd": false,
+      "support_vrhmd_only": false,
+      "creator_clan_ids": [],
+      "localized_langs": [],
+      "coming_soon": false,
+      "library_asset": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/513710/a9f25857357380574155a43c58fe3384b8787020/library_600x900.jpg?t=1750430234",
+      "no_main_cap": false,
+      "deck_compatibility_category": 1,
+      "page_details": {
+        "gênero": [
+          "Action",
+          "Adventure",
+          "Indie",
+          "Massively Multiplayer",
+          "Simulation"
+        ],
+        "desenvolvedor": [
+          "Gamepires"
+        ],
+        "distribuidora": [],
+        "série": [],
+        "categoria": [
+          "Single-player",
+          "Multi-player",
+          "MMO",
+          "PvP",
+          "Online PvP",
+          "Co-op",
+          "Online Co-op",
+          "Steam Achievements",
+          "Steam Trading Cards",
+          "Camera Comfort",
+          "Custom Volume Controls",
+          "Adjustable Difficulty",
+          "Stereo Sound",
+          "Surround Sound",
+          "Stats",
+          "Downloadable Content"
+        ]
+      },
+      "processed_at": "2025-07-22T16:57:04.818Z",
+      "api_version": "5.2-fallback-api"
+    },
+    {
+      "packageids": [
+        462995,
+        944122
+      ],
+      "appids": [
+        1325900,
+        1747890
+      ],
+      "bundleid": 25407,
+      "name": "Demon Turf Bundle",
+      "header_image_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/25407/816qf8p5xzsih1qi/header_ratio.jpg?t=1696322127",
+      "main_capsule": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/25407/816qf8p5xzsih1qi/capsule_616x353.jpg?t=1696322127",
+      "initial_price": 8899,
+      "final_price": 3559,
+      "formatted_orig_price": "R$ 88,99",
+      "formatted_final_price": "R$ 35,59",
+      "discount_percent": 60,
+      "bundle_base_discount": 0,
+      "available_windows": true,
+      "available_mac": false,
+      "available_linux": false,
+      "support_vrhmd": false,
+      "support_vrhmd_only": false,
+      "creator_clan_ids": [
+        32944257,
+        40214109
+      ],
+      "localized_langs": [],
+      "coming_soon": false,
+      "library_asset": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1325900/library_600x900.jpg?t=1734281591",
+      "no_main_cap": false,
+      "deck_compatibility_category": 0,
+      "page_details": {
+        "gênero": [
+          "Aventura",
+          "Indie",
+          "Simulação"
+        ],
+        "desenvolvedor": [
+          "Fabraz"
+        ],
+        "distribuidora": [
+          "Playtonic Friends"
+        ],
+        "série": [
+          "Demon Turf",
+          "Playtonic Friends"
+        ],
+        "idiomas": [
+          "Inglês"
+        ]
+      },
+      "processed_at": "2025-07-22T16:57:00.592Z",
+      "api_version": "5.2-fallback-api"
+    },
+    {
+      "packageids": [
+        217180,
+        298753
+      ],
+      "appids": [
+        741430,
+        924800
+      ],
+      "bundleid": 8532,
+      "name": "Titanic Package Bundle",
+      "header_image_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/8532/l4wcl6lostlred2y/header_ratio.jpg?t=1539680987",
+      "main_capsule": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/8532/l4wcl6lostlred2y/capsule_616x353.jpg?t=1539680987",
+      "initial_price": 7598,
+      "final_price": 3798,
+      "formatted_orig_price": "R$ 37,99",
+      "formatted_final_price": "R$ 37,98",
+      "discount_percent": 0,
+      "bundle_base_discount": 50,
+      "available_windows": true,
+      "available_mac": false,
+      "available_linux": false,
+      "support_vrhmd": false,
+      "support_vrhmd_only": false,
+      "creator_clan_ids": [],
+      "localized_langs": [],
+      "coming_soon": false,
+      "library_asset": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/8532/l4wcl6lostlred2y/library_600x900.jpg?t=1539680987",
+      "no_main_cap": false,
+      "deck_compatibility_category": 0,
+      "page_details": {
+        "gênero": [
+          "Ação",
+          "Simulação"
+        ],
+        "desenvolvedor": [
+          "Immersive VR Education Ltd",
+          "Immersive VR Education PLC"
+        ],
+        "distribuidora": [
+          "Immersive VR Education Ltd",
+          "Immersive VR Education PLC"
+        ],
+        "série": [],
+        "idiomas": [
+          "Inglês"
+        ]
+      },
+      "processed_at": "2025-07-22T16:57:03.084Z",
+      "api_version": "5.2-fallback-api"
+    },
+    {
+      "packageids": [
+        754963,
+        426268
+      ],
+      "appids": [
+        2111190,
+        1229490
+      ],
+      "bundleid": 48146,
+      "name": "MULLET ULTRAKILL BUNDLE",
+      "header_image_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/48146/sccu6wuo4jq9wumy/8cb835c387d57c385abbdd838ef7a9fc3fb8abb4/header_ratio.jpg?t=1733422229",
+      "main_capsule": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/48146/sccu6wuo4jq9wumy/fbc05d288f5a168e177bed2eb67e224da853cba2/capsule_616x353.jpg?t=1733422229",
+      "initial_price": 10994,
+      "final_price": 9894,
+      "formatted_orig_price": "R$ 98,95",
+      "formatted_final_price": "R$ 98,94",
+      "discount_percent": 0,
+      "bundle_base_discount": 10,
+      "available_windows": true,
+      "available_mac": false,
+      "available_linux": false,
+      "support_vrhmd": false,
+      "support_vrhmd_only": false,
+      "creator_clan_ids": [
+        44212044,
+        33265962,
+        6856383
+      ],
+      "localized_langs": [],
+      "coming_soon": false,
+      "library_asset": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/2111190/library_600x900.jpg?t=1737861143",
+      "no_main_cap": false,
+      "deck_compatibility_category": 3,
+      "page_details": {
+        "gênero": [
+          "Ação",
+          "Indie",
+          "Acesso Antecipado"
+        ],
+        "desenvolvedor": [
+          "HAMMER95",
+          "Arsi \"Hakita\" Patala"
+        ],
+        "distribuidora": [
+          "Epopeia Games",
+          "HAMMER95",
+          "New Blood Interactive"
+        ],
+        "série": [
+          "MULLET MADJACK",
+          "New Blood Interactive"
+        ],
+        "idiomas": [
+          "Inglês",
+          "Japonês",
+          "Português (Brasil)",
+          "Espanhol (Espanha)",
+          "Russo",
+          "Coreano",
+          "Polonês",
+          "Chinês simplificado",
+          "Chinês tradicional",
+          "Espanhol (América Latina)",
+          "Ucraniano",
+          "Francês",
+          "Italiano"
+        ]
+      },
+      "processed_at": "2025-07-22T16:57:10.360Z",
+      "api_version": "5.2-fallback-api"
+    },
+    {
+      "packageids": [
+        36862,
+        51354,
+        83311,
+        836275,
+        984895
+      ],
+      "appids": [
+        273300,
+        238320,
+        414700,
+        2328320,
+        1304930
+      ],
+      "bundleid": 39354,
+      "name": "Outlast Franchise Bundle",
+      "header_image_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/39354/25fnaoq2pre8fgca/header_ratio.jpg?t=1709649339",
+      "main_capsule": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/39354/25fnaoq2pre8fgca/capsule_616x353.jpg?t=1709649339",
+      "initial_price": 29195,
+      "final_price": 23355,
+      "formatted_orig_price": "R$ 233,56",
+      "formatted_final_price": "R$ 233,55",
+      "discount_percent": 0,
+      "bundle_base_discount": 20,
+      "available_windows": true,
+      "available_mac": false,
+      "available_linux": false,
+      "support_vrhmd": false,
+      "support_vrhmd_only": false,
+      "creator_clan_ids": [
+        33520700
+      ],
+      "localized_langs": [],
+      "coming_soon": false,
+      "library_asset": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/238320/library_600x900.jpg?t=1666817106",
+      "no_main_cap": false,
+      "deck_compatibility_category": 2,
+      "page_details": {
+        "gênero": [
+          "Action",
+          "Adventure",
+          "Indie"
+        ],
+        "desenvolvedor": [
+          "Red Barrels"
+        ],
+        "distribuidora": [],
+        "série": [],
+        "categoria": [
+          "Single-player",
+          "Downloadable Content",
+          "Steam Achievements",
+          "Full controller support",
+          "Captions available",
+          "Steam Cloud",
+          "Family Sharing",
+          "Steam Trading Cards",
+          "Remote Play on TV",
+          "Multi-player",
+          "Co-op",
+          "Online Co-op",
+          "Cross-Platform Multiplayer"
+        ]
+      },
+      "processed_at": "2025-07-22T16:57:17.182Z",
+      "api_version": "5.2-fallback-api"
+    },
+    {
+      "packageids": [
+        113692,
+        175050,
+        186301,
+        246864,
+        364641
+      ],
+      "appids": [
+        497730,
+        633440,
+        658670,
+        809100,
+        1085200
+      ],
+      "bundleid": 11261,
+      "name": "Mega Bundle - Unit 4 Galactic Bundle + The Wardrobe Complete Bundle",
+      "header_image_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/11261/3sa4s5aihve4jutq/header_ratio.jpg?t=1728569298",
+      "main_capsule": "https://shared.akamai.steamstatic.com/store_item_assets/steam/bundles/11261/3sa4s5aihve4jutq/capsule_616x353.jpg?t=1728569298",
+      "initial_price": 9445,
+      "final_price": 7083,
+      "formatted_orig_price": "R$ 70,84",
+      "formatted_final_price": "R$ 70,83",
+      "discount_percent": 0,
+      "bundle_base_discount": 25,
+      "available_windows": true,
+      "available_mac": false,
+      "available_linux": false,
+      "support_vrhmd": false,
+      "support_vrhmd_only": false,
+      "creator_clan_ids": [
+        33330069
+      ],
+      "localized_langs": [],
+      "coming_soon": false,
+      "library_asset": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/497730/library_600x900.jpg?t=1599213481",
+      "no_main_cap": false,
+      "deck_compatibility_category": 0,
+      "page_details": {
+        "gênero": [
+          "Aventura",
+          "Indie",
+          "Ação"
+        ],
+        "desenvolvedor": [
+          "CINIC Games",
+          "Gamera Interactive",
+          "C.I.N.I.C. Games"
+        ],
+        "distribuidora": [
+          "Gamera Interactive"
+        ],
+        "série": [
+          "Gamera Interactive",
+          "Unit 4",
+          "The Wardrobe"
+        ],
+        "idiomas": [
+          "Inglês",
+          "Italiano",
+          "Alemão",
+          "Espanhol (Espanha)",
+          "Francês",
+          "Russo"
+        ]
+      },
+      "processed_at": "2025-07-22T16:57:12.219Z",
+      "api_version": "5.2-fallback-api"
     }
   ],
   "isComplete": false,
-  "lastSaved": "2025-07-22T16:51:48.534Z",
+  "lastSaved": "2025-07-22T16:57:17.185Z",
   "memoryUsage": {
-    "rss": 112.41,
-    "heapUsed": 37.89,
-    "heapTotal": 40.5
+    "rss": 80.21,
+    "heapUsed": 21.75,
+    "heapTotal": 33.21
   },
   "updateStatus": {
     "status": "in_progress",
-    "completed": 360,
+    "completed": 450,
     "total": 4898,
-    "lastProcessedIndex": 359,
+    "lastProcessedIndex": 449,
     "resumeCount": 0,
     "canResume": true
   }

@@ -68,50 +68,41 @@ curl "https://steambundleapi.onrender.com/api/steam-stats"
 
 ### Configurações de Velocidade (Performance Otimizada para Render Free)
 
-Copie estas configurações para as variáveis de ambiente no Render:
+Agora a configuração é **muito mais simples**! Basta definir as variáveis essenciais:
 
 ```bash
-# RENDER FREE - CONFIGURAÇÃO ALTA PERFORMANCE (Recomendada)
+# =====================================
+# CONFIGURAÇÃO SIMPLIFICADA V5.3
+# =====================================
 NODE_ENV=production
 TIMEZONE=America/Sao_Paulo
+API_KEY=sua_api_key_super_secreta_aqui
 
-# Fetch Bundles (coleta da lista básica) - OTIMIZADO
-FETCH_BUNDLES_CONCURRENT=2      # 2 requisições paralelas (era 1)
-FETCH_BUNDLES_DELAY=1500        # 1.5 segundos entre lotes (era 3000)
-FETCH_BUNDLES_TIMEOUT=15000     # 15s timeout
-
-# Update Bundles (detalhes das bundles) - ALTA PERFORMANCE
-STEAM_API_DELAY=1000            # 1 segundo entre bundles (era 2000)
-STEAM_APP_DELAY=300             # 300ms entre apps (era 500)
-MAX_APPS_PER_BUNDLE=30          # Máximo 30 apps por bundle (era 20)
-REQUEST_TIMEOUT=15000           # 15s timeout
-MAX_RETRIES=3                   # 3 tentativas por erro
-PARALLEL_BUNDLES=4              # 4 bundles paralelas (era 2)
-APP_BATCH_SIZE=5                # 5 apps por lote (era 3)
-SKIP_DETAILS_THRESHOLD=60       # Pula bundles com +60 apps (era 50)
-
-# CONFIGURAÇÃO CONSERVADORA - FALLBACK SE HOUVER PROBLEMAS
-PARALLEL_BUNDLES=2
-STEAM_API_DELAY=2000
-FETCH_BUNDLES_DELAY=3000
-SKIP_DETAILS_THRESHOLD=50
-
-# CONFIGURAÇÃO AGRESSIVA - MÁXIMA VELOCIDADE (USE COM CUIDADO)
-PARALLEL_BUNDLES=6
-STEAM_API_DELAY=800
-STEAM_APP_DELAY=200
-FETCH_BUNDLES_DELAY=1000
-SKIP_DETAILS_THRESHOLD=80
+# URL Externa do Render (opcional - detectada automaticamente)
+# RENDER_EXTERNAL_URL=https://steambundleapi.onrender.com
 ```
+
+### 🎯 **Tudo Otimizado Automaticamente!**
+
+A API agora inclui **TODAS** as otimizações diretamente no código:
+
+- ✅ **Circuit Breaker Inteligente** (5 falhas → pausa 45s)
+- ✅ **Fallback API Steam** (quando scraping falha)  
+- ✅ **Auto-Resume com Validação** (continua de onde parou)
+- ✅ **Log Auto-Limpeza** (economiza espaço no Render Free)
+- ✅ **Detecção Inteligente de Falhas** (404s não contam)
+- ✅ **Rate Limiting Adaptativo**
+- ✅ **Validação Anti-Captcha**
+- ✅ **Keep-Alive Automático**
 
 ### 📊 Performance Esperada no Render Free
 
-- **🔍 Coleta de bundles básicas:** ~2-3 horas (4840 bundles)
-- **🔧 Atualização de detalhes:** ~8-12 horas (processamento completo)
-- **🧠 Uso de memória:** 250-350MB (bem dentro do limite de 500MB)
-- **💾 Operações de disco:** 10-15 salvamentos (vs 2000+ anteriormente)
-- **🚫 Rate limiting:** Muito improvável com essas configurações
-- **📈 Taxa de sucesso:** 95%+ bundles processadas com sucesso
+- **🔍 Coleta de bundles básicas:** ~2-3 horas (4840+ bundles)
+- **🔧 Atualização de detalhes:** ~6-10 horas (com circuit breaker e fallback)
+- **🧠 Uso de memória:** 200-300MB (bem dentro do limite de 500MB)
+- **💾 Auto-resume:** Continua automaticamente se reiniciar
+- **�️ Proteção contra bloqueio:** Sistema de pausa inteligente
+- **📈 Taxa de sucesso:** 95%+ bundles processadas
 
 ## 🚀 Deploy no Render
 
