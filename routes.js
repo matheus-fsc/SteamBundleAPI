@@ -1,9 +1,7 @@
 const express = require('express');
 const fs = require('fs');
 const { fetchAndSaveBundles, totalBundlesCount } = require('./services/fetchBundles');
-const { updateBundlesWithDetails, loadUpdateState, clearUpdateState } = require('./services/updateBundles');
-const { keepAlive } = require('./services/keepAlive');
-const { getDetailedBundles, getBasicBundles, getLastCheck, invalidateAllCaches, getCacheInfo } = require('./services/dataCache');
+const { updateBundlesWithDetails } = require('./services/updateBundles');
 const { authenticateApiKey, adminRateLimit } = require('./middleware/auth');
 const { validateInput } = require('./middleware/security');
 const { 
@@ -11,33 +9,22 @@ const {
     removeDuplicatesFromBasicBundles, 
     removeDuplicatesFromDetailedBundles 
 } = require('./middleware/dataValidation');
-const {
-    updateStatusMiddleware,
-    preventSimultaneousUpdates,
-    executeControlledUpdate,
-    updateLoggingMiddleware,
-    updateHealthCheckMiddleware,
-    bundleFetchProtectionMiddleware,
-    bundleDetailedFetchProtectionMiddleware,
-    emergencyQueueClearMiddleware,
-    getUpdateController
-} = require('./middleware/updateControl');
 
 const router = express.Router();
 const BUNDLES_FILE = 'bundles.json';
 const BUNDLES_DETAILED_FILE = 'bundleDetailed.json';
 
-router.use(updateStatusMiddleware);
-router.use(updateHealthCheckMiddleware);
-router.use(emergencyQueueClearMiddleware);
-
+// Rota principal para verificar se a API está funcionando
 router.get('/', (req, res) => {
     const status = getCurrentDataStatus();
+    
+    // Adiciona headers informativos
     res.set({
         'X-API-Status': 'online',
         'X-Data-Freshness': status.dataAge ? `${status.dataAge}h old` : 'fresh',
         'X-Update-Needed': status.needsUpdate ? 'yes' : 'no'
     });
+    
     res.json({ 
         message: 'API conectada com sucesso!',
         status: 'online',
@@ -56,29 +43,36 @@ router.get('/', (req, res) => {
             ],
             admin: [
                 '/api/force-update - Atualização completa (requer API key)',
-                '/api/force-stop - Para todas as atualizações (requer API key)',
-                '/api/clean-duplicates - Limpeza de duplicatas (requer API key)',
-                '/api/update-resume-status - Status de resumo de atualizações (requer API key)',
-                '/api/keep-alive-status - Status do sistema anti-sono (requer API key)'
+                '/api/clean-duplicates - Limpeza de duplicatas (requer API key)'
             ]
         }
     });
 });
 
-router.get('/api/bundles', bundleFetchProtectionMiddleware, async (req, res) => {
+// 🚀 Endpoint smart (agora é um alias para compatibilidade)
+router.get('/api/bundles-smart', async (req, res) => {
+    // Redireciona internamente para o endpoint principal
+    req.url = '/api/bundles-detailed';
+    router.handle(req, res, () => {});
+});
+
+// Endpoint para servir o JSON básico (com verificação inteligente)
+router.get('/api/bundles', async (req, res) => {
     try {
-        const basicData = await getBasicBundles();
-        
-        if (basicData) {
+        if (fs.existsSync(BUNDLES_FILE)) {
+            const data = fs.readFileSync(BUNDLES_FILE, 'utf-8');
+            const basicData = JSON.parse(data);
             const status = getCurrentDataStatus();
+            
+            // Adiciona headers informativos
             res.set({
                 'X-Data-Type': 'basic',
                 'X-Total-Count': basicData.totalBundles?.toString() || '0',
                 'X-Has-Detailed': status.hasDetailedBundles ? 'yes' : 'no',
-                'X-Recommended-Endpoint': '/api/bundles-detailed',
-                'X-Cache-Status': 'cached'
+                'X-Recommended-Endpoint': '/api/bundles-detailed'
             });
             
+            // Adiciona informações de status
             const response = {
                 ...basicData,
                 metadata: {
@@ -90,42 +84,46 @@ router.get('/api/bundles', bundleFetchProtectionMiddleware, async (req, res) => 
                         'Dados detalhados em processamento. Tente novamente em alguns minutos.',
                     duplicates_detected: status.duplicatesDetected > 0 ? 
                         `${status.duplicatesDetected} duplicatas detectadas` : 
-                        'Nenhuma duplicata detectada',
-                    cache_hit: true
+                        'Nenhuma duplicata detectada'
                 }
             };
             
             res.json(response);
-            console.log(`📦 Bundles básicas enviadas (${basicData.totalBundles} total) - Cache: ✅`);
+            console.log(`📦 Bundles básicas enviadas (${basicData.totalBundles} total)`);
         } else {
             res.status(500).json({ 
                 error: 'Arquivo de bundles não encontrado',
                 suggestion: 'A API pode estar inicializando. Tente novamente em alguns minutos.',
-                help: 'Use /api/force-update (com API key) para iniciar a coleta de dados',
-                cache_miss: true
+                help: 'Use /api/force-update (com API key) para iniciar a coleta de dados'
             });
         }
     } catch (error) {
-        console.error('Erro na rota /api/bundles:', error);
-        res.status(500).json({ error: 'Erro ao processar o seu pedido', technical_error: error.message });
+        console.error('Erro ao ler o arquivo de bundles:', error);
+        res.status(500).json({ error: 'Erro ao ler o arquivo de bundles' });
     }
 });
 
-router.get('/api/bundles-detailed', bundleDetailedFetchProtectionMiddleware, validateInput, async (req, res) => {
+// Endpoint principal para bundles detalhadas com sistema inteligente
+router.get('/api/bundles-detailed', validateInput, async (req, res) => {
     try {
         const status = getCurrentDataStatus();
+        
+        // Sempre retorna os dados atuais primeiro
         let responseData = {
             updateTriggered: false
         };
-        
-        const detailedData = await getDetailedBundles();
-        
-        if (detailedData && status.hasDetailedBundles) {
+
+        // Se tem dados detalhados, retorna eles
+        if (status.hasDetailedBundles && fs.existsSync(BUNDLES_DETAILED_FILE)) {
+            const detailedData = JSON.parse(fs.readFileSync(BUNDLES_DETAILED_FILE, 'utf-8'));
+            
+            // Paginação (mantém compatibilidade com o frontend)
             const page = parseInt(req.query.page) || 1;
             const limit = parseInt(req.query.limit) || 10;
             const startIndex = (page - 1) * limit;
             const endIndex = page * limit;
-            
+
+            // Adiciona headers informativos
             res.set({
                 'X-Data-Type': 'detailed',
                 'X-Total-Count': detailedData.totalBundles?.toString() || '0',
@@ -133,10 +131,10 @@ router.get('/api/bundles-detailed', bundleDetailedFetchProtectionMiddleware, val
                 'X-Total-Pages': Math.ceil(detailedData.bundles.length / limit).toString(),
                 'X-Data-Age-Hours': status.dataAge?.toString() || '0',
                 'X-Background-Update': status.needsUpdate ? 'triggered' : 'not-needed',
-                'X-Last-Update': detailedData.last_update || 'unknown',
-                'X-Cache-Status': 'cached'
+                'X-Last-Update': detailedData.last_update || 'unknown'
             });
-            
+
+            // Estrutura compatível com o endpoint antigo
             responseData = {
                 totalBundles: detailedData.totalBundles,
                 bundles: detailedData.bundles.slice(startIndex, endIndex),
@@ -153,76 +151,107 @@ router.get('/api/bundles-detailed', bundleDetailedFetchProtectionMiddleware, val
                     background_update_status: status.needsUpdate ? 
                         'Dados sendo atualizados em segundo plano...' : 
                         'Dados atualizados',
-                    cache_hit: true
+                    update_info: {
+                        next_scheduled: getNextScheduledUpdate(),
+                        auto_update_enabled: true,
+                        last_update_formatted: status.lastUpdateFormatted
+                    },
+                    api_health: {
+                        status: status.dataAge < 24 ? 'excellent' : status.dataAge < 48 ? 'good' : 'aging',
+                        data_freshness: status.dataAge < 6 ? 'very_fresh' : 
+                                       status.dataAge < 24 ? 'fresh' : 'aging',
+                        recommendation: status.dataAge < 24 ? 
+                            'Dados recentes e confiáveis' : 
+                            'Considere usar /api/force-update se precisar dos dados mais recentes'
+                    }
+                }
+            };
+        } else if (status.hasBasicBundles && fs.existsSync(BUNDLES_FILE)) {
+            // Se só tem dados básicos, retorna eles com estrutura compatível
+            const basicData = JSON.parse(fs.readFileSync(BUNDLES_FILE, 'utf-8'));
+            const page = parseInt(req.query.page) || 1;
+            const limit = parseInt(req.query.limit) || 10;
+            const startIndex = (page - 1) * limit;
+            const endIndex = page * limit;
+
+            // Headers para dados básicos servindo como detalhados
+            res.set({
+                'X-Data-Type': 'basic-fallback',
+                'X-Total-Count': basicData.totalBundles?.toString() || '0',
+                'X-Current-Page': page.toString(),
+                'X-Background-Update': 'processing-details',
+                'X-Warning': 'Serving basic data while detailed data is being processed'
+            });
+
+            responseData = {
+                totalBundles: basicData.totalBundles,
+                bundles: basicData.bundles.slice(startIndex, endIndex),
+                page: page,
+                totalPages: Math.ceil(basicData.bundles.length / limit),
+                hasNext: endIndex < basicData.bundles.length,
+                hasPrev: page > 1,
+                lastUpdate: null,
+                updateTriggered: false,
+                dataType: 'basic',
+                metadata: {
+                    data_quality: 'basic_fallback',
+                    message: 'Servindo dados básicos enquanto os detalhes são processados',
+                    estimated_completion: 'Dados detalhados estarão disponíveis em alguns minutos',
+                    recommendation: 'Recarregue a página em alguns minutos para dados completos',
+                    status: {
+                        current_status: 'processing_detailed_data',
+                        progress: 'coletando preços e detalhes da Steam API',
+                        user_action: 'nenhuma ação necessária - aguarde',
+                        refresh_in: '5-10 minutos'
+                    },
+                    fallback_info: {
+                        why_basic: 'Dados detalhados ainda não disponíveis',
+                        what_missing: 'Preços, avaliações e informações detalhadas dos jogos',
+                        when_ready: 'Em breve (processamento automático)'
+                    }
                 }
             };
         } else {
-            // Fallback para bundles básicas usando cache
-            const basicData = await getBasicBundles();
-            
-            if (basicData && status.hasBasicBundles) {
-                const page = parseInt(req.query.page) || 1;
-                const limit = parseInt(req.query.limit) || 10;
-                const startIndex = (page - 1) * limit;
-                const endIndex = page * limit;
-                
-                res.set({
-                    'X-Data-Type': 'basic-fallback',
-                    'X-Total-Count': basicData.totalBundles?.toString() || '0',
-                    'X-Current-Page': page.toString(),
-                    'X-Background-Update': 'processing-details',
-                    'X-Warning': 'Serving basic data while detailed data is being processed',
-                    'X-Cache-Status': 'cached'
-                });
-                
-                responseData = {
-                    totalBundles: basicData.totalBundles,
-                    bundles: basicData.bundles.slice(startIndex, endIndex),
-                    page: page,
-                    totalPages: Math.ceil(basicData.bundles.length / limit),
-                    hasNext: endIndex < basicData.bundles.length,
-                    hasPrev: page > 1,
-                    lastUpdate: null,
-                    updateTriggered: false,
-                    dataType: 'basic',
-                    metadata: {
-                        data_quality: 'basic_fallback',
-                        message: 'Servindo dados básicos enquanto os detalhes são processados',
-                        estimated_completion: 'Dados detalhados estarão disponíveis em alguns minutos',
-                        recommendation: 'Recarregue a página em alguns minutos para dados completos',
-                        cache_hit: true
-                    }
-                };
-            } else {
-                return res.status(500).json({ 
-                    error: 'Nenhum dado de bundles encontrado',
-                    suggestion: 'A API pode estar inicializando pela primeira vez',
-                    help: {
-                        admin_action: 'Use /api/force-update com API key para iniciar a coleta',
-                        estimated_time: 'Primeira execução pode levar 10-15 minutos',
-                        check_status: 'Use /api/steam-stats para verificar o progresso'
-                    },
-                    cache_miss: true
-                });
-            }
+            return res.status(500).json({ 
+                error: 'Nenhum dado de bundles encontrado',
+                suggestion: 'A API pode estar inicializando pela primeira vez',
+                help: {
+                    admin_action: 'Use /api/force-update com API key para iniciar a coleta',
+                    estimated_time: 'Primeira execução pode levar 10-15 minutos',
+                    check_status: 'Use /api/steam-stats para verificar o progresso'
+                },
+                troubleshooting: {
+                    step_1: 'Verifique se a API está inicializando pela primeira vez',
+                    step_2: 'Aguarde alguns minutos para a coleta automática',
+                    step_3: 'Se persistir, use /api/force-update com sua API key',
+                    step_4: 'Monitore o progresso em /api/steam-stats'
+                },
+                status_info: {
+                    current_status: 'no_data_available',
+                    possible_causes: [
+                        'Primeira execução da API',
+                        'Arquivos de dados foram removidos',
+                        'Falha na coleta automática'
+                    ],
+                    recommended_action: 'force_update'
+                }
+            });
         }
-        
+
+        // 🔄 Inicia atualização em segundo plano se necessário
         if (status.needsUpdate) {
             responseData.updateTriggered = true;
+            
+            // Executa atualização de forma assíncrona (não bloqueia a resposta)
             setImmediate(async () => {
                 try {
-                    console.log('🔄 [BACKGROUND] Solicitação de atualização automática...');
-                    const updateController = getUpdateController();
-                    if (updateController.isUpdateInProgress()) {
-                        console.log('⏳ [BACKGROUND] Atualização já em andamento, ignorando nova solicitação');
-                        return;
-                    }
+                    console.log('🔄 [BACKGROUND] Iniciando atualização automática...');
                     if (!status.hasBasicBundles || status.basicBundlesCount < 100) {
                         console.log('🔄 [BACKGROUND] Atualizando bundles básicas...');
-                        await executeControlledUpdate(() => fetchAndSaveBundles(), 'background-basic');
+                        await fetchAndSaveBundles();
                     } else {
                         console.log('🔄 [BACKGROUND] Atualizando apenas detalhes...');
-                        await executeControlledUpdate(() => updateBundlesWithDetails(), 'background-detailed');
+                        await updateBundlesWithDetails();
                     }
                     console.log('✅ [BACKGROUND] Atualização automática concluída');
                 } catch (error) {
@@ -230,213 +259,48 @@ router.get('/api/bundles-detailed', bundleDetailedFetchProtectionMiddleware, val
                 }
             });
         }
-        
+
         res.json(responseData);
-        console.log(`📄 Página ${responseData.page} enviada (${responseData.bundles.length} itens) - Update: ${responseData.updateTriggered} - Cache: ✅`);
+        console.log(`📄 Página ${responseData.page} enviada (${responseData.bundles.length} itens) - Update: ${responseData.updateTriggered}`);
+        
     } catch (error) {
-        console.error('Erro na rota /api/bundles-detailed:', error);
+        console.error('Erro ao ler o arquivo de bundles detalhado:', error);
         res.status(500).json({ 
-            error: 'Erro ao processar o seu pedido',
+            error: 'Erro ao ler o arquivo de bundles detalhado',
             technical_error: error.message,
             suggestion: 'Tente novamente em alguns segundos ou use /api/bundles para dados básicos'
         });
     }
 });
 
-router.get('/api/filter-options', validateInput, async (req, res) => {
+// 📜 Endpoint legacy (comportamento antigo sem inteligência)
+router.get('/api/bundles-detailed-legacy', validateInput, (req, res) => {
     try {
-        // Tentar usar dados detalhados primeiro, senão usar básicos
-        let data = await getDetailedBundles();
-        let dataType = 'detailed';
-        
-        if (!data) {
-            data = await getBasicBundles();
-            dataType = 'basic';
-        }
-        
-        if (!data) {
-            return res.status(500).json({ 
-                error: 'Dados não encontrados',
-                suggestion: 'A API pode estar inicializando',
-                cache_miss: true
-            });
-        }
-        
-        const bundles = data.bundles || [];
-        const genres = new Set();
-        const categories = new Set();
-        const platforms = new Set();
-        let minPrice = Infinity;
-        let maxPrice = 0;
-        let minDiscount = 100;
-        let maxDiscount = 0;
-        
-        bundles.forEach(bundle => {
-            if (bundle.genres && Array.isArray(bundle.genres)) {
-                bundle.genres.forEach(genre => genres.add(genre));
-            }
-            if (bundle.categories && Array.isArray(bundle.categories)) {
-                bundle.categories.forEach(category => categories.add(category));
-            }
-            if (bundle.available_windows) platforms.add('Windows');
-            if (bundle.available_mac) platforms.add('Mac');
-            if (bundle.available_linux) platforms.add('Linux');
-            if (bundle.final_price && typeof bundle.final_price === 'number') {
-                const priceInReais = bundle.final_price / 100;
-                minPrice = Math.min(minPrice, priceInReais);
-                maxPrice = Math.max(maxPrice, priceInReais);
-            }
-            if (bundle.discount_percent && typeof bundle.discount_percent === 'number') {
-                minDiscount = Math.min(minDiscount, bundle.discount_percent);
-                maxDiscount = Math.max(maxDiscount, bundle.discount_percent);
-            }
-        });
-        
-        if (minPrice === Infinity) minPrice = 0;
-        if (minDiscount === 100) minDiscount = 0;
-        
-        const filterOptions = {
-            genres: Array.from(genres).sort(),
-            categories: Array.from(categories).sort(),
-            platforms: Array.from(platforms).sort(),
-            priceRange: {
-                min: Math.floor(minPrice),
-                max: Math.ceil(maxPrice)
-            },
-            discountRange: {
-                min: minDiscount,
-                max: maxDiscount
-            },
-            metadata: {
-                totalBundles: bundles.length,
-                dataSource: dataType,
-                lastUpdate: data.last_update || null,
-                cache_hit: true
-            }
-        };
-        
-        res.set({
-            'X-Data-Source': dataType,
-            'X-Total-Bundles': bundles.length.toString(),
-            'X-Cache-Status': 'cached'
-        });
-        
-        res.json(filterOptions);
-        console.log(`🔍 Opções de filtro enviadas (${bundles.length} bundles analisados) - Source: ${dataType} - Cache: ✅`);
-    } catch (error) {
-        console.error('Erro ao gerar opções de filtro:', error);
-        res.status(500).json({ 
-            error: 'Erro ao gerar opções de filtro',
-            technical_error: error.message
-        });
-    }
-});
+        if (fs.existsSync(BUNDLES_DETAILED_FILE)) {
+            const data = JSON.parse(fs.readFileSync(BUNDLES_DETAILED_FILE, 'utf-8'));
+            const page = parseInt(req.query.page) || 1;
+            const limit = parseInt(req.query.limit) || 10;
+            const startIndex = (page - 1) * limit;
+            const endIndex = page * limit;
 
-router.get('/api/cache-info', validateInput, (req, res) => {
-    try {
-        const cacheInfo = getCacheInfo();
-        const status = getCurrentDataStatus();
-        
-        res.set({
-            'X-Cache-System': 'intelligent-file-watcher',
-            'X-Cache-Performance': 'optimized'
-        });
-        
-        res.json({
-            cache_system: {
-                type: 'intelligent_file_watcher',
-                description: 'Cache baseado em timestamp de modificação dos arquivos',
-                benefits: [
-                    'Leitura de arquivo apenas quando modificado',
-                    'JSON.parse executado apenas uma vez por atualização',
-                    'Resposta instantânea para requests subsequentes',
-                    'Economia significativa de CPU e I/O'
-                ]
-            },
-            cache_status: cacheInfo,
-            data_status: {
-                basic_bundles_available: status.hasBasicBundles,
-                detailed_bundles_available: status.hasDetailedBundles,
-                data_age_hours: status.dataAge,
-                needs_update: status.needsUpdate
-            },
-            performance_impact: {
-                before: 'fs.readFileSync + JSON.parse a cada request',
-                after: 'Cache hit = resposta instantânea da memória',
-                improvement: 'Até 95% mais rápido em requests subsequentes'
-            }
-        });
-        
-        console.log('📊 Informações de cache enviadas');
-    } catch (error) {
-        console.error('Erro ao obter informações de cache:', error);
-        res.status(500).json({ 
-            error: 'Erro ao obter informações de cache',
-            technical_error: error.message
-        });
-    }
-});
+            const result = {
+                totalBundles: data.totalBundles,
+                bundles: data.bundles.slice(startIndex, endIndex),
+                page: page,
+                totalPages: Math.ceil(data.bundles.length / limit),
+                hasNext: endIndex < data.bundles.length,
+                hasPrev: page > 1,
+                lastUpdate: data.last_update
+            };
 
-router.post('/api/cache-invalidate', authenticateApiKey, adminRateLimit, (req, res) => {
-    try {
-        const { cacheType } = req.body;
-        
-        if (cacheType && ['detailed', 'basic', 'lastCheck'].includes(cacheType)) {
-            invalidateCache(cacheType);
-            res.json({
-                success: true,
-                message: `Cache ${cacheType} invalidado com sucesso`,
-                cache_invalidated: cacheType
-            });
+            res.json(result);
+            console.log(`📄 [LEGACY] Página ${page} enviada (${result.bundles.length} itens)`);
         } else {
-            invalidateAllCaches();
-            res.json({
-                success: true,
-                message: 'Todos os caches invalidados com sucesso',
-                cache_invalidated: 'all'
-            });
+            res.status(500).json({ error: 'Arquivo de bundles detalhado não encontrado' });
         }
-        
-        console.log(`🧹 Cache invalidado: ${cacheType || 'all'}`);
     } catch (error) {
-        console.error('Erro ao invalidar cache:', error);
-        res.status(500).json({ 
-            error: 'Erro ao invalidar cache',
-            technical_error: error.message
-        });
-    }
-});
-
-router.get('/api/update-status', validateInput, updateLoggingMiddleware('update-status'), (req, res) => {
-    try {
-        const dataStatus = getCurrentDataStatus();
-        const updateController = getUpdateController();
-        const updateStatus = updateController.getStatus();
-        const diagnostics = updateController.getDiagnostics();
-        const response = {
-            ...updateStatus,
-            dataStatus: {
-                hasBasicBundles: dataStatus.hasBasicBundles,
-                hasDetailedBundles: dataStatus.hasDetailedBundles,
-                basicBundlesCount: dataStatus.basicBundlesCount,
-                detailedBundlesCount: dataStatus.detailedBundlesCount,
-                dataAge: dataStatus.dataAge,
-                needsUpdate: dataStatus.needsUpdate
-            },
-            diagnostics: diagnostics.diagnostics,
-            system: {
-                controllerType: 'UpdateController',
-                architecture: 'service-based',
-                version: '2.0'
-            }
-        };
-        res.json(response);
-    } catch (error) {
-        console.error('Erro ao verificar status de atualização:', error);
-        res.status(500).json({ 
-            error: 'Erro ao verificar status de atualização',
-            technical_error: error.message
-        });
+        console.error('Erro ao ler o arquivo de bundles detalhado:', error);
+        res.status(500).json({ error: 'Erro ao ler o arquivo de bundles detalhado' });
     }
 });
 
@@ -455,37 +319,25 @@ router.get('/api/bundles-detailed-all', (req, res) => {
     }
 });
 
-router.get('/api/force-update', 
-    authenticateApiKey, 
-    adminRateLimit, 
-    preventSimultaneousUpdates,
-    updateLoggingMiddleware('force-update'),
-    async (req, res) => {
+// Endpoint para forçar uma atualização (PROTEGIDO)
+router.get('/api/force-update', authenticateApiKey, adminRateLimit, async (req, res) => {
     try {
-        console.log('[ADMIN] ⚠️  Iniciando atualização forçada...');
+        console.log('[ADMIN] Iniciando atualização forçada...');
         
         const startTime = Date.now();
         const statusBefore = getCurrentDataStatus();
         
+        // Informa o progresso
         res.set({
-            'X-Operation': 'force-update-controlled',
+            'X-Operation': 'force-update',
             'X-Estimated-Duration': '5-15 minutes',
-            'X-Update-Control': 'enabled'
+            'X-Background-Process': 'false'
         });
-
-        // Força reset do controller para garantir execução sequencial
-        const updateController = getUpdateController();
-        updateController.forceReset();
         
-        // Executa sequencialmente para evitar sobrecarga
-        await executeControlledUpdate(() => fetchAndSaveBundles(), 'force-basic');
+        await fetchAndSaveBundles();
         console.log('✅ fetchAndSaveBundles concluído.');
-        
-        // Aguarda um momento e força reset novamente para a segunda operação
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        updateController.forceReset();
-        
-        await executeControlledUpdate(() => updateBundlesWithDetails(), 'force-detailed');
+
+        await updateBundlesWithDetails();
         console.log('✅ updateBundlesWithDetails concluído.');
         
         const endTime = Date.now();
@@ -508,114 +360,40 @@ router.get('/api/force-update',
             after_update: {
                 basic_bundles: statusAfter.basicBundlesCount,
                 detailed_bundles: statusAfter.detailedBundlesCount,
-                data_age_hours: statusAfter.dataAge
+                data_age_hours: statusAfter.dataAge,
+                duplicates_detected: statusAfter.duplicatesDetected
             },
+            improvements: {
+                new_bundles_added: Math.max(0, statusAfter.basicBundlesCount - statusBefore.basicBundlesCount),
+                details_added: Math.max(0, statusAfter.detailedBundlesCount - statusBefore.detailedBundlesCount),
+                recommendation: statusAfter.duplicatesDetected > 0 ? 
+                    'Execute /api/clean-duplicates para otimizar os dados' : 
+                    'Dados atualizados e otimizados'
+            },
+            next_steps: [
+                'Verifique /api/steam-stats para monitorar a qualidade dos dados',
+                'Configure atualizações automáticas para manter os dados frescos',
+                statusAfter.duplicatesDetected > 10 ? 'Execute limpeza de duplicatas regularmente' : null
+            ].filter(Boolean),
             timestamp: new Date().toISOString()
         });
     } catch (error) {
         console.error('❌ Erro ao forçar a atualização:', error);
         res.status(500).json({ 
             error: 'Erro ao forçar a atualização',
-            technical_error: error.message
-        });
-    }
-});
-
-router.get('/api/force-stop', 
-    authenticateApiKey, 
-    adminRateLimit, 
-    updateLoggingMiddleware('force-stop'),
-    async (req, res) => {
-    try {
-        console.log('[ADMIN] 🛑 Iniciando parada forçada de todas as atualizações...');
-        
-        const updateController = getUpdateController();
-        const statusBefore = updateController.getStatus();
-        
-        // Verifica se há operações em andamento
-        if (!statusBefore.isUpdating) {
-            return res.json({
-                message: 'Nenhuma atualização em andamento',
-                status: 'idle',
-                action_taken: 'none',
-                current_state: {
-                    is_updating: false,
-                    update_type: null,
-                    duration: 0
-                },
-                timestamp: new Date().toISOString()
-            });
-        }
-
-        // Para todas as operações de atualização
-        const stopResult = updateController.forceStop();
-        
-        // Limpa a fila de operações também
-        const { clearOperationQueue } = require('./middleware/updateControl');
-        clearOperationQueue();
-        
-        const statusAfter = updateController.getStatus();
-        
-        res.set({
-            'X-Operation': 'force-stop',
-            'X-Previous-State': statusBefore.isUpdating ? 'updating' : 'idle',
-            'X-Current-State': statusAfter.isUpdating ? 'updating' : 'stopped'
-        });
-
-        res.json({
-            message: 'Parada forçada executada com sucesso',
-            operation_summary: {
-                was_updating: statusBefore.isUpdating,
-                previous_update_type: statusBefore.updateType,
-                previous_duration: statusBefore.duration,
-                request_count_during_update: statusBefore.requestCount
-            },
-            stop_result: {
-                successful: !statusAfter.isUpdating,
-                force_stop_applied: stopResult?.success || true,
-                queue_cleared: true,
-                processes_terminated: statusBefore.isUpdating ? 1 : 0
-            },
-            current_state: {
-                is_updating: statusAfter.isUpdating,
-                update_type: statusAfter.updateType,
-                duration: statusAfter.duration,
-                system_status: statusAfter.isUpdating ? 'still-running' : 'stopped'
-            },
-            warnings: [
-                statusBefore.isUpdating ? 'Operação interrompida pode ter deixado dados em estado inconsistente' : null,
-                'Verifique /api/steam-stats para avaliar integridade dos dados',
-                'Considere executar /api/clean-duplicates se necessário'
-            ].filter(Boolean),
-            next_steps: [
-                'Use /api/steam-stats para verificar estado dos dados',
-                'Execute /api/operation-queue-status para confirmar limpeza',
-                'Se necessário, execute /api/force-update para atualização completa'
-            ],
-            timestamp: new Date().toISOString()
-        });
-
-        console.log(`🛑 Parada forçada concluída. Status anterior: ${statusBefore.isUpdating ? 'atualizando' : 'parado'}`);
-        
-    } catch (error) {
-        console.error('❌ Erro na parada forçada:', error);
-        res.status(500).json({ 
-            error: 'Erro na parada forçada',
             technical_error: error.message,
-            suggestion: 'Alguns processos podem ainda estar em execução. Monitore /api/operation-queue-status'
+            partial_success: 'Alguns dados podem ter sido atualizados',
+            suggestion: 'Verifique /api/steam-stats para avaliar o estado atual dos dados'
         });
     }
 });
 
-router.get('/api/update-details', 
-    authenticateApiKey, 
-    adminRateLimit, 
-    preventSimultaneousUpdates,
-    updateLoggingMiddleware('update-details'),
-    async (req, res) => {
+// Endpoint para atualizar os detalhes das bundles (PROTEGIDO)
+router.get('/api/update-details', authenticateApiKey, adminRateLimit, async (req, res) => {
     try {
         console.log('[ADMIN] Iniciando atualização de detalhes...');
-        const result = await executeControlledUpdate(() => updateBundlesWithDetails(), 'admin-details');
+        
+        const result = await updateBundlesWithDetails();
         res.json({ 
             message: 'Detalhes das bundles atualizados com sucesso.',
             timestamp: new Date().toISOString(),
@@ -628,14 +406,11 @@ router.get('/api/update-details',
     }
 });
 
-router.get('/api/test-update', 
-    authenticateApiKey, 
-    adminRateLimit, 
-    preventSimultaneousUpdates,
-    updateLoggingMiddleware('test-update'),
-    async (req, res) => {
+// 🧪 NOVO: Endpoint de teste para processar apenas algumas bundles (PROTEGIDO)
+router.get('/api/test-update', authenticateApiKey, adminRateLimit, async (req, res) => {
     try {
         const limit = parseInt(req.query.limit) || 50;
+        
         if (limit > 200) {
             return res.status(400).json({ 
                 error: 'Limite máximo de 200 bundles para teste',
@@ -645,20 +420,22 @@ router.get('/api/test-update',
                 suggestion: 'Reduza o valor do parâmetro limit ou use /api/force-update para atualização completa'
             });
         }
+
         console.log(`[TEST] Iniciando atualização de teste com ${limit} bundles...`);
+        
         const startTime = Date.now();
-        const result = await executeControlledUpdate(
-            () => updateBundlesWithDetails('brazilian', limit), 
-            `test-${limit}`
-        );
+        const result = await updateBundlesWithDetails('brazilian', limit);
         const endTime = Date.now();
         const duration = Math.round((endTime - startTime) / 1000);
+        
+        // Adiciona headers informativos
         res.set({
             'X-Operation': 'test-update',
             'X-Bundles-Processed': result.processedBundles?.toString() || limit.toString(),
             'X-Duration-Seconds': duration.toString(),
             'X-Test-Mode': 'true'
         });
+        
         res.json({ 
             message: `Teste concluído com sucesso`,
             test_summary: {
@@ -688,6 +465,7 @@ router.get('/api/test-update',
             },
             timestamp: new Date().toISOString()
         });
+        
         console.log(`🧪 Teste concluído: ${result.processedBundles} bundles processados em ${duration}s.`);
     } catch (error) {
         console.error('❌ Erro no teste de atualização:', error);
@@ -704,9 +482,12 @@ router.get('/api/test-update',
     }
 });
 
+// 📊 NOVO: Endpoint para obter estatísticas da API Steam
 router.get('/api/steam-stats', (req, res) => {
     try {
         const status = getCurrentDataStatus();
+        
+        // Lê estatísticas dos arquivos se existirem
         let stats = {
             api_status: {
                 online: true,
@@ -715,10 +496,10 @@ router.get('/api/steam-stats', (req, res) => {
                 version: require('./package.json').version || '1.0.0'
             },
             steam_api_config: {
-                delay_between_requests: `${process.env.STEAM_API_DELAY || 1000}ms`,
-                delay_between_app_requests: `${process.env.STEAM_APP_DELAY || 300}ms`,
-                max_apps_per_bundle: parseInt(process.env.MAX_APPS_PER_BUNDLE) || 30,
-                request_timeout: `${process.env.REQUEST_TIMEOUT || 15000}ms`,
+                delay_between_requests: `${process.env.STEAM_API_DELAY || 1500}ms`,
+                delay_between_app_requests: `${process.env.STEAM_APP_DELAY || 100}ms`,
+                max_apps_per_bundle: parseInt(process.env.MAX_APPS_PER_BUNDLE) || 50,
+                request_timeout: `${process.env.REQUEST_TIMEOUT || 10000}ms`,
                 max_retries: parseInt(process.env.MAX_RETRIES) || 3,
                 performance_mode: process.env.STEAM_API_DELAY < 1000 ? 'fast' : 'balanced'
             },
@@ -753,12 +534,15 @@ router.get('/api/steam-stats', (req, res) => {
                 cache_hit_potential: status.dataAge < 8 ? 'high' : status.dataAge < 24 ? 'medium' : 'low'
             }
         };
+
+        // Adiciona headers informativos
         res.set({
             'X-Health-Score': stats.data_status.health_score.toString(),
             'X-Data-Age': status.dataAge?.toString() || '0',
             'X-Cache-Status': stats.performance_metrics.cache_hit_potential,
             'X-Update-Needed': status.needsUpdate ? 'yes' : 'no'
         });
+
         if (fs.existsSync('bundleDetailed.json')) {
             const data = JSON.parse(fs.readFileSync('bundleDetailed.json', 'utf-8'));
             stats.production = {
@@ -779,6 +563,7 @@ router.get('/api/steam-stats', (req, res) => {
                     'N/A'
             };
         }
+
         if (fs.existsSync('bundleDetailed_test.json')) {
             const testData = JSON.parse(fs.readFileSync('bundleDetailed_test.json', 'utf-8'));
             stats.test = {
@@ -788,6 +573,7 @@ router.get('/api/steam-stats', (req, res) => {
                 purpose: 'Dados de teste para validação de funcionalidade'
             };
         }
+
         res.json(stats);
     } catch (error) {
         console.error('Erro ao obter estatísticas:', error);
@@ -803,13 +589,20 @@ router.get('/api/steam-stats', (req, res) => {
     }
 });
 
+// 🧹 NOVO: Endpoint para remover duplicatas manualmente (PROTEGIDO)
 router.get('/api/clean-duplicates', authenticateApiKey, adminRateLimit, async (req, res) => {
     try {
         console.log('🧹 [ADMIN] Iniciando limpeza de duplicatas...');
+        
+        // Verifica o status antes da limpeza
         const statusBefore = getCurrentDataStatus();
+        
         const basicResult = removeDuplicatesFromBasicBundles();
         const detailedResult = removeDuplicatesFromDetailedBundles();
+        
+        // Verifica o status após a limpeza
         const statusAfter = getCurrentDataStatus();
+        
         const result = {
             message: 'Limpeza de duplicatas concluída com sucesso',
             operation_summary: {
@@ -850,13 +643,17 @@ router.get('/api/clean-duplicates', authenticateApiKey, adminRateLimit, async (r
             ].filter(Boolean),
             timestamp: new Date().toISOString()
         };
+        
+        // Adiciona headers informativos
         res.set({
             'X-Operation': 'duplicate-cleanup',
             'X-Duplicates-Removed': (basicResult.removed + detailedResult.removed).toString(),
             'X-Data-Quality': statusAfter.duplicatesDetected === 0 ? 'clean' : 'has-duplicates'
         });
+        
         res.json(result);
         console.log(`🧹 Limpeza concluída: ${result.operation_summary.total_duplicates_removed} duplicatas removidas`);
+        
     } catch (error) {
         console.error('❌ Erro na limpeza de duplicatas:', error);
         res.status(500).json({ 
@@ -865,365 +662,6 @@ router.get('/api/clean-duplicates', authenticateApiKey, adminRateLimit, async (r
             suggestion: 'Verifique os logs do servidor para mais detalhes'
         });
     }
-});
-
-router.get('/api/update-resume-status', 
-    authenticateApiKey, 
-    adminRateLimit, 
-    updateLoggingMiddleware('update-resume-status'),
-    (req, res) => {
-    try {
-        console.log('[ADMIN] 📋 Verificando status de resumo...');
-        
-        const updateState = loadUpdateState();
-        const hasResumableUpdate = updateState && updateState.status === 'in_progress';
-        
-        if (!hasResumableUpdate) {
-            return res.json({
-                message: 'Nenhuma atualização incompleta encontrada',
-                status: 'no_resume_needed',
-                current_state: 'idle',
-                recommendations: [
-                    'Nenhuma ação necessária',
-                    'Use /api/force-update para iniciar nova atualização',
-                    'Use /api/update-status para monitorar operações atuais'
-                ],
-                timestamp: new Date().toISOString()
-            });
-        }
-        
-        const progressPercent = Math.round((updateState.completed / updateState.total) * 100);
-        const timeSinceStart = Math.round((Date.now() - updateState.startTime) / 1000 / 60);
-        const timeSinceLastActivity = updateState.lastActivity ? 
-            Math.round((Date.now() - new Date(updateState.lastActivity).getTime()) / 1000 / 60) : null;
-        
-        res.set({
-            'X-Operation': 'update-resume-status',
-            'X-Resume-Available': hasResumableUpdate ? 'yes' : 'no',
-            'X-Progress-Percent': progressPercent.toString(),
-            'X-Time-Since-Start': `${timeSinceStart}m`
-        });
-
-        res.json({
-            message: 'Atualização incompleta detectada',
-            status: 'resume_available',
-            update_state: {
-                status: updateState.status,
-                progress: {
-                    completed: updateState.completed,
-                    total: updateState.total,
-                    percentage: progressPercent,
-                    remaining: updateState.total - updateState.completed
-                },
-                timing: {
-                    started_at: new Date(updateState.startTime).toISOString(),
-                    minutes_since_start: timeSinceStart,
-                    minutes_since_last_activity: timeSinceLastActivity,
-                    last_activity: updateState.lastActivity
-                },
-                resume_info: {
-                    resume_count: updateState.resumeCount,
-                    last_processed_index: updateState.lastProcessedIndex,
-                    language: updateState.language,
-                    is_test_mode: updateState.isTestMode
-                }
-            },
-            recommendations: [
-                progressPercent > 50 ? 
-                    'Atualização já passou da metade - recomenda-se continuar' : 
-                    'Atualização no início - pode reiniciar se necessário',
-                timeSinceStart > 60 ? 
-                    'Atualização muito antiga - considere limpar estado' : 
-                    'Atualização recente - pode ser retomada normalmente',
-                'Use /api/force-update para continuar automaticamente',
-                'Use /api/force-stop + /api/update-resume-clear para cancelar e limpar'
-            ],
-            actions: {
-                resume: '/api/force-update - Continua automaticamente de onde parou',
-                clear: '/api/update-resume-clear - Limpa estado e força reinício',
-                monitor: '/api/update-status - Monitora progresso atual'
-            },
-            timestamp: new Date().toISOString()
-        });
-
-        console.log(`📋 Status de resumo enviado: ${progressPercent}% completo (${updateState.resumeCount} resumos)`);
-        
-    } catch (error) {
-        console.error('❌ Erro ao verificar status de resumo:', error);
-        res.status(500).json({ 
-            error: 'Erro ao verificar status de resumo',
-            technical_error: error.message,
-            suggestion: 'Verifique os logs do servidor para mais detalhes'
-        });
-    }
-});
-
-router.get('/api/keep-alive-status', 
-    authenticateApiKey, 
-    adminRateLimit, 
-    updateLoggingMiddleware('keep-alive-status'),
-    (req, res) => {
-    try {
-        console.log('[ADMIN] 💓 Verificando status do keep-alive...');
-        
-        const status = keepAlive.getStatus();
-        
-        res.set({
-            'X-Operation': 'keep-alive-status',
-            'X-Keep-Alive-Active': status.active ? 'yes' : 'no',
-            'X-Ping-Count': status.ping_count?.toString() || '0'
-        });
-
-        if (!status.active) {
-            return res.json({
-                message: 'Sistema keep-alive não está ativo',
-                status: 'inactive',
-                description: 'O sistema anti-sono só é ativado durante atualizações longas',
-                recommendations: [
-                    'Inicie uma atualização com /api/force-update para ativar',
-                    'O sistema ativa automaticamente para prevenir sono do Render',
-                    'Use /api/keep-alive-start para ativação manual se necessário'
-                ],
-                manual_control: {
-                    start: '/api/keep-alive-start - Ativa manualmente (requer API key)',
-                    stop: '/api/keep-alive-stop - Para manualmente (requer API key)',
-                    ping: '/api/keep-alive-ping - Força um ping (requer API key)'
-                },
-                timestamp: new Date().toISOString()
-            });
-        }
-
-        res.json({
-            message: 'Sistema keep-alive está ativo',
-            status: 'active',
-            keep_alive_info: {
-                ping_count: status.ping_count,
-                max_pings: status.max_pings,
-                duration_minutes: status.duration_minutes,
-                next_ping_in_minutes: status.next_ping_in_minutes,
-                efficiency: status.efficiency,
-                estimated_remaining_hours: status.estimated_remaining_hours
-            },
-            render_protection: {
-                purpose: 'Previne que o Render Free durma durante atualizações longas',
-                method: 'Auto-ping a cada 8 minutos em endpoints leves',
-                coverage: 'Até 24 horas de proteção contínua',
-                cost: 'Zero - usa endpoints públicos existentes'
-            },
-            recommendations: [
-                status.ping_count > status.max_pings * 0.8 ? 
-                    'Próximo do limite máximo - sistema parará automaticamente' : 
-                    'Sistema funcionando normalmente',
-                status.duration_minutes > 300 ? 
-                    'Ativo há mais de 5 horas - monitore progresso da atualização' : 
-                    'Tempo de ativação normal',
-                'Use /api/update-status para verificar progresso da atualização principal'
-            ],
-            controls: {
-                manual_stop: '/api/keep-alive-stop',
-                force_ping: '/api/keep-alive-ping',
-                update_status: '/api/update-status'
-            },
-            timestamp: new Date().toISOString()
-        });
-
-        console.log(`💓 Status keep-alive enviado: ${status.active ? 'ATIVO' : 'INATIVO'} (${status.ping_count || 0} pings)`);
-        
-    } catch (error) {
-        console.error('❌ Erro ao verificar status keep-alive:', error);
-        res.status(500).json({ 
-            error: 'Erro ao verificar status keep-alive',
-            technical_error: error.message,
-            suggestion: 'Verifique os logs do servidor para mais detalhes'
-        });
-    }
-});
-
-router.get('/api/keep-alive-start', 
-    authenticateApiKey, 
-    adminRateLimit, 
-    updateLoggingMiddleware('keep-alive-start'),
-    (req, res) => {
-    try {
-        console.log('[ADMIN] 🔄 Iniciando keep-alive manualmente...');
-        
-        const reason = req.query.reason || 'manual-admin';
-        keepAlive.start(reason);
-        
-        res.json({
-            message: 'Keep-alive iniciado manualmente',
-            status: 'started',
-            reason: reason,
-            protection_info: {
-                ping_interval_minutes: 8,
-                max_duration_hours: 24,
-                purpose: 'Prevenir sono do Render durante operações longas'
-            },
-            recommendations: [
-                'Use /api/keep-alive-status para monitorar',
-                'Sistema parará automaticamente após 24h',
-                'Use /api/keep-alive-stop para parar manualmente'
-            ],
-            timestamp: new Date().toISOString()
-        });
-        
-    } catch (error) {
-        console.error('❌ Erro ao iniciar keep-alive:', error);
-        res.status(500).json({ 
-            error: 'Erro ao iniciar keep-alive',
-            technical_error: error.message
-        });
-    }
-});
-
-router.get('/api/keep-alive-stop', 
-    authenticateApiKey, 
-    adminRateLimit, 
-    updateLoggingMiddleware('keep-alive-stop'),
-    (req, res) => {
-    try {
-        console.log('[ADMIN] 🛑 Parando keep-alive manualmente...');
-        
-        const reason = req.query.reason || 'manual-admin-stop';
-        const wasBefore = keepAlive.getStatus();
-        keepAlive.stop(reason);
-        
-        res.json({
-            message: 'Keep-alive parado manualmente',
-            status: 'stopped',
-            reason: reason,
-            previous_status: {
-                was_active: wasBefore.active,
-                ping_count: wasBefore.ping_count || 0,
-                duration_minutes: wasBefore.duration_minutes || 0
-            },
-            result: {
-                render_can_sleep: true,
-                protection_removed: true,
-                resources_freed: true
-            },
-            timestamp: new Date().toISOString()
-        });
-        
-    } catch (error) {
-        console.error('❌ Erro ao parar keep-alive:', error);
-        res.status(500).json({ 
-            error: 'Erro ao parar keep-alive',
-            technical_error: error.message
-        });
-    }
-});
-
-router.get('/api/keep-alive-ping', 
-    authenticateApiKey, 
-    adminRateLimit, 
-    updateLoggingMiddleware('keep-alive-ping'),
-    async (req, res) => {
-    try {
-        console.log('[ADMIN] 💓 Ping manual solicitado...');
-        
-        await keepAlive.forcePing();
-        const status = keepAlive.getStatus();
-        
-        res.json({
-            message: 'Ping manual executado',
-            ping_result: 'success',
-            current_status: status,
-            timestamp: new Date().toISOString()
-        });
-        
-    } catch (error) {
-        console.error('❌ Erro no ping manual:', error);
-        res.status(500).json({ 
-            error: 'Erro no ping manual',
-            technical_error: error.message
-        });
-    }
-});
-
-router.get('/api/update-resume-clear', 
-    authenticateApiKey, 
-    adminRateLimit, 
-    updateLoggingMiddleware('update-resume-clear'),
-    (req, res) => {
-    try {
-        console.log('[ADMIN] 🗑️ Limpando estado de resumo...');
-        
-        const updateState = loadUpdateState();
-        const hadState = !!updateState;
-        
-        clearUpdateState();
-        
-        res.set({
-            'X-Operation': 'update-resume-clear',
-            'X-Previous-State': hadState ? 'had-state' : 'no-state',
-            'X-State-Cleared': 'yes'
-        });
-
-        res.json({
-            message: 'Estado de resumo limpo com sucesso',
-            operation_summary: {
-                had_previous_state: hadState,
-                previous_progress: hadState ? 
-                    `${updateState.completed}/${updateState.total} (${Math.round((updateState.completed / updateState.total) * 100)}%)` : 
-                    'N/A',
-                resume_count: hadState ? updateState.resumeCount : 0
-            },
-            current_state: {
-                resume_available: false,
-                next_update_behavior: 'Próxima atualização iniciará do zero',
-                files_preserved: 'Arquivos de dados mantidos intactos'
-            },
-            recommendations: [
-                'Estado limpo - próxima atualização será completa',
-                'Use /api/force-update para iniciar nova atualização',
-                'Use /api/update-resume-status para verificar se limpeza foi efetiva'
-            ],
-            timestamp: new Date().toISOString()
-        });
-
-        console.log(`🗑️ Estado de resumo limpo. Tinha estado anterior: ${hadState}`);
-        
-    } catch (error) {
-        console.error('❌ Erro ao limpar estado de resumo:', error);
-        res.status(500).json({ 
-            error: 'Erro ao limpar estado de resumo',
-            technical_error: error.message,
-            suggestion: 'Verifique os logs do servidor para mais detalhes'
-        });
-    }
-});
-
-// Rota para monitoramento da fila de operações (proteção contra sobrecarga)
-router.get('/api/operation-queue-status', (req, res) => {
-    const { getOperationQueueStatus } = require('./middleware/updateControl');
-    const queueStatus = getOperationQueueStatus();
-    const updateController = getUpdateController();
-    const updateStatus = updateController.getStatus();
-    
-    res.json({
-        queue: {
-            length: queueStatus.queueLength,
-            running: queueStatus.running,
-            current_operation: queueStatus.currentOperation,
-            estimated_wait_time: queueStatus.queueLength * 3 // segundos
-        },
-        update_system: {
-            is_updating: updateStatus.isUpdating,
-            update_type: updateStatus.updateType,
-            duration: updateStatus.duration,
-            request_count: updateStatus.requestCount
-        },
-        server_health: {
-            protection_active: queueStatus.running || queueStatus.queueLength > 0,
-            load_level: queueStatus.queueLength > 2 ? 'high' : 
-                       queueStatus.queueLength > 0 ? 'medium' : 'low',
-            recommendation: queueStatus.queueLength > 3 ? 
-                'Sistema sob alta carga. Aguarde alguns minutos antes de fazer novas requisições.' :
-                'Sistema funcionando normalmente.'
-        },
-        timestamp: new Date().toISOString()
-    });
 });
 
 module.exports = router;

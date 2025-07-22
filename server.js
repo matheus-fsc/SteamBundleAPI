@@ -50,6 +50,48 @@ const BUNDLES_FILE = 'bundles.json';
 const BUNDLES_DETAILED_FILE = 'bundleDetailed.json';
 const TIMEZONE = process.env.TIMEZONE || 'America/Sao_Paulo';
 
+// Configuração de horários para execução automática
+const STEAM_UPDATE_SCHEDULE = {
+    // Modo otimizado: apenas nos dias que a Steam atualiza (padrão)
+    OPTIMIZED: '0 3 * * 3,5', // 3h da manhã nas quartas e sextas (após atualizações da Steam)
+    
+    // Modo diário: todas as madrugadas (se necessário maior frequência)
+    DAILY: '0 3 * * *', // 3h da manhã todos os dias
+    
+    // Modo conservador: apenas uma vez por semana
+    WEEKLY: '0 3 * * 3' // 3h da manhã apenas nas quartas
+};
+
+// Escolha o modo baseado na variável de ambiente
+const scheduleMode = process.env.UPDATE_SCHEDULE_MODE || 'OPTIMIZED';
+const cronExpression = STEAM_UPDATE_SCHEDULE[scheduleMode] || STEAM_UPDATE_SCHEDULE.OPTIMIZED;
+
+// Funções auxiliares para status e agendamento (agora com acesso às constantes)
+function getNextScheduledUpdate() {
+    const now = moment().tz(TIMEZONE);
+    const nextRun = getNextCronExecution(cronExpression, now);
+    return nextRun.format('DD/MM/YYYY HH:mm:ss');
+}
+
+function getNextCronExecution(cronExpr, fromTime) {
+    const [minute, hour, day, month, dayOfWeek] = cronExpr.split(' ');
+    let next = fromTime.clone().add(1, 'day').startOf('day').hour(parseInt(hour)).minute(parseInt(minute));
+    
+    if (dayOfWeek !== '*') {
+        const targetDays = dayOfWeek.split(',').map(d => parseInt(d));
+        while (!targetDays.includes(next.day())) {
+            next.add(1, 'day');
+        }
+        next.hour(parseInt(hour)).minute(parseInt(minute));
+    }
+    
+    return next;
+}
+
+// Torna as funções disponíveis globalmente para uso em routes.js
+global.getNextScheduledUpdate = getNextScheduledUpdate;
+global.getNextCronExecution = getNextCronExecution;
+
 const checkLastVerification = () => {
     console.log('🔍 Verificando status dos arquivos de bundles...');
     const bundlesExists = fs.existsSync(BUNDLES_FILE);
@@ -115,7 +157,7 @@ const checkLastVerification = () => {
         return;
     }
     
-    // Se ambos existem, faz a verificação de tempo normal
+    // Se ambos existem, faz a verificação de tempo com base no modo de agendamento
     if (bundlesExists && bundlesDetailedExists) {
         console.log('✅ Ambos os arquivos existem - verificando timestamp...');
         
@@ -125,13 +167,18 @@ const checkLastVerification = () => {
             const now = moment().tz(TIMEZONE);
             const lastCheckMoment = moment.tz(lastCheck, TIMEZONE);
             const hoursSinceLastCheck = now.diff(lastCheckMoment, 'hours');
+            
             console.log(`⏰ Última verificação: ${lastCheckMoment.format('DD/MM/YYYY HH:mm:ss')} (${hoursSinceLastCheck}h atrás)`);
             
-            if (hoursSinceLastCheck >= 6) {
-                console.log('🔄 Mais de 6 horas desde a última verificação - iniciando atualização...');
+            // Determina se precisa atualizar baseado no modo e horário
+            const needsUpdate = shouldUpdateNow(lastCheckMoment, now, scheduleMode);
+            
+            if (needsUpdate.shouldUpdate) {
+                console.log(`🔄 ${needsUpdate.reason} - iniciando atualização...`);
                 fetchAndSaveBundles();
             } else {
-                console.log(`✅ Dados atualizados - próxima verificação em ${6 - hoursSinceLastCheck}h`);
+                console.log(`✅ ${needsUpdate.reason}`);
+                console.log(`📅 Próxima atualização agendada: ${getNextScheduledUpdate()}`);
             }
         } else {
             console.log('📝 Arquivo de timestamp não encontrado - iniciando verificação inicial...');
@@ -140,9 +187,66 @@ const checkLastVerification = () => {
     }
 };
 
-cron.schedule('0 */6 * * *', fetchAndSaveBundles, {
+// Função para determinar se deve atualizar agora
+function shouldUpdateNow(lastCheck, now, mode) {
+    const hoursSince = now.diff(lastCheck, 'hours');
+    const daysSince = now.diff(lastCheck, 'days');
+    
+    // Se passou mais de 7 dias, sempre atualiza independente do modo
+    if (daysSince >= 7) {
+        return { shouldUpdate: true, reason: 'Mais de 7 dias desde a última verificação' };
+    }
+    
+    // Se passou mais de 3 dias e não é modo conservador, atualiza
+    if (daysSince >= 3 && mode !== 'WEEKLY') {
+        return { shouldUpdate: true, reason: 'Mais de 3 dias desde a última verificação' };
+    }
+    
+    // Se passou mais de 24h e é modo diário, atualiza
+    if (hoursSince >= 24 && mode === 'DAILY') {
+        return { shouldUpdate: true, reason: 'Modo diário: mais de 24h desde a última verificação' };
+    }
+    
+    // Se é primeira execução do dia após um dia de atualização da Steam
+    const today = now.day(); // 0=Dom, 1=Seg, 2=Ter, 3=Qua, 4=Qui, 5=Sex, 6=Sáb
+    const yesterday = now.clone().subtract(1, 'day').day();
+    
+    if ((today === 3 || today === 5) && hoursSince >= 12) { // Qua ou Sex, e passou 12h
+        const lastWasBeforeSteamUpdate = lastCheck.day() !== today;
+        if (lastWasBeforeSteamUpdate) {
+            return { shouldUpdate: true, reason: `Dia pós-atualização da Steam (${today === 3 ? 'Quarta' : 'Sexta'})` };
+        }
+    }
+    
+    return { 
+        shouldUpdate: false, 
+        reason: `Dados atualizados - próxima verificação conforme agendamento (${mode})` 
+    };
+}
+
+console.log(`🕐 Configuração de agendamento: ${scheduleMode}`);
+console.log(`📅 Cron: ${cronExpression} (${getScheduleDescription(scheduleMode)})`);
+
+// Função para descrever o agendamento
+function getScheduleDescription(mode) {
+    const descriptions = {
+        OPTIMIZED: 'Quartas e sextas às 3h (após atualizações da Steam)',
+        DAILY: 'Todos os dias às 3h',
+        WEEKLY: 'Apenas quartas às 3h'
+    };
+    return descriptions[mode] || descriptions.OPTIMIZED;
+}
+
+// Agenda a execução automática
+cron.schedule(cronExpression, () => {
+    console.log(`🔄 [CRON] Iniciando atualização automática agendada (${scheduleMode})`);
+    console.log(`⏰ Horário: ${moment().tz(TIMEZONE).format('DD/MM/YYYY HH:mm:ss')}`);
+    fetchAndSaveBundles();
+}, {
     timezone: TIMEZONE
 });
+
+console.log(`✅ Agendamento ativo: ${getScheduleDescription(scheduleMode)}`);
 
 checkLastVerification();
 
