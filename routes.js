@@ -14,8 +14,14 @@ const router = express.Router();
 const BUNDLES_FILE = 'bundles.json';
 const BUNDLES_DETAILED_FILE = 'bundleDetailed.json';
 
-// Helper function for next scheduled update
+// Helper function for next scheduled update (usa a função global do server.js se disponível)
 function getNextScheduledUpdate() {
+    // Usa a função global configurada no server.js se disponível
+    if (typeof global.getNextScheduledUpdate === 'function') {
+        return global.getNextScheduledUpdate();
+    }
+    
+    // Fallback para compatibilidade se a função global não estiver disponível
     const now = new Date();
     const nextUpdate = new Date(now.getTime() + 6 * 60 * 60 * 1000); // 6 hours from now
     return nextUpdate.toISOString();
@@ -56,12 +62,6 @@ router.get('/', (req, res) => {
     });
 });
 
-// 🚀 Endpoint smart (agora é um alias para compatibilidade)
-router.get('/api/bundles-smart', async (req, res) => {
-    // Redireciona internamente para o endpoint principal
-    req.url = '/api/bundles-detailed';
-    router.handle(req, res, () => {});
-});
 
 // Endpoint para servir o JSON básico (com verificação inteligente)
 router.get('/api/bundles', async (req, res) => {
@@ -280,36 +280,6 @@ router.get('/api/bundles-detailed', validateInput, async (req, res) => {
     }
 });
 
-// 📜 Endpoint legacy (comportamento antigo sem inteligência)
-router.get('/api/bundles-detailed-legacy', validateInput, (req, res) => {
-    try {
-        if (fs.existsSync(BUNDLES_DETAILED_FILE)) {
-            const data = JSON.parse(fs.readFileSync(BUNDLES_DETAILED_FILE, 'utf-8'));
-            const page = parseInt(req.query.page) || 1;
-            const limit = parseInt(req.query.limit) || 10;
-            const startIndex = (page - 1) * limit;
-            const endIndex = page * limit;
-
-            const result = {
-                totalBundles: data.totalBundles,
-                bundles: data.bundles.slice(startIndex, endIndex),
-                page: page,
-                totalPages: Math.ceil(data.bundles.length / limit),
-                hasNext: endIndex < data.bundles.length,
-                hasPrev: page > 1,
-                lastUpdate: data.last_update
-            };
-
-            res.json(result);
-            console.log(`📄 [LEGACY] Página ${page} enviada (${result.bundles.length} itens)`);
-        } else {
-            res.status(500).json({ error: 'Arquivo de bundles detalhado não encontrado' });
-        }
-    } catch (error) {
-        console.error('Erro ao ler o arquivo de bundles detalhado:', error);
-        res.status(500).json({ error: 'Erro ao ler o arquivo de bundles detalhado' });
-    }
-});
 
 router.get('/api/filter-options', validateInput, async (req, res) => {
     try {
