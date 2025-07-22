@@ -13,8 +13,8 @@ class RenderKeepAlive {
         this.startTime = null;
         this.lastPingTime = null;
         this.config = {
-            interval: 8 * 60 * 1000, // 8 minutos (Render dorme após 15min de inatividade)
-            maxPings: 180, // Máximo 24 horas (180 * 8min = 24h)
+            interval: 8 * 60 * 1000,
+            maxPings: 180,
             endpoints: [
                 '/api/steam-stats',
                 '/api/update-status',

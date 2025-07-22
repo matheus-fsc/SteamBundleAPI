@@ -85,7 +85,6 @@ cron.schedule('0 */6 * * *', fetchAndSaveBundles, {
 
 checkLastVerification();
 
-// NOVO: Verifica se há atualizações incompletas na inicialização
 checkAndResumeUpdate().then(hasIncompleteUpdate => {
     if (hasIncompleteUpdate) {
         console.log('📋 Sistema pronto para continuar atualização incompleta');

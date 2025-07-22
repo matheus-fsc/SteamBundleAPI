@@ -1,6 +1,7 @@
 const axios = require('axios');
 const cheerio = require('cheerio');
-const fs = require('fs');
+const fs = require('fs').promises; // Usar versão Promise-based
+const fsSync = require('fs'); // Manter versão síncrona para casos específicos
 const moment = require('moment-timezone');
 const { updateBundlesWithDetails } = require('./updateBundles');
 const { removeDuplicatesFromBasicBundles } = require('../middleware/dataValidation');
@@ -8,14 +9,12 @@ const keepAlive = require('./keepAlive');
 
 const BUNDLES_FILE = 'bundles.json';
 const LAST_CHECK_FILE = 'last_check.json';
-const TIMEZONE = 'America/Sao_Paulo'; // Horário de Brasília
+const TIMEZONE = 'America/Sao_Paulo';
 
-// Configurações baseadas na lógica original com melhorias conservadoras
-const MAX_CONCURRENT_REQUESTS = parseInt(process.env.FETCH_BUNDLES_CONCURRENT) || 2; // 2 requisições paralelas (otimizado)
-const DELAY_BETWEEN_BATCHES = parseInt(process.env.FETCH_BUNDLES_DELAY) || 1500; // 1.5s entre lotes (otimizado)
+const MAX_CONCURRENT_REQUESTS = parseInt(process.env.FETCH_BUNDLES_CONCURRENT) || 2;
+const DELAY_BETWEEN_BATCHES = parseInt(process.env.FETCH_BUNDLES_DELAY) || 1500;
 const REQUEST_TIMEOUT = parseInt(process.env.FETCH_BUNDLES_TIMEOUT) || 15000;
 
-// CONFIGURAÇÕES PARA RENDER FREE (500MB RAM)
 const SAVE_INTERVAL_PAGES = 50;
 const MEMORY_CHECK_INTERVAL = 20;
 const MAX_MEMORY_USAGE_MB = 300;
@@ -28,15 +27,15 @@ const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 const getMemoryUsage = () => {
     const used = process.memoryUsage();
     return {
-        rss: Math.round(used.rss / 1024 / 1024 * 100) / 100, // MB
-        heapUsed: Math.round(used.heapUsed / 1024 / 1024 * 100) / 100, // MB
-        heapTotal: Math.round(used.heapTotal / 1024 / 1024 * 100) / 100 // MB
+        rss: Math.round(used.rss / 1024 / 1024 * 100) / 100,
+        heapUsed: Math.round(used.heapUsed / 1024 / 1024 * 100) / 100,
+        heapTotal: Math.round(used.heapTotal / 1024 / 1024 * 100) / 100
     };
 };
 
 let totalBundlesCount = 0;
 
-const saveBundlesData = (bundles, isComplete = false) => {
+const saveBundlesData = async (bundles, isComplete = false) => {
     const memory = getMemoryUsage();
     const result = {
         totalBundles: bundles.length,
@@ -46,12 +45,17 @@ const saveBundlesData = (bundles, isComplete = false) => {
         memoryUsage: memory
     };
     
-    fs.writeFileSync(BUNDLES_FILE, JSON.stringify(result, null, 2), 'utf-8');
-    
-    if (isComplete) {
-        console.log(`💾 ✅ Salvamento final: ${bundles.length} bundles (${memory.heapUsed}MB)`);
-    } else {
-        console.log(`💾 🔄 Salvamento parcial: ${bundles.length} bundles (${memory.heapUsed}MB)`);
+    try {
+        await fs.writeFile(BUNDLES_FILE, JSON.stringify(result, null, 2), 'utf-8');
+        
+        if (isComplete) {
+            console.log(`💾 ✅ Salvamento final: ${bundles.length} bundles (${memory.heapUsed}MB) - I/O assíncrono`);
+        } else {
+            console.log(`💾 🔄 Salvamento parcial: ${bundles.length} bundles (${memory.heapUsed}MB) - I/O assíncrono`);
+        }
+    } catch (error) {
+        console.error('❌ Erro ao salvar dados de bundles:', error.message);
+        throw error;
     }
 };
 
@@ -61,20 +65,19 @@ const fetchAndSaveBundles = async () => {
     try {
         console.log('🚀 Iniciando busca por bundles');
         
-        // Iniciar keep-alive para prevenir que o Render durma
         console.log('💓 Iniciando keep-alive durante fetch de bundles...');
         keepAlive.start();
         keepAliveStarted = true;
         
         const BUNDLES_OLD_FILE = 'bundles-old.json';
         
-        if (fs.existsSync(BUNDLES_FILE)) {
+        if (fsSync.existsSync(BUNDLES_FILE)) {
             console.log('📁 Arquivo bundles.json encontrado, criando backup...');
-            if (fs.existsSync(BUNDLES_OLD_FILE)) {
+            if (fsSync.existsSync(BUNDLES_OLD_FILE)) {
                 console.log('🗑️ Removendo backup antigo...');
-                fs.unlinkSync(BUNDLES_OLD_FILE);
+                await fs.unlink(BUNDLES_OLD_FILE);
             }
-            fs.renameSync(BUNDLES_FILE, BUNDLES_OLD_FILE);
+            await fs.rename(BUNDLES_FILE, BUNDLES_OLD_FILE);
             console.log(`✅ Backup criado: ${BUNDLES_FILE} → ${BUNDLES_OLD_FILE}`);
         } else {
             console.log('📝 Primeira execução - nenhum arquivo anterior encontrado');
@@ -126,7 +129,6 @@ const fetchAndSaveBundles = async () => {
                 page++;
             }
 
-            // MODIFICAÇÃO: Usando Promise.allSettled para maior robustez
             const settledResults = await Promise.allSettled(pagePromises);
 
             for (const result of settledResults) {
@@ -157,7 +159,7 @@ const fetchAndSaveBundles = async () => {
                 const uniqueBundles = Array.from(new Map(bundles.map(bundle => [bundle.Link, bundle])).values());
                 console.log(`🔄 Salvamento parcial: ${bundles.length} coletadas → ${uniqueBundles.length} únicas`);
                 
-                saveBundlesData(uniqueBundles, false);
+                await saveBundlesData(uniqueBundles, false);
                 
                 if (global.gc) {
                     global.gc();
@@ -182,7 +184,7 @@ const fetchAndSaveBundles = async () => {
         const uniqueBundles = Array.from(new Map(bundles.map(bundle => [bundle.Link, bundle])).values());
         console.log(`📊 Bundles: ${bundles.length} coletadas → ${uniqueBundles.length} únicas`);
         
-        saveBundlesData(uniqueBundles, true);
+        await saveBundlesData(uniqueBundles, true);
 
         console.log('🔍 Verificação final de duplicatas...');
         const deduplication = removeDuplicatesFromBasicBundles();
@@ -195,7 +197,7 @@ const fetchAndSaveBundles = async () => {
         }
 
         const lastCheck = { lastCheck: moment().tz(TIMEZONE).format() };
-        fs.writeFileSync(LAST_CHECK_FILE, JSON.stringify(lastCheck, null, 2), 'utf-8');
+        await fs.writeFile(LAST_CHECK_FILE, JSON.stringify(lastCheck, null, 2), 'utf-8');
 
         console.log(`✅ Total de bundles catalogadas: ${totalBundlesCount}`);
 
@@ -203,7 +205,6 @@ const fetchAndSaveBundles = async () => {
         await updateBundlesWithDetails();
         console.log('✅ Detalhes das bundles atualizados.');
         
-        // Parar keep-alive após conclusão bem-sucedida
         if (keepAliveStarted) {
             console.log('💓 Parando keep-alive - fetch concluído com sucesso');
             keepAlive.stop();
@@ -213,13 +214,13 @@ const fetchAndSaveBundles = async () => {
         
         const BUNDLES_OLD_FILE = 'bundles-old.json';
         
-        if (fs.existsSync(BUNDLES_OLD_FILE)) {
+        if (fsSync.existsSync(BUNDLES_OLD_FILE)) {
             console.log('🔄 Tentando restaurar backup anterior...');
             try {
-                if (fs.existsSync(BUNDLES_FILE)) {
-                    fs.unlinkSync(BUNDLES_FILE);
+                if (fsSync.existsSync(BUNDLES_FILE)) {
+                    await fs.unlink(BUNDLES_FILE);
                 }
-                fs.renameSync(BUNDLES_OLD_FILE, BUNDLES_FILE);
+                await fs.rename(BUNDLES_OLD_FILE, BUNDLES_FILE);
                 console.log('✅ Backup restaurado com sucesso!');
                 console.log('💡 Os dados anteriores foram mantidos para evitar perda de informações.');
             } catch (restoreError) {
@@ -235,7 +236,6 @@ const fetchAndSaveBundles = async () => {
             console.error('Erro ao configurar a solicitação:', error.message);
         }
         
-        // Parar keep-alive em caso de erro
         if (keepAliveStarted) {
             console.log('💓 Parando keep-alive devido a erro no fetch');
             keepAlive.stop();

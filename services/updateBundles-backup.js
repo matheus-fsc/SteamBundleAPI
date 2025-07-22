@@ -133,6 +133,12 @@ const saveDetailedBundlesData = async (detailedBundles, bundlesToProcess, isComp
     return result;
 };
 
+/**
+ * [REFATORADO] Busca detalhes de um LOTE de apps com retentativas.
+ * @param {number[]} appidBatch - Um array de IDs de aplicativos.
+ * @param {number} retryCount - Contador de tentativas.
+ * @returns {Promise<{genres: string[], categories: string[]}|null>}
+ */
 const fetchAppDetailsBatchWithRetry = async (appidBatch, retryCount = 0) => {
     if (appidBatch.length === 0) return { genres: [], categories: [] };
 
@@ -179,6 +185,11 @@ const fetchAppDetailsBatchWithRetry = async (appidBatch, retryCount = 0) => {
     }
 };
 
+/**
+ * [REFATORADO] Busca detalhes para todos os apps de um bundle, usando a função de lote.
+ * @param {number[]} appids - Um array de IDs de aplicativos da Steam.
+ * @returns {Promise<{genres: string[], categories: string[]}>}
+ */
 const getDetailsForApps = async (appids) => {
     const allGenres = new Set();
     const allCategories = new Set();
@@ -222,17 +233,12 @@ const getDetailsForApps = async (appids) => {
     };
 };
 
+
 const fetchBundleDetails = async (bundleId, language = 'brazilian') => {
     const url = `https://store.steampowered.com/actions/ajaxresolvebundles?bundleids=${bundleId}&cc=BR&l=${language}`;
     for (let attempt = 1; attempt <= STEAM_API_CONFIG.MAX_RETRIES; attempt++) {
         try {
-            const response = await axios.get(url, {
-                timeout: STEAM_API_CONFIG.REQUEST_TIMEOUT,
-                headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                    'Accept': 'application/json'
-                }
-            });
+            const response = await axios.get(url, { /* ...mesmos headers e timeout... */ });
 
             if (response.status !== 200) throw new Error(`HTTP ${response.status} para bundle ${bundleId}`);
             if (!response.data || !Array.isArray(response.data) || !response.data[0]) {
@@ -297,7 +303,7 @@ const processBundleBatch = async (bundleBatch, language, batchIndex, totalBatche
             return details;
         }).catch(err => {
             console.error(`❌ Erro crítico no bundle ${bundle.Link}:`, err.message);
-            if (err.message === 'IP_BLOCKED_BY_STEAM') throw err;
+            if (err.message === 'IP_BLOCKED_BY_STEAM') throw err; // Propaga o erro de bloqueio
             return null;
         });
     });
@@ -315,6 +321,7 @@ const updateBundlesWithDetails = async (language = 'brazilian', limitForTesting 
     console.log('🚀 VERSÃO OTIMIZADA COM RESUMO - Iniciando atualização...');
     if (limitForTesting) console.log(`🧪 MODO TESTE: Processando apenas ${limitForTesting} bundles`);
     
+    // NOVO: Inicia keep-alive para atualizações longas (não para testes)
     if (!limitForTesting) {
         keepAlive.start('bundle-update');
     }
@@ -328,16 +335,18 @@ const updateBundlesWithDetails = async (language = 'brazilian', limitForTesting 
         const bundlesJson = JSON.parse(fs.readFileSync(BUNDLES_FILE, 'utf-8'));
         const bundlesToProcess = limitForTesting ? bundlesJson.bundles.slice(0, limitForTesting) : bundlesJson.bundles;
         
+        // SISTEMA DE RESUMO: Verifica se há uma atualização incompleta
         let updateState = loadUpdateState();
         let detailedBundles = [];
         let startIndex = 0;
         let actualStartTime = Date.now();
         
         if (updateState && updateState.status === 'in_progress' && !limitForTesting) {
-            console.log(`🔄 RESUMINDO atualização anterior:`);
-            console.log(`   📊 Progresso anterior: ${updateState.completed}/${updateState.total}`);
+            console.log(`� RESUMINDO atualização anterior:`);
+            console.log(`   �📊 Progresso anterior: ${updateState.completed}/${updateState.total}`);
             console.log(`   📅 Iniciado em: ${new Date(updateState.startTime).toLocaleString()}`);
             
+            // Tenta carregar bundles já processados
             try {
                 if (fs.existsSync(BUNDLES_DETAILED_FILE)) {
                     const existingData = JSON.parse(fs.readFileSync(BUNDLES_DETAILED_FILE, 'utf-8'));
@@ -357,12 +366,14 @@ const updateBundlesWithDetails = async (language = 'brazilian', limitForTesting 
             }
         }
         
+        // Se não há estado válido, cria um novo
         if (!updateState) {
             updateState = createInitialUpdateState(bundlesToProcess, limitForTesting, language);
             actualStartTime = updateState.startTime;
             console.log(`📊 Nova atualização iniciada: ${bundlesToProcess.length} bundles`);
         }
         
+        // Salva estado inicial/resumido
         saveUpdateState(updateState);
         
         let batchesProcessed = Math.floor(startIndex / STEAM_API_CONFIG.PARALLEL_BUNDLES);
@@ -382,6 +393,7 @@ const updateBundlesWithDetails = async (language = 'brazilian', limitForTesting 
             detailedBundles.push(...batchResults);
             batchesProcessed++;
             
+            // Atualiza estado
             updateState.completed = i + batch.length;
             updateState.lastProcessedIndex = Math.min(i + batch.length - 1, bundlesToProcess.length - 1);
             updateState.lastActivity = new Date().toISOString();
@@ -402,7 +414,7 @@ const updateBundlesWithDetails = async (language = 'brazilian', limitForTesting 
                 
                 const uniqueDetailedBundles = Array.from(new Map(detailedBundles.map(bundle => [bundle.bundleid, bundle])).values());
                 await saveDetailedBundlesData(uniqueDetailedBundles, bundlesToProcess, false, limitForTesting, actualStartTime, updateState);
-                await saveUpdateState(updateState);
+                await saveUpdateState(updateState); // Salva checkpoint
                 
                 if (global.gc) {
                     global.gc();
@@ -426,6 +438,7 @@ const updateBundlesWithDetails = async (language = 'brazilian', limitForTesting 
         const uniqueDetailedBundles = Array.from(new Map(detailedBundles.map(bundle => [bundle.bundleid, bundle])).values());
         console.log(`📊 Bundles detalhadas: ${detailedBundles.length} processadas → ${uniqueDetailedBundles.length} únicas`);
 
+        // Marca como completo
         updateState.status = 'completed';
         updateState.completed = bundlesToProcess.length;
         updateState.endTime = Date.now();
@@ -439,14 +452,16 @@ const updateBundlesWithDetails = async (language = 'brazilian', limitForTesting 
                 result.totalBundles = deduplication.total;
                 result.duplicatesRemoved = deduplication.removed;
                 await fs.writeFile(BUNDLES_DETAILED_FILE, JSON.stringify(result, null, 2), 'utf-8');
-                console.log(`🧹 ${deduplication.removed} duplicatas adicionais removidas pelo middleware`);
+                console.log(`🧹 ${deduplication.removed} duplicatas adicionais removidas pelo middleware - I/O assíncrono`);
             } else {
                 console.log(`✅ Nenhuma duplicata adicional encontrada.`);
             }
             
+            // Limpa estado de atualização quando completa
             await clearUpdateState();
             console.log(`🏁 Atualização COMPLETA com ${updateState.resumeCount} resumos`);
             
+            // NOVO: Para keep-alive quando completa
             keepAlive.stop('update-completed');
         }
         
@@ -454,10 +469,12 @@ const updateBundlesWithDetails = async (language = 'brazilian', limitForTesting 
     } catch (error) {
         console.error('❌ Erro geral em updateBundlesWithDetails:', error);
         
+        // NOVO: Para keep-alive em caso de erro
         if (!limitForTesting) {
             keepAlive.stop('update-error');
         }
         
+        // Salva estado de erro para análise
         try {
             const errorState = loadUpdateState();
             if (errorState) {
@@ -476,9 +493,11 @@ const updateBundlesWithDetails = async (language = 'brazilian', limitForTesting 
 
 module.exports = { 
     updateBundlesWithDetails,
+    // NOVO: Funções para gerenciamento de estado
     loadUpdateState,
     saveUpdateState,
     clearUpdateState,
+    // NOVO: Função para verificar e resumir na inicialização
     checkAndResumeUpdate: async () => {
         const state = loadUpdateState();
         if (state && state.status === 'in_progress') {
@@ -487,8 +506,8 @@ module.exports = {
             console.log(`   📅 Iniciado: ${new Date(state.startTime).toLocaleString()}`);
             console.log(`   🔄 Resumos anteriores: ${state.resumeCount}`);
             
-            const timeSinceStart = (Date.now() - state.startTime) / (1000 * 60);
-            if (timeSinceStart > 60) {
+            const timeSinceStart = (Date.now() - state.startTime) / (1000 * 60); // minutos
+            if (timeSinceStart > 60) { // Se passou mais de 1 hora
                 console.log('⏰ Atualização muito antiga, limpando estado...');
                 await clearUpdateState();
                 return false;

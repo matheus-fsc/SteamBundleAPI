@@ -1,13 +1,11 @@
-/**
- * Middleware de Controle de Atualizações
+﻿/**
+ * Middleware de Controle de AtualizaÃ§Ã            setTimeout(() => this.pr                'X-Operation-Estimated-Wait': `${queueStatus.queueLength * 3}s`cessQueue(), 100);es
  * Integra o UpdateController com as rotas da API
  */
-
 const updateController = require('../services/updateController');
-
 /**
- * Sistema de fila para operações sequenciais
- * Garante que operações pesadas não executem simultaneamente
+ * Sistema de fila para operaÃ§Ãµes sequenciais
+ * Garante que operaÃ§Ãµes pesadas nÃ£o executem simultaneamente
  */
 class OperationQueue {
     constructor() {
@@ -15,7 +13,6 @@ class OperationQueue {
         this.running = false;
         this.currentOperation = null;
     }
-
     async add(operation, priority = 0) {
         return new Promise((resolve, reject) => {
             this.queue.push({
@@ -25,40 +22,30 @@ class OperationQueue {
                 reject,
                 timestamp: Date.now()
             });
-
-            // Ordena por prioridade (maior valor = maior prioridade)
             this.queue.sort((a, b) => b.priority - a.priority);
-            
             this.processQueue();
         });
     }
-
     async processQueue() {
         if (this.running || this.queue.length === 0) {
             return;
         }
-
         this.running = true;
         const item = this.queue.shift();
         this.currentOperation = item;
-
-        console.log(`🔄 [OPERATION QUEUE] Executando operação (fila: ${this.queue.length} pendentes)`);
-
+        console.log(`ðŸ”„ [OPERATION QUEUE] Executando operaÃ§Ã£o (fila: ${this.queue.length} pendentes)`);
         try {
             const result = await item.operation();
             item.resolve(result);
         } catch (error) {
-            console.error(`❌ [OPERATION QUEUE] Erro na operação:`, error);
+            console.error(`âŒ [OPERATION QUEUE] Erro na operaÃ§Ã£o:`, error);
             item.reject(error);
         } finally {
             this.currentOperation = null;
             this.running = false;
-            
-            // Processa próximo item da fila
-            setTimeout(() => this.processQueue(), 100); // Pequeno delay entre operações
+            setTimeout(() => this.processQueue(), 100); // Pequeno delay entre operaÃ§Ãµes
         }
     }
-
     getStatus() {
         return {
             running: this.running,
@@ -69,154 +56,119 @@ class OperationQueue {
             } : null
         };
     }
-
     clear() {
         this.queue.forEach(item => {
-            item.reject(new Error('Fila de operações foi limpa'));
+            item.reject(new Error('Fila de operaÃ§Ãµes foi limpa'));
         });
         this.queue = [];
     }
 }
-
-// Instância global da fila de operações
 const operationQueue = new OperationQueue();
-
 /**
- * Middleware para operações sequenciais de fetch
- * Garante que bundles e bundleDetailed não executem simultaneamente
+ * Middleware para operaÃ§Ãµes sequenciais de fetch
+ * Garante que bundles e bundleDetailed nÃ£o executem simultaneamente
  */
 const sequentialFetchMiddleware = (operationType, priority = 0) => {
     return async (req, res, next) => {
         const queueStatus = operationQueue.getStatus();
-        
-        // Adiciona headers informativos sobre a fila
         res.set({
             'X-Operation-Queue-Length': queueStatus.queueLength.toString(),
             'X-Operation-Queue-Running': queueStatus.running ? 'yes' : 'no',
             'X-Operation-Type': operationType
         });
-
-        // Se há operações na fila e esta não é de alta prioridade, informa sobre a espera
         if (queueStatus.queueLength > 0 && priority < 5) {
             res.set({
                 'X-Operation-Wait-Position': (queueStatus.queueLength + 1).toString(),
-                'X-Operation-Estimated-Wait': `${queueStatus.queueLength * 3}s` // Estimativa de 3s por operação
+                'X-Operation-Estimated-Wait': `${queueStatus.queueLength * 3}s` // Estimativa de 3s por operaÃ§Ã£o
             });
         }
-
         try {
-            // Adiciona operação à fila
             await operationQueue.add(async () => {
-                console.log(`🚀 [FETCH PROTECTION] Iniciando ${operationType} (prioridade: ${priority})`);
-                
-                // Simula a execução da operação (o next() será chamado dentro da fila)
+                console.log(`ðŸš€ [FETCH PROTECTION] Iniciando ${operationType} (prioridade: ${priority})`);
                 return new Promise((resolve) => {
-                    // Override do res.end para capturar quando a resposta terminar
                     const originalEnd = res.end;
                     res.end = function(...args) {
-                        console.log(`✅ [FETCH PROTECTION] Finalizando ${operationType}`);
+                        console.log(`âœ… [FETCH PROTECTION] Finalizando ${operationType}`);
                         resolve();
                         return originalEnd.apply(this, args);
                     };
-                    
-                    // Override do res.json para capturar quando a resposta for enviada
                     const originalJson = res.json;
                     res.json = function(data) {
-                        console.log(`✅ [FETCH PROTECTION] Finalizando ${operationType} (JSON)`);
-                        setTimeout(() => resolve(), 100); // Pequeno delay para garantir que a resposta foi enviada
+                        console.log(`âœ… [FETCH PROTECTION] Finalizando ${operationType} (JSON)`);
+                        setTimeout(() => resolve(), 100);
                         return originalJson.call(this, data);
                     };
-                    
                     next();
                 });
             }, priority);
-
         } catch (error) {
-            console.error(`❌ [FETCH PROTECTION] Erro em ${operationType}:`, error);
+            console.error(`âŒ [FETCH PROTECTION] Erro em ${operationType}:`, error);
             res.status(503).json({
-                error: 'Serviço temporariamente indisponível',
-                message: 'Sistema de proteção contra sobrecarga ativo. Tente novamente em alguns segundos.',
+                error: 'ServiÃ§o temporariamente indisponÃ­vel',
+                message: 'Sistema de proteÃ§Ã£o contra sobrecarga ativo. Tente novamente em alguns segundos.',
                 operation: operationType,
                 retry_after: 5
             });
         }
     };
 };
-
 /**
- * Middleware específico para proteger operações de atualização de bundles
+ * Middleware especÃ­fico para proteger operaÃ§Ãµes de atualizaÃ§Ã£o de bundles
  */
 const bundleFetchProtectionMiddleware = sequentialFetchMiddleware('bundle-fetch', 3);
 const bundleDetailedFetchProtectionMiddleware = sequentialFetchMiddleware('bundle-detailed-fetch', 1);
-
 /**
- * Middleware para limpeza da fila em caso de emergência
+ * Middleware para limpeza da fila em caso de emergÃªncia
  */
 const emergencyQueueClearMiddleware = (req, res, next) => {
     if (req.query.clearQueue === 'emergency' && req.method === 'POST') {
-        console.log('🚨 [EMERGENCY] Limpando fila de operações por solicitação de emergência');
+        console.log('ðŸš¨ [EMERGENCY] Limpando fila de operaÃ§Ãµes por solicitaÃ§Ã£o de emergÃªncia');
         operationQueue.clear();
-        
         return res.json({
             success: true,
-            message: 'Fila de operações foi limpa',
+            message: 'Fila de operaÃ§Ãµes foi limpa',
             timestamp: new Date().toISOString()
         });
     }
     next();
 };
-
 /**
- * Middleware para verificar status de atualizações
- * Adiciona headers informativos sobre o estado das atualizações
+ * Middleware para verificar status de atualizaÃ§Ãµes
+ * Adiciona headers informativos sobre o estado das atualizaÃ§Ãµes
  */
 const updateStatusMiddleware = (req, res, next) => {
     const status = updateController.getStatus();
-    
-    // Adiciona headers informativos
     res.set({
         'X-Update-Status': status.isUpdating ? 
             `in-progress-${status.updateType}` : 'idle',
         'X-Update-Control': 'enabled',
         'X-Can-Trigger-Update': status.canTriggerUpdate ? 'yes' : 'no'
     });
-
-    // Incrementa contador se estiver em atualização
     if (status.isUpdating) {
         updateController.incrementRequestCount();
-        
-        // Adiciona informações adicionais se estiver atualizando
         res.set({
             'X-Update-Duration': status.duration?.toString() || '0',
             'X-Update-Type': status.updateType || 'unknown',
             'X-Request-Count-During-Update': status.requestCount.toString()
         });
     }
-
     next();
 };
-
 /**
- * Middleware para proteger endpoints administrativos contra execução simultânea
- * Sistema simplificado que permite força-update executar sequencialmente
+ * Middleware para proteger endpoints administrativos contra execuÃ§Ã£o simultÃ¢nea
+ * Sistema simplificado que permite forÃ§a-update executar sequencialmente
  */
 const preventSimultaneousUpdates = async (req, res, next) => {
     const status = updateController.getStatus();
-    
-    // Para force-update, permite execução mesmo se há atualização em andamento
-    // O executeControlledUpdate vai cuidar da coordenação
     if (req.path === '/api/force-update') {
-        console.log(`🔧 [FORCE-UPDATE] Permitindo execução mesmo com atualização em andamento`);
+        console.log(`ðŸ”§ [FORCE-UPDATE] Permitindo execuÃ§Ã£o mesmo com atualizaÃ§Ã£o em andamento`);
         return next();
     }
-    
-    // Para outros endpoints, verifica se pode executar
     if (updateController.isUpdateInProgress()) {
         const queueStatus = operationQueue.getStatus();
-        
         return res.status(409).json({
-            error: 'Atualização já em andamento',
-            message: 'Uma atualização está sendo executada no momento. Aguarde sua conclusão antes de iniciar uma nova.',
+            error: 'AtualizaÃ§Ã£o jÃ¡ em andamento',
+            message: 'Uma atualizaÃ§Ã£o estÃ¡ sendo executada no momento. Aguarde sua conclusÃ£o antes de iniciar uma nova.',
             current_update: {
                 type: status.updateType,
                 started_at: status.startTime,
@@ -225,54 +177,43 @@ const preventSimultaneousUpdates = async (req, res, next) => {
             },
             suggestions: [
                 'Use /api/update-status para monitorar o progresso',
-                'Aguarde a conclusão da atualização atual',
-                'Use /api/force-update para operações prioritárias',
-                status.duration > 600 ? 'Se a atualização estiver travada por mais de 10 minutos, contate o administrador' : null
+                'Aguarde a conclusÃ£o da atualizaÃ§Ã£o atual',
+                'Use /api/force-update para operaÃ§Ãµes prioritÃ¡rias',
+                status.duration > 600 ? 'Se a atualizaÃ§Ã£o estiver travada por mais de 10 minutos, contate o administrador' : null
             ].filter(Boolean),
             retry_after: 30
         });
     }
-    
     next();
 };
-
 /**
- * Wrapper para executar atualizações de forma controlada
- * Versão simplificada que executa sequencialmente dentro do mesmo contexto
+ * Wrapper para executar atualizaÃ§Ãµes de forma controlada
+ * VersÃ£o simplificada que executa sequencialmente dentro do mesmo contexto
  */
 const executeControlledUpdate = async (updateFunction, type) => {
-    // Para operações sequenciais (force-update), executa diretamente
-    // O UpdateController vai gerenciar a coordenação internamente
-    console.log(`� [CONTROLLED] Executando "${type}" de forma controlada`);
+    console.log(`ï¿½ [CONTROLLED] Executando "${type}" de forma controlada`);
     return updateController.executeControlledUpdate(updateFunction, type);
 };
-
 /**
- * Middleware para logging de operações de atualização
+ * Middleware para logging de operaÃ§Ãµes de atualizaÃ§Ã£o
  */
 const updateLoggingMiddleware = (operation) => {
     return (req, res, next) => {
         const originalSend = res.send;
         const originalJson = res.json;
-        
-        // Override do método send para capturar resposta
         res.send = function(data) {
             logUpdateOperation(req, res, operation, 'send');
             return originalSend.call(this, data);
         };
-        
-        // Override do método json para capturar resposta
         res.json = function(data) {
             logUpdateOperation(req, res, operation, 'json');
             return originalJson.call(this, data);
         };
-        
         next();
     };
 };
-
 /**
- * Função de logging para operações de atualização
+ * FunÃ§Ã£o de logging para operaÃ§Ãµes de atualizaÃ§Ã£o
  */
 const logUpdateOperation = (req, res, operation, method) => {
     const status = updateController.getStatus();
@@ -281,19 +222,15 @@ const logUpdateOperation = (req, res, operation, method) => {
         userAgent: req.get('User-Agent') || 'unknown',
         timestamp: new Date().toISOString()
     };
-    
-    console.log(`📊 [UPDATE MIDDLEWARE] ${operation} - Status: ${res.statusCode} - ` +
+    console.log(`ðŸ“Š [UPDATE MIDDLEWARE] ${operation} - Status: ${res.statusCode} - ` +
                `Update: ${status.isUpdating ? status.updateType : 'none'} - ` +
                `IP: ${clientInfo.ip}`);
 };
-
 /**
- * Middleware para adicionar diagnósticos de saúde do sistema de atualizações
+ * Middleware para adicionar diagnÃ³sticos de saÃºde do sistema de atualizaÃ§Ãµes
  */
 const updateHealthCheckMiddleware = (req, res, next) => {
     const diagnostics = updateController.getDiagnostics();
-    
-    // Se sistema não está saudável, adiciona warnings
     if (!diagnostics.diagnostics.isHealthy) {
         res.set({
             'X-Update-Health': 'warning',
@@ -304,27 +241,19 @@ const updateHealthCheckMiddleware = (req, res, next) => {
             'X-Update-Health': 'healthy'
         });
     }
-    
     next();
 };
-
 module.exports = {
     updateStatusMiddleware,
     preventSimultaneousUpdates,
     executeControlledUpdate,
     updateLoggingMiddleware,
     updateHealthCheckMiddleware,
-    
-    // Novos middlewares de proteção contra sobrecarga
     sequentialFetchMiddleware,
     bundleFetchProtectionMiddleware,
     bundleDetailedFetchProtectionMiddleware,
     emergencyQueueClearMiddleware,
-    
-    // Utilitários da fila de operações
     getOperationQueueStatus: () => operationQueue.getStatus(),
     clearOperationQueue: () => operationQueue.clear(),
-    
-    // Expõe o controller para uso direto quando necessário
     getUpdateController: () => updateController
 };

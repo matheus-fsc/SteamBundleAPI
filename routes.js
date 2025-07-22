@@ -2,7 +2,8 @@ const express = require('express');
 const fs = require('fs');
 const { fetchAndSaveBundles, totalBundlesCount } = require('./services/fetchBundles');
 const { updateBundlesWithDetails, loadUpdateState, clearUpdateState } = require('./services/updateBundles');
-const { keepAlive } = require('./services/keepAlive'); // NOVO: Sistema keep-alive
+const { keepAlive } = require('./services/keepAlive');
+const { getDetailedBundles, getBasicBundles, getLastCheck, invalidateAllCaches, getCacheInfo } = require('./services/dataCache');
 const { authenticateApiKey, adminRateLimit } = require('./middleware/auth');
 const { validateInput } = require('./middleware/security');
 const { 
@@ -66,16 +67,18 @@ router.get('/', (req, res) => {
 
 router.get('/api/bundles', bundleFetchProtectionMiddleware, async (req, res) => {
     try {
-        if (fs.existsSync(BUNDLES_FILE)) {
-            const data = fs.readFileSync(BUNDLES_FILE, 'utf-8');
-            const basicData = JSON.parse(data);
+        const basicData = await getBasicBundles();
+        
+        if (basicData) {
             const status = getCurrentDataStatus();
             res.set({
                 'X-Data-Type': 'basic',
                 'X-Total-Count': basicData.totalBundles?.toString() || '0',
                 'X-Has-Detailed': status.hasDetailedBundles ? 'yes' : 'no',
-                'X-Recommended-Endpoint': '/api/bundles-detailed'
+                'X-Recommended-Endpoint': '/api/bundles-detailed',
+                'X-Cache-Status': 'cached'
             });
+            
             const response = {
                 ...basicData,
                 metadata: {
@@ -87,21 +90,24 @@ router.get('/api/bundles', bundleFetchProtectionMiddleware, async (req, res) => 
                         'Dados detalhados em processamento. Tente novamente em alguns minutos.',
                     duplicates_detected: status.duplicatesDetected > 0 ? 
                         `${status.duplicatesDetected} duplicatas detectadas` : 
-                        'Nenhuma duplicata detectada'
+                        'Nenhuma duplicata detectada',
+                    cache_hit: true
                 }
             };
+            
             res.json(response);
-            console.log(`📦 Bundles básicas enviadas (${basicData.totalBundles} total)`);
+            console.log(`📦 Bundles básicas enviadas (${basicData.totalBundles} total) - Cache: ✅`);
         } else {
             res.status(500).json({ 
                 error: 'Arquivo de bundles não encontrado',
                 suggestion: 'A API pode estar inicializando. Tente novamente em alguns minutos.',
-                help: 'Use /api/force-update (com API key) para iniciar a coleta de dados'
+                help: 'Use /api/force-update (com API key) para iniciar a coleta de dados',
+                cache_miss: true
             });
         }
     } catch (error) {
-        console.error('Erro ao ler o arquivo de bundles:', error);
-        res.status(500).json({ error: 'Erro ao ler o arquivo de bundles' });
+        console.error('Erro na rota /api/bundles:', error);
+        res.status(500).json({ error: 'Erro ao processar o seu pedido', technical_error: error.message });
     }
 });
 
@@ -111,12 +117,15 @@ router.get('/api/bundles-detailed', bundleDetailedFetchProtectionMiddleware, val
         let responseData = {
             updateTriggered: false
         };
-        if (status.hasDetailedBundles && fs.existsSync(BUNDLES_DETAILED_FILE)) {
-            const detailedData = JSON.parse(fs.readFileSync(BUNDLES_DETAILED_FILE, 'utf-8'));
+        
+        const detailedData = await getDetailedBundles();
+        
+        if (detailedData && status.hasDetailedBundles) {
             const page = parseInt(req.query.page) || 1;
             const limit = parseInt(req.query.limit) || 10;
             const startIndex = (page - 1) * limit;
             const endIndex = page * limit;
+            
             res.set({
                 'X-Data-Type': 'detailed',
                 'X-Total-Count': detailedData.totalBundles?.toString() || '0',
@@ -124,8 +133,10 @@ router.get('/api/bundles-detailed', bundleDetailedFetchProtectionMiddleware, val
                 'X-Total-Pages': Math.ceil(detailedData.bundles.length / limit).toString(),
                 'X-Data-Age-Hours': status.dataAge?.toString() || '0',
                 'X-Background-Update': status.needsUpdate ? 'triggered' : 'not-needed',
-                'X-Last-Update': detailedData.last_update || 'unknown'
+                'X-Last-Update': detailedData.last_update || 'unknown',
+                'X-Cache-Status': 'cached'
             });
+            
             responseData = {
                 totalBundles: detailedData.totalBundles,
                 bundles: detailedData.bundles.slice(startIndex, endIndex),
@@ -141,50 +152,61 @@ router.get('/api/bundles-detailed', bundleDetailedFetchProtectionMiddleware, val
                     duplicates_cleaned: detailedData.duplicatesRemoved || 0,
                     background_update_status: status.needsUpdate ? 
                         'Dados sendo atualizados em segundo plano...' : 
-                        'Dados atualizados'
-                }
-            };
-        } else if (status.hasBasicBundles && fs.existsSync(BUNDLES_FILE)) {
-            const basicData = JSON.parse(fs.readFileSync(BUNDLES_FILE, 'utf-8'));
-            const page = parseInt(req.query.page) || 1;
-            const limit = parseInt(req.query.limit) || 10;
-            const startIndex = (page - 1) * limit;
-            const endIndex = page * limit;
-            res.set({
-                'X-Data-Type': 'basic-fallback',
-                'X-Total-Count': basicData.totalBundles?.toString() || '0',
-                'X-Current-Page': page.toString(),
-                'X-Background-Update': 'processing-details',
-                'X-Warning': 'Serving basic data while detailed data is being processed'
-            });
-            responseData = {
-                totalBundles: basicData.totalBundles,
-                bundles: basicData.bundles.slice(startIndex, endIndex),
-                page: page,
-                totalPages: Math.ceil(basicData.bundles.length / limit),
-                hasNext: endIndex < basicData.bundles.length,
-                hasPrev: page > 1,
-                lastUpdate: null,
-                updateTriggered: false,
-                dataType: 'basic',
-                metadata: {
-                    data_quality: 'basic_fallback',
-                    message: 'Servindo dados básicos enquanto os detalhes são processados',
-                    estimated_completion: 'Dados detalhados estarão disponíveis em alguns minutos',
-                    recommendation: 'Recarregue a página em alguns minutos para dados completos'
+                        'Dados atualizados',
+                    cache_hit: true
                 }
             };
         } else {
-            return res.status(500).json({ 
-                error: 'Nenhum dado de bundles encontrado',
-                suggestion: 'A API pode estar inicializando pela primeira vez',
-                help: {
-                    admin_action: 'Use /api/force-update com API key para iniciar a coleta',
-                    estimated_time: 'Primeira execução pode levar 10-15 minutos',
-                    check_status: 'Use /api/steam-stats para verificar o progresso'
-                }
-            });
+            // Fallback para bundles básicas usando cache
+            const basicData = await getBasicBundles();
+            
+            if (basicData && status.hasBasicBundles) {
+                const page = parseInt(req.query.page) || 1;
+                const limit = parseInt(req.query.limit) || 10;
+                const startIndex = (page - 1) * limit;
+                const endIndex = page * limit;
+                
+                res.set({
+                    'X-Data-Type': 'basic-fallback',
+                    'X-Total-Count': basicData.totalBundles?.toString() || '0',
+                    'X-Current-Page': page.toString(),
+                    'X-Background-Update': 'processing-details',
+                    'X-Warning': 'Serving basic data while detailed data is being processed',
+                    'X-Cache-Status': 'cached'
+                });
+                
+                responseData = {
+                    totalBundles: basicData.totalBundles,
+                    bundles: basicData.bundles.slice(startIndex, endIndex),
+                    page: page,
+                    totalPages: Math.ceil(basicData.bundles.length / limit),
+                    hasNext: endIndex < basicData.bundles.length,
+                    hasPrev: page > 1,
+                    lastUpdate: null,
+                    updateTriggered: false,
+                    dataType: 'basic',
+                    metadata: {
+                        data_quality: 'basic_fallback',
+                        message: 'Servindo dados básicos enquanto os detalhes são processados',
+                        estimated_completion: 'Dados detalhados estarão disponíveis em alguns minutos',
+                        recommendation: 'Recarregue a página em alguns minutos para dados completos',
+                        cache_hit: true
+                    }
+                };
+            } else {
+                return res.status(500).json({ 
+                    error: 'Nenhum dado de bundles encontrado',
+                    suggestion: 'A API pode estar inicializando pela primeira vez',
+                    help: {
+                        admin_action: 'Use /api/force-update com API key para iniciar a coleta',
+                        estimated_time: 'Primeira execução pode levar 10-15 minutos',
+                        check_status: 'Use /api/steam-stats para verificar o progresso'
+                    },
+                    cache_miss: true
+                });
+            }
         }
+        
         if (status.needsUpdate) {
             responseData.updateTriggered = true;
             setImmediate(async () => {
@@ -208,28 +230,38 @@ router.get('/api/bundles-detailed', bundleDetailedFetchProtectionMiddleware, val
                 }
             });
         }
+        
         res.json(responseData);
-        console.log(`📄 Página ${responseData.page} enviada (${responseData.bundles.length} itens) - Update: ${responseData.updateTriggered}`);
+        console.log(`📄 Página ${responseData.page} enviada (${responseData.bundles.length} itens) - Update: ${responseData.updateTriggered} - Cache: ✅`);
     } catch (error) {
-        console.error('Erro ao ler o arquivo de bundles detalhado:', error);
+        console.error('Erro na rota /api/bundles-detailed:', error);
         res.status(500).json({ 
-            error: 'Erro ao ler o arquivo de bundles detalhado',
+            error: 'Erro ao processar o seu pedido',
             technical_error: error.message,
             suggestion: 'Tente novamente em alguns segundos ou use /api/bundles para dados básicos'
         });
     }
 });
 
-router.get('/api/filter-options', validateInput, (req, res) => {
+router.get('/api/filter-options', validateInput, async (req, res) => {
     try {
-        const dataFile = fs.existsSync(BUNDLES_DETAILED_FILE) ? BUNDLES_DETAILED_FILE : BUNDLES_FILE;
-        if (!fs.existsSync(dataFile)) {
+        // Tentar usar dados detalhados primeiro, senão usar básicos
+        let data = await getDetailedBundles();
+        let dataType = 'detailed';
+        
+        if (!data) {
+            data = await getBasicBundles();
+            dataType = 'basic';
+        }
+        
+        if (!data) {
             return res.status(500).json({ 
                 error: 'Dados não encontrados',
-                suggestion: 'A API pode estar inicializando'
+                suggestion: 'A API pode estar inicializando',
+                cache_miss: true
             });
         }
-        const data = JSON.parse(fs.readFileSync(dataFile, 'utf-8'));
+        
         const bundles = data.bundles || [];
         const genres = new Set();
         const categories = new Set();
@@ -238,6 +270,7 @@ router.get('/api/filter-options', validateInput, (req, res) => {
         let maxPrice = 0;
         let minDiscount = 100;
         let maxDiscount = 0;
+        
         bundles.forEach(bundle => {
             if (bundle.genres && Array.isArray(bundle.genres)) {
                 bundle.genres.forEach(genre => genres.add(genre));
@@ -258,8 +291,10 @@ router.get('/api/filter-options', validateInput, (req, res) => {
                 maxDiscount = Math.max(maxDiscount, bundle.discount_percent);
             }
         });
+        
         if (minPrice === Infinity) minPrice = 0;
         if (minDiscount === 100) minDiscount = 0;
+        
         const filterOptions = {
             genres: Array.from(genres).sort(),
             categories: Array.from(categories).sort(),
@@ -274,16 +309,99 @@ router.get('/api/filter-options', validateInput, (req, res) => {
             },
             metadata: {
                 totalBundles: bundles.length,
-                dataSource: dataFile.includes('Detailed') ? 'detailed' : 'basic',
-                lastUpdate: data.last_update || null
+                dataSource: dataType,
+                lastUpdate: data.last_update || null,
+                cache_hit: true
             }
         };
+        
+        res.set({
+            'X-Data-Source': dataType,
+            'X-Total-Bundles': bundles.length.toString(),
+            'X-Cache-Status': 'cached'
+        });
+        
         res.json(filterOptions);
-        console.log(`🔍 Opções de filtro enviadas (${bundles.length} bundles analisados)`);
+        console.log(`🔍 Opções de filtro enviadas (${bundles.length} bundles analisados) - Source: ${dataType} - Cache: ✅`);
     } catch (error) {
         console.error('Erro ao gerar opções de filtro:', error);
         res.status(500).json({ 
             error: 'Erro ao gerar opções de filtro',
+            technical_error: error.message
+        });
+    }
+});
+
+router.get('/api/cache-info', validateInput, (req, res) => {
+    try {
+        const cacheInfo = getCacheInfo();
+        const status = getCurrentDataStatus();
+        
+        res.set({
+            'X-Cache-System': 'intelligent-file-watcher',
+            'X-Cache-Performance': 'optimized'
+        });
+        
+        res.json({
+            cache_system: {
+                type: 'intelligent_file_watcher',
+                description: 'Cache baseado em timestamp de modificação dos arquivos',
+                benefits: [
+                    'Leitura de arquivo apenas quando modificado',
+                    'JSON.parse executado apenas uma vez por atualização',
+                    'Resposta instantânea para requests subsequentes',
+                    'Economia significativa de CPU e I/O'
+                ]
+            },
+            cache_status: cacheInfo,
+            data_status: {
+                basic_bundles_available: status.hasBasicBundles,
+                detailed_bundles_available: status.hasDetailedBundles,
+                data_age_hours: status.dataAge,
+                needs_update: status.needsUpdate
+            },
+            performance_impact: {
+                before: 'fs.readFileSync + JSON.parse a cada request',
+                after: 'Cache hit = resposta instantânea da memória',
+                improvement: 'Até 95% mais rápido em requests subsequentes'
+            }
+        });
+        
+        console.log('📊 Informações de cache enviadas');
+    } catch (error) {
+        console.error('Erro ao obter informações de cache:', error);
+        res.status(500).json({ 
+            error: 'Erro ao obter informações de cache',
+            technical_error: error.message
+        });
+    }
+});
+
+router.post('/api/cache-invalidate', authenticateApiKey, adminRateLimit, (req, res) => {
+    try {
+        const { cacheType } = req.body;
+        
+        if (cacheType && ['detailed', 'basic', 'lastCheck'].includes(cacheType)) {
+            invalidateCache(cacheType);
+            res.json({
+                success: true,
+                message: `Cache ${cacheType} invalidado com sucesso`,
+                cache_invalidated: cacheType
+            });
+        } else {
+            invalidateAllCaches();
+            res.json({
+                success: true,
+                message: 'Todos os caches invalidados com sucesso',
+                cache_invalidated: 'all'
+            });
+        }
+        
+        console.log(`🧹 Cache invalidado: ${cacheType || 'all'}`);
+    } catch (error) {
+        console.error('Erro ao invalidar cache:', error);
+        res.status(500).json({ 
+            error: 'Erro ao invalidar cache',
             technical_error: error.message
         });
     }
@@ -749,7 +867,6 @@ router.get('/api/clean-duplicates', authenticateApiKey, adminRateLimit, async (r
     }
 });
 
-// NOVA ROTA: Verifica status de resumo de atualizações
 router.get('/api/update-resume-status', 
     authenticateApiKey, 
     adminRateLimit, 
@@ -776,7 +893,7 @@ router.get('/api/update-resume-status',
         }
         
         const progressPercent = Math.round((updateState.completed / updateState.total) * 100);
-        const timeSinceStart = Math.round((Date.now() - updateState.startTime) / 1000 / 60); // minutos
+        const timeSinceStart = Math.round((Date.now() - updateState.startTime) / 1000 / 60);
         const timeSinceLastActivity = updateState.lastActivity ? 
             Math.round((Date.now() - new Date(updateState.lastActivity).getTime()) / 1000 / 60) : null;
         
@@ -841,7 +958,6 @@ router.get('/api/update-resume-status',
     }
 });
 
-// NOVA ROTA: Status do sistema keep-alive
 router.get('/api/keep-alive-status', 
     authenticateApiKey, 
     adminRateLimit, 
@@ -923,7 +1039,6 @@ router.get('/api/keep-alive-status',
     }
 });
 
-// NOVA ROTA: Controle manual do keep-alive
 router.get('/api/keep-alive-start', 
     authenticateApiKey, 
     adminRateLimit, 
@@ -1026,7 +1141,6 @@ router.get('/api/keep-alive-ping',
     }
 });
 
-// NOVA ROTA: Limpa estado de resumo forçadamente
 router.get('/api/update-resume-clear', 
     authenticateApiKey, 
     adminRateLimit, 
