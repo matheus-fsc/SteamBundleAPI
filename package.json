@@ -18,8 +18,15 @@
   },
   "scripts": {
     "start": "node server.js",
-    "test-storage": "node test-storage.js",
-    "setup-storage": "node setup-storage-sync.bat"
+    "test": "npm run test:storage && npm run test:routes",
+    "test:storage": "node tests/test-storage.js",
+    "test:routes": "node tests/test-new-routes.js",
+    "test:backup": "node tests/test-backup-system.js",
+    "test:fetch": "node tests/test-limited-fetch.js",
+    "test:all": "node tests/test-storage.js && node tests/test-new-routes.js && node tests/test-backup-system.js",
+    "check:storage": "node tests/check-storage-data.js",
+    "check:backup": "node tests/check-backup-tables.js",
+    "dev": "nodemon server.js"
   },
   "nodemonConfig": {
     "ignore": [
