@@ -229,7 +229,7 @@ class StorageSyncManager {
         };
 
         console.log(`🔄 Sincronizando chunk ${chunkInfo.chunkNumber} (${bundlesDetailed.length} bundles)...`);
-        return this.makeStorageRequest('/api/sync', syncData);
+        return this.makeRequest('/api/sync', syncData);
     }
 
     // Sincronização final de bundles detalhados
@@ -255,7 +255,7 @@ class StorageSyncManager {
         };
 
         console.log(`🏁 Sincronização final (${bundlesDetailed.length} bundles detalhados)...`);
-        return this.makeStorageRequest('/api/sync', syncData);
+        return this.makeRequest('/api/sync', syncData);
     }
 
     // Sincroniza fila de falhas com o storage
@@ -276,7 +276,7 @@ class StorageSyncManager {
         };
 
         console.log(`📤 Sincronizando fila de falhas (${queueData.totalFailed} bundles)...`);
-        return this.makeStorageRequest('/api/sync', syncData);
+        return this.makeRequest('/api/sync', syncData);
     }
 
     // Recupera fila de falhas do storage
