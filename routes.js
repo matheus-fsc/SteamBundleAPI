@@ -11,7 +11,6 @@ const {
 } = require('./middleware/dataValidation');
 
 const router = express.Router();
-const BUNDLES_FILE = 'bundles.json';
 const BUNDLES_DETAILED_FILE = 'bundleDetailed.json';
 
 // Helper function for next scheduled update (usa a função global do server.js se disponível)
@@ -50,8 +49,7 @@ router.get('/', (req, res) => {
         },
         endpoints: {
             public: [
-                '/api/bundles - Bundles básicas',
-                '/api/bundles-detailed - Bundles com detalhes (recomendado)',
+                '/api/bundles-detailed - Bundles com detalhes completos (endpoint principal)',
                 '/api/steam-stats - Estatísticas da API'
             ],
             admin: [
@@ -100,14 +98,14 @@ router.get('/api/bundles-old', async (req, res) => {
             res.status(404).json({ 
                 error: 'Backup de bundles básicos não encontrado',
                 message: 'Nenhum backup disponível no momento',
-                suggestion: 'Use /api/bundles para dados atuais'
+                suggestion: 'Use /api/bundles-detailed para dados atuais'
             });
         }
     } catch (error) {
         console.error('Erro ao ler backup de bundles básicos:', error);
         res.status(500).json({ 
             error: 'Erro ao ler backup de bundles básicos',
-            fallback: 'Use /api/bundles para dados atuais'
+            fallback: 'Use /api/bundles-detailed para dados atuais'
         });
     }
 });
@@ -213,54 +211,6 @@ router.get('/api/bundles-smart', validateInput, async (req, res) => {
     }
 });
 
-
-// Endpoint para servir o JSON básico (com verificação inteligente)
-router.get('/api/bundles', async (req, res) => {
-    try {
-        if (fs.existsSync(BUNDLES_FILE)) {
-            const data = fs.readFileSync(BUNDLES_FILE, 'utf-8');
-            const basicData = JSON.parse(data);
-            const status = getCurrentDataStatus();
-            
-            // Adiciona headers informativos
-            res.set({
-                'X-Data-Type': 'basic',
-                'X-Total-Count': basicData.totalBundles?.toString() || '0',
-                'X-Has-Detailed': status.hasDetailedBundles ? 'yes' : 'no',
-                'X-Recommended-Endpoint': '/api/bundles-detailed'
-            });
-            
-            // Adiciona informações de status
-            const response = {
-                ...basicData,
-                metadata: {
-                    data_type: 'basic',
-                    has_detailed_version: status.hasDetailedBundles,
-                    last_detailed_update: status.lastDetailedUpdate,
-                    recommendation: status.hasDetailedBundles ? 
-                        'Use /api/bundles-detailed para dados completos com preços e detalhes' : 
-                        'Dados detalhados em processamento. Tente novamente em alguns minutos.',
-                    duplicates_detected: status.duplicatesDetected > 0 ? 
-                        `${status.duplicatesDetected} duplicatas detectadas` : 
-                        'Nenhuma duplicata detectada'
-                }
-            };
-            
-            res.json(response);
-            console.log(`📦 Bundles básicas enviadas (${basicData.totalBundles} total)`);
-        } else {
-            res.status(500).json({ 
-                error: 'Arquivo de bundles não encontrado',
-                suggestion: 'A API pode estar inicializando. Tente novamente em alguns minutos.',
-                help: 'Use /api/force-update (com API key) para iniciar a coleta de dados'
-            });
-        }
-    } catch (error) {
-        console.error('Erro ao ler o arquivo de bundles:', error);
-        res.status(500).json({ error: 'Erro ao ler o arquivo de bundles' });
-    }
-});
-
 // Endpoint principal para bundles detalhadas com sistema inteligente
 router.get('/api/bundles-detailed', validateInput, async (req, res) => {
     try {
@@ -324,74 +274,19 @@ router.get('/api/bundles-detailed', validateInput, async (req, res) => {
                     }
                 }
             };
-        } else if (status.hasBasicBundles && fs.existsSync(BUNDLES_FILE)) {
-            // Se só tem dados básicos, retorna eles com estrutura compatível
-            const basicData = JSON.parse(fs.readFileSync(BUNDLES_FILE, 'utf-8'));
-            const page = parseInt(req.query.page) || 1;
-            const limit = parseInt(req.query.limit) || 10;
-            const startIndex = (page - 1) * limit;
-            const endIndex = page * limit;
-
-            // Headers para dados básicos servindo como detalhados
-            res.set({
-                'X-Data-Type': 'basic-fallback',
-                'X-Total-Count': basicData.totalBundles?.toString() || '0',
-                'X-Current-Page': page.toString(),
-                'X-Background-Update': 'processing-details',
-                'X-Warning': 'Serving basic data while detailed data is being processed'
-            });
-
-            responseData = {
-                totalBundles: basicData.totalBundles,
-                bundles: basicData.bundles.slice(startIndex, endIndex),
-                page: page,
-                totalPages: Math.ceil(basicData.bundles.length / limit),
-                hasNext: endIndex < basicData.bundles.length,
-                hasPrev: page > 1,
-                lastUpdate: null,
-                updateTriggered: false,
-                dataType: 'basic',
-                metadata: {
-                    data_quality: 'basic_fallback',
-                    message: 'Servindo dados básicos enquanto os detalhes são processados',
-                    estimated_completion: 'Dados detalhados estarão disponíveis em alguns minutos',
-                    recommendation: 'Recarregue a página em alguns minutos para dados completos',
-                    status: {
-                        current_status: 'processing_detailed_data',
-                        progress: 'coletando preços e detalhes da Steam API',
-                        user_action: 'nenhuma ação necessária - aguarde',
-                        refresh_in: '5-10 minutos'
-                    },
-                    fallback_info: {
-                        why_basic: 'Dados detalhados ainda não disponíveis',
-                        what_missing: 'Preços, avaliações e informações detalhadas dos jogos',
-                        when_ready: 'Em breve (processamento automático)'
-                    }
-                }
-            };
         } else {
-            return res.status(500).json({ 
-                error: 'Nenhum dado de bundles encontrado',
-                suggestion: 'A API pode estar inicializando pela primeira vez',
+            // Se não há dados detalhados, retorna erro apropriado
+            return res.status(503).json({
+                error: 'Dados detalhados não disponíveis',
+                message: 'A API está coletando dados da Steam. Tente novamente em alguns minutos.',
+                status: 'initializing',
+                estimated_wait: '5-15 minutos',
+                suggestion: 'Use /api/force-update (com API key) para iniciar a coleta de dados',
+                updateTriggered: false,
                 help: {
                     admin_action: 'Use /api/force-update com API key para iniciar a coleta',
                     estimated_time: 'Primeira execução pode levar 10-15 minutos',
                     check_status: 'Use /api/steam-stats para verificar o progresso'
-                },
-                troubleshooting: {
-                    step_1: 'Verifique se a API está inicializando pela primeira vez',
-                    step_2: 'Aguarde alguns minutos para a coleta automática',
-                    step_3: 'Se persistir, use /api/force-update com sua API key',
-                    step_4: 'Monitore o progresso em /api/steam-stats'
-                },
-                status_info: {
-                    current_status: 'no_data_available',
-                    possible_causes: [
-                        'Primeira execução da API',
-                        'Arquivos de dados foram removidos',
-                        'Falha na coleta automática'
-                    ],
-                    recommended_action: 'force_update'
                 }
             });
         }
@@ -426,7 +321,7 @@ router.get('/api/bundles-detailed', validateInput, async (req, res) => {
         res.status(500).json({ 
             error: 'Erro ao ler o arquivo de bundles detalhado',
             technical_error: error.message,
-            suggestion: 'Tente novamente em alguns segundos ou use /api/bundles para dados básicos'
+            suggestion: 'Tente novamente em alguns segundos'
         });
     }
 });
@@ -434,22 +329,21 @@ router.get('/api/bundles-detailed', validateInput, async (req, res) => {
 
 router.get('/api/filter-options', validateInput, async (req, res) => {
     try {
-        // Tentar usar dados detalhados primeiro, senão usar básicos
+        // Usar apenas dados detalhados (pós-migração para Storage API)
         let data = null;
         let dataType = 'detailed';
         
         if (fs.existsSync(BUNDLES_DETAILED_FILE)) {
             data = JSON.parse(fs.readFileSync(BUNDLES_DETAILED_FILE, 'utf-8'));
             dataType = 'detailed';
-        } else if (fs.existsSync(BUNDLES_FILE)) {
-            data = JSON.parse(fs.readFileSync(BUNDLES_FILE, 'utf-8'));
-            dataType = 'basic';
         }
         
         if (!data) {
-            return res.status(500).json({ 
-                error: 'Dados não encontrados',
-                suggestion: 'A API pode estar inicializando',
+            return res.status(503).json({ 
+                error: 'Opções de filtro não disponíveis',
+                message: 'Dados detalhados necessários para gerar filtros ainda não estão disponíveis',
+                suggestion: 'A API está coletando dados. Tente novamente em alguns minutos.',
+                status: 'initializing',
                 cache_miss: true
             });
         }
@@ -741,10 +635,11 @@ router.get('/api/steam-stats', (req, res) => {
                 ].filter(Boolean)
             },
             files: {
-                bundles_exists: fs.existsSync('bundles.json'),
                 bundles_detailed_exists: fs.existsSync('bundleDetailed.json'),
                 bundles_test_exists: fs.existsSync('bundleDetailed_test.json'),
-                last_check_exists: fs.existsSync('last_check.json')
+                last_check_exists: fs.existsSync('last_check.json'),
+                storage_api_mode: true, // Migração para Storage API concluída
+                legacy_bundles_file: false // bundles.json não mais usado
             },
             performance_metrics: {
                 estimated_api_calls_saved: status.duplicatesDetected * 2,
