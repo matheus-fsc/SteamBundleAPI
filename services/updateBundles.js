@@ -166,6 +166,32 @@ class FailedBundlesManager {
     
     async loadFailedQueue() {
         try {
+            // 🆕 PRIORIDADE 1: Tenta carregar do Storage API (fonte autoritativa)
+            console.log('🔄 Carregando fila de falhas do Storage API...');
+            
+            const storageResult = await storageSyncManager.getFailedBundlesQueue();
+            
+            if (storageResult.success && storageResult.queue && storageResult.queue.bundles) {
+                console.log(`📥 Dados encontrados no Storage API: ${storageResult.queue.bundles.length} bundles`);
+                
+                // Carrega dados do storage na memória
+                for (const item of storageResult.queue.bundles) {
+                    this.failedQueue.set(item.bundleId, {
+                        ...item,
+                        reasons: new Set(item.reasons || [])
+                    });
+                }
+                
+                // Salva localmente como backup para futuras consultas offline
+                await this.saveFailedQueue();
+                
+                console.log(`✅ Queue de falhas carregada do Storage API: ${this.failedQueue.size} bundles`);
+                return true;
+            } else {
+                console.log('📭 Nenhuma fila encontrada no Storage API, tentando arquivo local...');
+            }
+            
+            // FALLBACK: Carrega do arquivo local se Storage API falhar ou estiver vazio
             if (fsSync.existsSync(FAILED_BUNDLES_FILE)) {
                 const queueData = JSON.parse(fsSync.readFileSync(FAILED_BUNDLES_FILE, 'utf-8'));
                 
@@ -176,11 +202,41 @@ class FailedBundlesManager {
                     });
                 }
                 
-                console.log(`📂 Queue de falhas carregada: ${this.failedQueue.size} bundles`);
+                console.log(`📂 Queue de falhas carregada do arquivo local: ${this.failedQueue.size} bundles`);
+                
+                // Se carregou dados locais, sincroniza de volta para o Storage API
+                if (this.failedQueue.size > 0) {
+                    console.log('🔄 Sincronizando dados locais com Storage API...');
+                    await this.syncWithStorage();
+                }
+                
                 return true;
             }
+            
+            console.log('📭 Nenhuma queue de falhas encontrada (Storage API ou local)');
+            
         } catch (error) {
             console.warn('⚠️ Erro ao carregar queue de falhas:', error.message);
+            console.log('🔄 Tentando carregar apenas do arquivo local como fallback...');
+            
+            // FALLBACK DE EMERGÊNCIA: Só arquivo local
+            try {
+                if (fsSync.existsSync(FAILED_BUNDLES_FILE)) {
+                    const queueData = JSON.parse(fsSync.readFileSync(FAILED_BUNDLES_FILE, 'utf-8'));
+                    
+                    for (const item of queueData.bundles || []) {
+                        this.failedQueue.set(item.bundleId, {
+                            ...item,
+                            reasons: new Set(item.reasons || [])
+                        });
+                    }
+                    
+                    console.log(`📂 Queue de falhas carregada do fallback local: ${this.failedQueue.size} bundles`);
+                    return true;
+                }
+            } catch (fallbackError) {
+                console.error('❌ Erro no fallback local:', fallbackError.message);
+            }
         }
         return false;
     }
