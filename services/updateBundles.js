@@ -5,16 +5,16 @@ const fsSync = require('fs');
 const fsPromises = require('fs/promises');
 const path = require('path');
 const moment = require('moment-timezone');
-const { removeDuplicatesFromDetailedBundles } = require('../middleware/dataValidation');
 const { keepAlive } = require('./keepAlive');
 const { storageSyncManager } = require('./storageSync');
 
 /**
- * Steam Bundle Update Service V6.3 - Sistema Otimizado para Render Free
+ * Steam Bundle Update Service V6.4 - Sistema Otimizado para Render Free + Storage API
  * - Otimização específica para 0.1 core e 500MB RAM do Render Free
  * - Paralelismo reduzido (max 4, inicial 2) para recursos limitados
  * - Delays aumentados para dar tempo de CPU processar (500-8000ms)
- * - Salvamento menos frequente para economizar I/O (25 lotes)
+ * - Sistema de chunks de 200 bundles para sincronização incremental com Storage API
+ * - Sincronização automática da fila de falhas (failed_bundles_queue) com Storage API
  * - Detecção automática de conteúdo NSFW via redirecionamento para login
  * - Categorização automática de bundles adultos como "NSFW/Adult Content"
  * - ✅ CORREÇÃO: Bundles NSFW contados como SUCESSOS no sistema adaptativo
@@ -22,7 +22,9 @@ const { storageSyncManager } = require('./storageSync');
  * - Sistema adaptativo CONSERVADOR com detecção de degradação precoce
  * - Retry queue para falhas elegíveis com límites inteligentes
  * - Age verification automático + JSON otimizado para status rápido
- * - Persistência automática da fila de falhas durante checkpoints
+ * - 🆕 MIGRAÇÃO STORAGE API: Persistência automática a cada 200 bundles processados
+ * - 🆕 BACKUP AUTOMÁTICO: Fila de falhas sincronizada automaticamente com backend
+ * - 🆕 RENDER FREE OTIMIZADO: Limpeza automática de arquivos locais pós-sincronização
  */
 
 // --- CONSTANTES ---
@@ -205,6 +207,38 @@ class FailedBundlesManager {
             retryAttempts: this.retryAttempts,
             retrySuccess: this.retrySuccess
         };
+    }
+
+    // Sincroniza fila de falhas com Storage API
+    async syncWithStorage() {
+        try {
+            const queueData = {
+                timestamp: new Date().toISOString(),
+                totalFailed: this.failedQueue.size,
+                retryable: this.getRetryQueue().length,
+                bundles: Array.from(this.failedQueue.entries()).map(([bundleId, data]) => ({
+                    bundleId,
+                    bundle: data.bundle,
+                    reason: data.reason,
+                    attempts: data.attempts,
+                    lastAttempt: data.lastAttempt,
+                    originalIndex: data.originalIndex,
+                    canRetry: this.shouldRetry(data.reason)
+                }))
+            };
+
+            console.log(`🔄 Sincronizando fila de falhas com storage (${queueData.totalFailed} bundles)...`);
+            
+            // Envia para storage usando o storageSyncManager
+            await storageSyncManager.syncFailedBundlesQueue(queueData);
+            
+            console.log('✅ Fila de falhas sincronizada com storage backend');
+            return true;
+            
+        } catch (error) {
+            console.error('❌ Erro ao sincronizar fila de falhas com storage:', error.message);
+            return false;
+        }
     }
 }
 
@@ -521,7 +555,8 @@ class AdaptivePerformanceManager {
 }
 
 console.log('🔧 Configurações da API Steam (OTIMIZADA):', STEAM_API_CONFIG);
-console.log(`💾 Modo Storage Sync: Salvamento/Sincronização a cada ${SAVE_INTERVAL_BATCHES} lotes (~200 bundles)`);
+console.log(`💾 Modo Storage API: Sincronização automática a cada 200 bundles processados`);
+console.log(`📤 Backup automático: Fila de falhas sincronizada com backend a cada checkpoint`);
 
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -822,16 +857,21 @@ const saveDetailedBundlesData = async (detailedBundles, bundlesToProcess, isComp
             try {
                 const totalExpected = bundlesToProcess.length;
                 
-                // Verifica se deve sincronizar (a cada 200 bundles ou quando completo)
-                const shouldSync = isComplete || 
-                                 storageSyncManager.shouldSyncDetailedChunk(detailedBundles.length);
+                // Sistema de chunks de 200 bundles para Render Free
+                const CHUNK_SIZE = 200;
+                const shouldSyncChunk = detailedBundles.length > 0 && 
+                                       (detailedBundles.length % CHUNK_SIZE === 0 || isComplete);
                 
-                if (shouldSync) {
+                if (shouldSyncChunk || isComplete) {
                     console.log(`🔄 Sincronizando ${detailedBundles.length} bundles detalhados com storage...`);
                     
                     if (isComplete) {
-                        // Sincronização final
-                        await storageSyncManager.syncFinalData(detailedBundles, totalExpected);
+                        // Sincronização final - envia todos os dados
+                        await storageSyncManager.syncDetailedBundlesFinal(detailedBundles, {
+                            totalExpected,
+                            isComplete: true,
+                            finalSync: true
+                        });
                         console.log('✅ Dados finais sincronizados com storage backend');
                         
                         // Limpa arquivos locais após sincronização bem-sucedida
@@ -843,13 +883,19 @@ const saveDetailedBundlesData = async (detailedBundles, bundlesToProcess, isComp
                         console.log('🧹 Arquivos locais limpos após sincronização completa');
                         
                     } else {
-                        // Sincronização de chunk
-                        const chunkInfo = storageSyncManager.calculateChunkInfo(
-                            detailedBundles, 
-                            totalExpected
-                        );
+                        // Sincronização de chunk incremental
+                        const chunkNumber = Math.ceil(detailedBundles.length / CHUNK_SIZE);
+                        const chunkInfo = {
+                            chunkNumber,
+                            chunkSize: CHUNK_SIZE,
+                            totalBundles: detailedBundles.length,
+                            totalExpected,
+                            isIncremental: true,
+                            progress: Math.round((detailedBundles.length / totalExpected) * 100)
+                        };
+                        
                         await storageSyncManager.syncDetailedBundlesChunk(detailedBundles, chunkInfo);
-                        console.log(`✅ Chunk ${chunkInfo.chunkNumber} sincronizado com storage backend`);
+                        console.log(`✅ Chunk ${chunkNumber} sincronizado (${detailedBundles.length}/${totalExpected} bundles - ${chunkInfo.progress}%)`);
                     }
                 }
                 
@@ -1394,8 +1440,10 @@ const processFailedBundles = async (existingDetailedBundles = []) => {
     console.log(`   📊 Bundles restantes problemáticos: ${stats.total}`);
     console.log(`   🔄 Taxa de sucesso retry: ${stats.retrySuccess}/${stats.retryAttempts} (${(stats.retrySuccess/Math.max(1,stats.retryAttempts)*100).toFixed(1)}%)`);
     
-    // Salva queue atualizada
+    // Salva e sincroniza queue atualizada
     await failedManager.saveFailedQueue();
+    await failedManager.syncWithStorage();
+    console.log(`💾 Fila de falhas pós-retry salva e sincronizada (${stats.total} bundles restantes)`);
     
     // Atualiza o arquivo principal com os bundles recuperados
     if (recovered > 0) {
@@ -1963,7 +2011,13 @@ const updateBundlesWithDetails = async (language = 'brazilian', limitForTesting 
                 
                 // 🆕 SALVA FILA DE FALHAS DURANTE O PROCESSAMENTO
                 await failedManager.saveFailedQueue();
-                console.log(`💾 Checkpoint: Dados + estado + fila de falhas salvos (${failedManager.failedQueue.size} falhas registradas)`);
+                
+                // 🔄 SINCRONIZA FILA DE FALHAS COM STORAGE
+                if (failedManager.failedQueue.size > 0) {
+                    await failedManager.syncWithStorage();
+                }
+                
+                console.log(`💾 Checkpoint: Dados + estado + fila de falhas salvos e sincronizados (${failedManager.failedQueue.size} falhas registradas)`);
                 
                 if (global.gc) {
                     global.gc();
@@ -2021,22 +2075,23 @@ const updateBundlesWithDetails = async (language = 'brazilian', limitForTesting 
         const result = await saveDetailedBundlesData(uniqueDetailedBundles, bundlesToProcess, true, limitForTesting, actualStartTime, updateState);
         
         if (!limitForTesting) {
-            console.log('🔍 Verificação final de duplicatas...');
-            const deduplication = removeDuplicatesFromDetailedBundles();
-            if (deduplication.removed > 0) {
-                result.totalBundles = deduplication.total;
-                result.duplicatesRemoved = deduplication.removed;
-                await fs.writeFile(BUNDLES_DETAILED_FILE, JSON.stringify(result, null, 2), 'utf-8');
-                console.log(`🧹 ${deduplication.removed} duplicatas adicionais removidas pelo middleware`);
-            } else {
-                console.log(`✅ Nenhuma duplicata adicional encontrada.`);
-            }
+            console.log('✅ Atualização completa - dados sincronizados com storage backend');
             
             await clearUpdateState();
             console.log(`🏁 Atualização COMPLETA com ${updateState.resumeCount} resumos`);
             
-            // Salva queue de falhas para processamento posterior
+            // Salva e sincroniza queue de falhas para processamento posterior
             await failedManager.saveFailedQueue();
+            
+            // 🔄 SINCRONIZAÇÃO FINAL DA FILA DE FALHAS COM STORAGE
+            if (failedManager.failedQueue.size > 0) {
+                await failedManager.syncWithStorage();
+                console.log(`📤 Fila de falhas final sincronizada com storage (${failedManager.failedQueue.size} bundles)`);
+            } else {
+                // Envia fila vazia para limpar o storage
+                await failedManager.syncWithStorage();
+                console.log('✅ Fila de falhas vazia sincronizada com storage');
+            }
             
             // Log de finalização
             await appendToLog(`=== ATUALIZAÇÃO CONCLUÍDA COM SUCESSO ===`);
@@ -2099,6 +2154,9 @@ const updateBundlesWithDetails = async (language = 'brazilian', limitForTesting 
         if (failedManager) {
             try {
                 await failedManager.saveFailedQueue();
+                // Sincroniza também em caso de erro para preservar dados
+                await failedManager.syncWithStorage();
+                console.log('💾 Fila de falhas salva e sincronizada em caso de erro');
                 console.log(`💾 Fila de falhas salva em caso de erro: ${failedManager.failedQueue.size} bundles`);
             } catch (saveError) {
                 console.warn(`⚠️ Erro ao salvar fila de falhas:`, saveError.message);
