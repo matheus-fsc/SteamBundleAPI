@@ -166,6 +166,43 @@ class StorageSyncManager {
     delay(ms) {
         return new Promise(resolve => setTimeout(resolve, ms));
     }
+
+    // Métodos para consultar dados específicos das novas rotas
+    async getBundles() {
+        try {
+            const response = await axios.get(`${this.storageApiUrl}/api/bundles`, {
+                timeout: this.timeout
+            });
+            return response.data;
+        } catch (error) {
+            console.error('❌ Erro ao buscar bundles básicos:', error.message);
+            throw error;
+        }
+    }
+
+    async getBundlesDetailed() {
+        try {
+            const response = await axios.get(`${this.storageApiUrl}/api/bundles-detailed`, {
+                timeout: this.timeout
+            });
+            return response.data;
+        } catch (error) {
+            console.error('❌ Erro ao buscar bundles detalhados:', error.message);
+            throw error;
+        }
+    }
+
+    async getAllData() {
+        try {
+            const response = await axios.get(`${this.storageApiUrl}/api/data`, {
+                timeout: this.timeout
+            });
+            return response.data;
+        } catch (error) {
+            console.error('❌ Erro ao buscar todos os dados:', error.message);
+            throw error;
+        }
+    }
 }
 
 const storageSyncManager = new StorageSyncManager();
