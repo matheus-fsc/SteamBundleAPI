@@ -203,6 +203,135 @@ class StorageSyncManager {
             throw error;
         }
     }
+
+    // Sincroniza chunks de bundles detalhados (sistema incremental)
+    async syncDetailedBundlesChunk(bundlesDetailed, chunkInfo) {
+        const syncData = {
+            bundlesDetailed: bundlesDetailed,
+            updateStatus: {
+                bundlesDetailed: {
+                    isComplete: chunkInfo.isLastChunk || false,
+                    totalRecords: chunkInfo.totalExpected || bundlesDetailed.length,
+                    recordsReceived: bundlesDetailed.length
+                }
+            },
+            requestMetadata: {
+                chunkInfo: {
+                    isChunk: true,
+                    chunkNumber: chunkInfo.chunkNumber,
+                    totalChunks: chunkInfo.totalChunks || Math.ceil(chunkInfo.totalExpected / chunkInfo.chunkSize),
+                    chunkSize: chunkInfo.chunkSize || 200,
+                    isLastChunk: chunkInfo.isLastChunk || false
+                },
+                syncType: 'detailed_chunk',
+                timestamp: moment().tz(this.timezone).format()
+            }
+        };
+
+        console.log(`🔄 Sincronizando chunk ${chunkInfo.chunkNumber} (${bundlesDetailed.length} bundles)...`);
+        return this.makeStorageRequest('/api/sync', syncData);
+    }
+
+    // Sincronização final de bundles detalhados
+    async syncDetailedBundlesFinal(bundlesDetailed, finalInfo) {
+        const syncData = {
+            bundlesDetailed: bundlesDetailed,
+            updateStatus: {
+                bundlesDetailed: {
+                    isComplete: true,
+                    totalRecords: finalInfo.totalExpected || bundlesDetailed.length,
+                    recordsReceived: bundlesDetailed.length
+                }
+            },
+            requestMetadata: {
+                chunkInfo: {
+                    isChunk: false,
+                    isFinalSync: true,
+                    totalBundles: bundlesDetailed.length
+                },
+                syncType: 'detailed_final',
+                timestamp: moment().tz(this.timezone).format()
+            }
+        };
+
+        console.log(`🏁 Sincronização final (${bundlesDetailed.length} bundles detalhados)...`);
+        return this.makeStorageRequest('/api/sync', syncData);
+    }
+
+    // Sincroniza fila de falhas com o storage
+    async syncFailedBundlesQueue(queueData) {
+        const syncData = {
+            failedBundlesQueue: queueData,
+            updateStatus: {
+                failedBundlesQueue: {
+                    isComplete: true,
+                    totalRecords: queueData.totalFailed || 0,
+                    recordsReceived: queueData.bundles ? queueData.bundles.length : 0
+                }
+            },
+            requestMetadata: {
+                syncType: 'failed_queue',
+                timestamp: moment().tz(this.timezone).format()
+            }
+        };
+
+        console.log(`📤 Sincronizando fila de falhas (${queueData.totalFailed} bundles)...`);
+        return this.makeStorageRequest('/api/sync', syncData);
+    }
+
+    // Recupera fila de falhas do storage
+    async getFailedBundlesQueue() {
+        try {
+            console.log('📥 Recuperando fila de falhas do storage...');
+            
+            const response = await axios.get(`${this.storageApiUrl}/api/sync`, {
+                timeout: this.timeout,
+                headers: {
+                    'x-api-key': this.apiKey,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            return {
+                success: true,
+                queue: response.data.queue,
+                metadata: response.data.metadata
+            };
+        } catch (error) {
+            console.error('❌ Erro ao recuperar fila de falhas:', error.message);
+            return {
+                success: false,
+                error: error.message,
+                queue: {
+                    timestamp: new Date().toISOString(),
+                    totalFailed: 0,
+                    retryable: 0,
+                    bundles: []
+                }
+            };
+        }
+    }
+
+    // Limpa arquivos locais após sincronização bem-sucedida
+    async cleanupLocalFiles(filePaths) {
+        const fs = require('fs');
+        let cleaned = 0;
+        
+        for (const filePath of filePaths) {
+            try {
+                if (fs.existsSync(filePath)) {
+                    await fs.promises.unlink(filePath);
+                    cleaned++;
+                    console.log(`🗑️ Arquivo local removido: ${filePath}`);
+                }
+            } catch (error) {
+                console.warn(`⚠️ Erro ao remover ${filePath}:`, error.message);
+            }
+        }
+        
+        console.log(`🧹 Limpeza concluída: ${cleaned}/${filePaths.length} arquivos removidos`);
+        return cleaned;
+    }
 }
 
 const storageSyncManager = new StorageSyncManager();
