@@ -6,8 +6,8 @@ const moment = require('moment-timezone');
 const { updateBundlesWithDetails } = require('./updateBundles');
 const { removeDuplicatesFromBasicBundles } = require('../middleware/dataValidation');
 const { keepAlive } = require('./keepAlive');
+const { storageSyncManager } = require('./storageSync');
 
-const BUNDLES_FILE = 'bundles.json';
 const LAST_CHECK_FILE = 'last_check.json';
 const TIMEZONE = 'America/Sao_Paulo';
 
@@ -15,12 +15,11 @@ const MAX_CONCURRENT_REQUESTS = parseInt(process.env.FETCH_BUNDLES_CONCURRENT) |
 const DELAY_BETWEEN_BATCHES = parseInt(process.env.FETCH_BUNDLES_DELAY) || 200;
 const REQUEST_TIMEOUT = parseInt(process.env.FETCH_BUNDLES_TIMEOUT) || 15000;
 
-const SAVE_INTERVAL_PAGES = 50;
 const MEMORY_CHECK_INTERVAL = 20;
 const MAX_MEMORY_USAGE_MB = 300;
 
 console.log(`🔧 Fetch Bundles - ${MAX_CONCURRENT_REQUESTS} concurrent, ${DELAY_BETWEEN_BATCHES}ms delay`);
-console.log(`💾 Modo Render Free: Salvamento a cada ${SAVE_INTERVAL_PAGES} páginas`);
+console.log(`� Modo Storage API: Dados enviados diretamente para storage backend`);
 
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -35,29 +34,8 @@ const getMemoryUsage = () => {
 
 let totalBundlesCount = 0;
 
-const saveBundlesData = async (bundles, isComplete = false) => {
-    const memory = getMemoryUsage();
-    const result = {
-        totalBundles: bundles.length,
-        bundles: bundles,
-        isComplete: isComplete,
-        lastSaved: new Date().toISOString(),
-        memoryUsage: memory
-    };
-    
-    try {
-        await fs.writeFile(BUNDLES_FILE, JSON.stringify(result, null, 2), 'utf-8');
-        
-        if (isComplete) {
-            console.log(`💾 ✅ Salvamento final: ${bundles.length} bundles (${memory.heapUsed}MB) - I/O assíncrono`);
-        } else {
-            console.log(`💾 🔄 Salvamento parcial: ${bundles.length} bundles (${memory.heapUsed}MB) - I/O assíncrono`);
-        }
-    } catch (error) {
-        console.error('❌ Erro ao salvar dados de bundles:', error.message);
-        throw error;
-    }
-};
+// Função removida - dados são agora sincronizados diretamente com a API de storage
+// após a coleta completa, eliminando a necessidade de persistência local
 
 const fetchAndSaveBundles = async () => {
     let keepAliveStarted = false;
@@ -68,20 +46,6 @@ const fetchAndSaveBundles = async () => {
         console.log('💓 Iniciando keep-alive durante fetch de bundles...');
         keepAlive.start();
         keepAliveStarted = true;
-        
-        const BUNDLES_OLD_FILE = 'bundles-old.json';
-        
-        if (fsSync.existsSync(BUNDLES_FILE)) {
-            console.log('📁 Arquivo bundles.json encontrado, criando backup...');
-            if (fsSync.existsSync(BUNDLES_OLD_FILE)) {
-                console.log('🗑️ Removendo backup antigo...');
-                await fs.unlink(BUNDLES_OLD_FILE);
-            }
-            await fs.rename(BUNDLES_FILE, BUNDLES_OLD_FILE);
-            console.log(`✅ Backup criado: ${BUNDLES_FILE} → ${BUNDLES_OLD_FILE}`);
-        } else {
-            console.log('📝 Primeira execução - nenhum arquivo anterior encontrado');
-        }
         
         let bundles = [];
         let page = 1;
@@ -148,28 +112,16 @@ const fetchAndSaveBundles = async () => {
             pagesProcessed += MAX_CONCURRENT_REQUESTS;
 
             const memory = getMemoryUsage();
-            const shouldSaveByInterval = pagesProcessed % SAVE_INTERVAL_PAGES === 0;
-            const shouldSaveByMemory = memory.heapUsed > MAX_MEMORY_USAGE_MB;
             
-            if (shouldSaveByInterval || shouldSaveByMemory) {
-                if (shouldSaveByMemory) {
-                    console.log(`🚨 Memória alta (${memory.heapUsed}MB) - forçando salvamento`);
-                }
+            if (pagesProcessed % MEMORY_CHECK_INTERVAL === 0) {
+                console.log(`� Memória: ${memory.heapUsed}MB | Bundles: ${bundles.length} | Páginas: ${pagesProcessed}`);
                 
-                const uniqueBundles = Array.from(new Map(bundles.map(bundle => [bundle.Link, bundle])).values());
-                console.log(`🔄 Salvamento parcial: ${bundles.length} coletadas → ${uniqueBundles.length} únicas`);
-                
-                await saveBundlesData(uniqueBundles, false);
-                
-                if (global.gc) {
+                // Limpeza de memória quando necessário
+                if (memory.heapUsed > MAX_MEMORY_USAGE_MB && global.gc) {
                     global.gc();
                     const memoryAfterGC = getMemoryUsage();
                     console.log(`🧹 GC executado: ${memory.heapUsed}MB → ${memoryAfterGC.heapUsed}MB`);
                 }
-            }
-
-            if (pagesProcessed % MEMORY_CHECK_INTERVAL === 0) {
-                console.log(`📊 Memória: ${memory.heapUsed}MB | Bundles: ${bundles.length} | Páginas: ${pagesProcessed}`);
             }
 
             if (hasMorePages) {
@@ -184,8 +136,6 @@ const fetchAndSaveBundles = async () => {
         const uniqueBundles = Array.from(new Map(bundles.map(bundle => [bundle.Link, bundle])).values());
         console.log(`📊 Bundles: ${bundles.length} coletadas → ${uniqueBundles.length} únicas`);
         
-        await saveBundlesData(uniqueBundles, true);
-
         console.log('🔍 Verificação final de duplicatas...');
         const deduplication = removeDuplicatesFromBasicBundles();
         if (deduplication.removed > 0) {
@@ -201,6 +151,29 @@ const fetchAndSaveBundles = async () => {
 
         console.log(`✅ Total de bundles catalogadas: ${totalBundlesCount}`);
 
+        // === SINCRONIZAÇÃO COM STORAGE BACKEND ===
+        try {
+            console.log('🔄 Iniciando sincronização com storage backend...');
+            
+            // Valida configuração
+            storageSyncManager.validateConfig();
+            
+            // Testa conectividade
+            const connectivity = await storageSyncManager.testConnection();
+            if (!connectivity.success) {
+                console.warn('⚠️ Problema de conectividade com storage, abortando sincronização');
+                throw new Error(`Conectividade falhada: ${connectivity.error}`);
+            }
+            
+            // Sincroniza bundles básicos
+            await storageSyncManager.syncBasicBundles(uniqueBundles);
+            console.log('✅ Bundles básicos sincronizados com storage backend');
+            
+        } catch (syncError) {
+            console.error('❌ Erro na sincronização com storage:', syncError.message);
+            throw syncError; // Re-lança o erro para interromper o processo
+        }
+
         console.log('🔄 Iniciando atualização de detalhes...');
         await updateBundlesWithDetails();
         console.log('✅ Detalhes das bundles atualizados.');
@@ -211,22 +184,6 @@ const fetchAndSaveBundles = async () => {
         }
     } catch (error) {
         console.error('❌ ERRO durante a busca de bundles!');
-        
-        const BUNDLES_OLD_FILE = 'bundles-old.json';
-        
-        if (fsSync.existsSync(BUNDLES_OLD_FILE)) {
-            console.log('🔄 Tentando restaurar backup anterior...');
-            try {
-                if (fsSync.existsSync(BUNDLES_FILE)) {
-                    await fs.unlink(BUNDLES_FILE);
-                }
-                await fs.rename(BUNDLES_OLD_FILE, BUNDLES_FILE);
-                console.log('✅ Backup restaurado com sucesso!');
-                console.log('💡 Os dados anteriores foram mantidos para evitar perda de informações.');
-            } catch (restoreError) {
-                console.error('❌ Erro ao restaurar backup:', restoreError.message);
-            }
-        }
         
         if (error.response) {
             console.error('Erro na resposta da solicitação:', error.response.status, error.response.statusText);

@@ -7,15 +7,17 @@ const path = require('path');
 const moment = require('moment-timezone');
 const { removeDuplicatesFromDetailedBundles } = require('../middleware/dataValidation');
 const { keepAlive } = require('./keepAlive');
+const { storageSyncManager } = require('./storageSync');
 
 /**
- * Steam Bundle Update Service V6.2 - Sistema Otimizado para Render Free
+ * Steam Bundle Update Service V6.3 - Sistema Otimizado para Render Free
  * - Otimização específica para 0.1 core e 500MB RAM do Render Free
  * - Paralelismo reduzido (max 4, inicial 2) para recursos limitados
  * - Delays aumentados para dar tempo de CPU processar (500-8000ms)
  * - Salvamento menos frequente para economizar I/O (25 lotes)
  * - Detecção automática de conteúdo NSFW via redirecionamento para login
  * - Categorização automática de bundles adultos como "NSFW/Adult Content"
+ * - ✅ CORREÇÃO: Bundles NSFW contados como SUCESSOS no sistema adaptativo
  * - Circuit breaker inteligente para MAX_RETRIES_REACHED (conta como 3 falhas)
  * - Sistema adaptativo CONSERVADOR com detecção de degradação precoce
  * - Retry queue para falhas elegíveis com límites inteligentes
@@ -40,7 +42,7 @@ const STEAM_API_CONFIG = {
     STEAM_APP_DELAY: 300 // Delay entre chamadas da API de apps
 };
 
-const SAVE_INTERVAL_BATCHES = 25; // Aumentado para economizar I/O
+const SAVE_INTERVAL_BATCHES = 8; // Aproximadamente 200 bundles (25 bundles por lote * 8 lotes = 200)
 const MEMORY_CHECK_INTERVAL_BATCHES = 5; // Mais conservador
 const MAX_MEMORY_USAGE_MB = 200; // Reduzido para Render Free (500MB total)
 const CONSECUTIVE_FAILURE_THRESHOLD = 3; // Mais sensível
@@ -519,7 +521,7 @@ class AdaptivePerformanceManager {
 }
 
 console.log('🔧 Configurações da API Steam (OTIMIZADA):', STEAM_API_CONFIG);
-console.log(`💾 Modo Render Free: Salvamento a cada ${SAVE_INTERVAL_BATCHES} lotes`);
+console.log(`💾 Modo Storage Sync: Salvamento/Sincronização a cada ${SAVE_INTERVAL_BATCHES} lotes (~200 bundles)`);
 
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -810,7 +812,52 @@ const saveDetailedBundlesData = async (detailedBundles, bundlesToProcess, isComp
     const outputFile = isTestMode ? './bundleDetailed_test.json' : BUNDLES_DETAILED_FILE;
     
     try {
-        await fs.writeFile(outputFile, JSON.stringify(result, null, 2), 'utf-8');
+        // Salva arquivo local apenas se não for modo teste
+        if (!isTestMode) {
+            await fs.writeFile(outputFile, JSON.stringify(result, null, 2), 'utf-8');
+        }
+        
+        // === SINCRONIZAÇÃO COM STORAGE BACKEND ===
+        if (!isTestMode && detailedBundles.length > 0) {
+            try {
+                const totalExpected = bundlesToProcess.length;
+                
+                // Verifica se deve sincronizar (a cada 200 bundles ou quando completo)
+                const shouldSync = isComplete || 
+                                 storageSyncManager.shouldSyncDetailedChunk(detailedBundles.length);
+                
+                if (shouldSync) {
+                    console.log(`🔄 Sincronizando ${detailedBundles.length} bundles detalhados com storage...`);
+                    
+                    if (isComplete) {
+                        // Sincronização final
+                        await storageSyncManager.syncFinalData(detailedBundles, totalExpected);
+                        console.log('✅ Dados finais sincronizados com storage backend');
+                        
+                        // Limpa arquivos locais após sincronização bem-sucedida
+                        await storageSyncManager.cleanupLocalFiles([
+                            outputFile,
+                            UPDATE_STATE_FILE,
+                            FAILED_BUNDLES_FILE
+                        ]);
+                        console.log('🧹 Arquivos locais limpos após sincronização completa');
+                        
+                    } else {
+                        // Sincronização de chunk
+                        const chunkInfo = storageSyncManager.calculateChunkInfo(
+                            detailedBundles, 
+                            totalExpected
+                        );
+                        await storageSyncManager.syncDetailedBundlesChunk(detailedBundles, chunkInfo);
+                        console.log(`✅ Chunk ${chunkInfo.chunkNumber} sincronizado com storage backend`);
+                    }
+                }
+                
+            } catch (syncError) {
+                console.error('❌ Erro na sincronização com storage:', syncError.message);
+                console.log('💡 Continuando com salvamento local como fallback');
+            }
+        }
         
         if (isComplete) {
             console.log(`💾 ✅ Salvamento final: ${detailedBundles.length} bundles (${memory.heapUsed}MB)`);
@@ -1800,14 +1847,38 @@ const updateBundlesWithDetails = async (language = 'brazilian', limitForTesting 
             const batchTime = batchEndTime - batchStartTime;
             const successfulInBatch = detailedBundles.length - batchStartResults;
             
-            // Registra resultado no sistema adaptativo
+            // Conta sucessos incluindo NSFWs processados (que são sucessos válidos)
+            let nsfwSuccessCount = 0;
+            for (const result of results) {
+                if (result.status === 'fulfilled' && result.value.success && result.value.nsfwDetected) {
+                    nsfwSuccessCount++;
+                }
+            }
+            
+            // Total de sucessos = bundles processados + NSFWs categorizados
+            const totalSuccessInBatch = successfulInBatch + nsfwSuccessCount;
+            
+            // Log para debug da correção NSFW
+            if (nsfwSuccessCount > 0) {
+                console.log(`🔞 CORREÇÃO NSFW: ${nsfwSuccessCount} bundles NSFW contados como SUCESSOS no lote ${batchIndex}`);
+                console.log(`   📊 Sucessos regulares: ${successfulInBatch}, NSFW: ${nsfwSuccessCount}, Total: ${totalSuccessInBatch}/${batch.length}`);
+            }
+            
+            // Registra resultado no sistema adaptativo (incluindo NSFWs como sucesso)
             const batchResult = performanceManager.recordBatchResult(
                 batchIndex, 
-                successfulInBatch, 
+                totalSuccessInBatch,  // ✅ Agora inclui NSFWs como sucessos
                 batch.length, 
                 batchTime,
                 failedBundleIds
             );
+            
+            // Log detalhado para verificar que a correção NSFW está funcionando
+            const batchSuccessRate = (totalSuccessInBatch / batch.length * 100).toFixed(1);
+            console.log(`📊 Lote ${batchIndex + 1}: ${totalSuccessInBatch}/${batch.length} sucessos (${batchSuccessRate}%) em ${(batchTime/1000).toFixed(1)}s`);
+            if (nsfwSuccessCount > 0) {
+                console.log(`   🔞 Incluindo ${nsfwSuccessCount} bundles NSFW como SUCESSOS válidos`);
+            }
             
             const logMessage = `✅ Lote ${batchIndex + 1}: ${successfulInBatch}/${batch.length} bundles processados`;
             const performanceInfo = `| ${(batchTime/1000).toFixed(1)}s | Taxa: ${(batchResult.successRate * 100).toFixed(1)}%`;

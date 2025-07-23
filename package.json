@@ -16,7 +16,9 @@
     "node-cron": "^3.0.3"
   },
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "test-storage": "node test-storage.js",
+    "setup-storage": "node setup-storage-sync.bat"
   },
   "nodemonConfig": {
     "ignore": [
