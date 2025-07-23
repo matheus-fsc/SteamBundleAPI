@@ -4,7 +4,6 @@ const fs = require('fs').promises;
 const fsSync = require('fs');
 const moment = require('moment-timezone');
 const { updateBundlesWithDetails } = require('./updateBundles');
-const { removeDuplicatesFromBasicBundles } = require('../middleware/dataValidation');
 const { keepAlive } = require('./keepAlive');
 const { storageSyncManager } = require('./storageSync');
 
@@ -37,11 +36,14 @@ let totalBundlesCount = 0;
 // Função removida - dados são agora sincronizados diretamente com a API de storage
 // após a coleta completa, eliminando a necessidade de persistência local
 
-const fetchAndSaveBundles = async () => {
+const fetchAndSaveBundles = async (limitForTesting = null) => {
     let keepAliveStarted = false;
     
     try {
         console.log('🚀 Iniciando busca por bundles');
+        if (limitForTesting) {
+            console.log(`🧪 MODO TESTE: Limitado a ${limitForTesting} bundles`);
+        }
         
         console.log('💓 Iniciando keep-alive durante fetch de bundles...');
         keepAlive.start();
@@ -99,6 +101,14 @@ const fetchAndSaveBundles = async () => {
                 if (result.status === 'fulfilled') {
                     if (result.value) {
                         bundles.push(...result.value);
+                        
+                        // 🧪 MODO TESTE: Para quando atinge o limite
+                        if (limitForTesting && bundles.length >= limitForTesting) {
+                            console.log(`🧪 LIMITE DE TESTE ATINGIDO: ${bundles.length}/${limitForTesting} bundles`);
+                            bundles = bundles.slice(0, limitForTesting); // Corta no limite exato
+                            hasMorePages = false;
+                            break;
+                        }
                     } else {
                         hasMorePages = false;
                     }
@@ -136,15 +146,9 @@ const fetchAndSaveBundles = async () => {
         const uniqueBundles = Array.from(new Map(bundles.map(bundle => [bundle.Link, bundle])).values());
         console.log(`📊 Bundles: ${bundles.length} coletadas → ${uniqueBundles.length} únicas`);
         
-        console.log('🔍 Verificação final de duplicatas...');
-        const deduplication = removeDuplicatesFromBasicBundles();
-        if (deduplication.removed > 0) {
-            totalBundlesCount = deduplication.total;
-            console.log(`🧹 ${deduplication.removed} duplicatas adicionais removidas pelo middleware. Total final: ${totalBundlesCount}`);
-        } else {
-            totalBundlesCount = uniqueBundles.length;
-            console.log(`✅ Nenhuma duplicata adicional encontrada. Total final: ${totalBundlesCount}`);
-        }
+        // Sistema de deduplicação simplificado (sem middleware)
+        totalBundlesCount = uniqueBundles.length;
+        console.log(`✅ Deduplicação concluída. Total final: ${totalBundlesCount}`);
 
         const lastCheck = { lastCheck: moment().tz(TIMEZONE).format() };
         await fs.writeFile(LAST_CHECK_FILE, JSON.stringify(lastCheck, null, 2), 'utf-8');
@@ -202,4 +206,9 @@ const fetchAndSaveBundles = async () => {
     }
 };
 
-module.exports = { fetchAndSaveBundles, totalBundlesCount };
+module.exports = { 
+    fetchAndSaveBundles, 
+    totalBundlesCount,
+    // Função de conveniência para testes
+    fetchBundles: fetchAndSaveBundles 
+};
