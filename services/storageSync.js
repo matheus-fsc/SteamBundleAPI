@@ -1,5 +1,9 @@
+
+require('dotenv').config();
 const axios = require('axios');
 const moment = require('moment-timezone');
+
+
 
 class StorageSyncManager {
     constructor() {
@@ -7,8 +11,32 @@ class StorageSyncManager {
         this.apiKey = process.env.STORAGE_API_KEY;
         this.timeout = parseInt(process.env.STORAGE_TIMEOUT) || 30000;
         this.maxRetries = parseInt(process.env.STORAGE_MAX_RETRIES) || 3;
-        this.chunkSize = parseInt(process.env.STORAGE_CHUNK_SIZE) || 1000;
+        this.chunkSize = parseInt(process.env.STORAGE_CHUNK_SIZE) || 500;
         this.timezone = 'America/Sao_Paulo';
+    }
+
+    /**
+     * Sincroniza bundles básicos (usado pelo fetchBundles)
+     * @param {Array} bundles Array de bundles básicos
+     * @param {Object} statusMetadata Metadados sobre o status da sincronização
+     */
+    async syncBasicBundles(bundles, statusMetadata) {
+        const payload = {
+            bundles,
+            ...statusMetadata
+        };
+        const response = await axios.post(
+            `${this.storageApiUrl}/api/sync`,
+            payload,
+            {
+                timeout: this.timeout,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-api-key': this.apiKey
+                }
+            }
+        );
+        return response.data;
     }
 
     validateConfig() {
@@ -29,7 +57,6 @@ class StorageSyncManager {
                     'x-api-key': this.apiKey
                 }
             });
-            
             return {
                 success: true,
                 status: response.status,
@@ -44,130 +71,54 @@ class StorageSyncManager {
         }
     }
 
-    async syncBasicBundles(bundles) {
-        const syncData = {
-            bundles: bundles,
-            updateStatus: {
-                bundles: {
-                    isComplete: true,
-                    totalRecords: bundles.length,
-                    recordsReceived: bundles.length
-                }
-            },
-            requestMetadata: {
-                timestamp: moment().tz(this.timezone).format(),
-                source: 'fetchBundles',
-                type: 'basic_bundles'
+    /**
+     * Sincroniza um batch de bundles detalhados usando o novo endpoint simplificado
+     * @param {Array} bundles Array de bundles detalhados
+     * @param {Object} metadata { sessionId, chunkNumber, isLastChunk }
+     */
+    async syncBatch(bundles, metadata = {}) {
+        if (!Array.isArray(bundles) || bundles.length === 0) {
+            throw new Error('O parâmetro "bundles" deve ser um array não vazio.');
+        }
+        const payload = {
+            bundles,
+            metadata: {
+                sessionId: metadata.sessionId,
+                chunkNumber: metadata.chunkNumber,
+                isLastChunk: metadata.isLastChunk
             }
         };
-
-        return await this.makeRequest('/api/sync', syncData);
-    }
-
-    async syncDetailedBundlesChunk(bundlesDetailed, chunkInfo) {
-        const syncData = {
-            bundlesDetailed: bundlesDetailed,
-            updateStatus: {
-                bundlesDetailed: {
-                    totalRecords: chunkInfo.totalRecords,
-                    recordsReceived: bundlesDetailed.length
-                }
-            },
-            requestMetadata: {
-                timestamp: moment().tz(this.timezone).format(),
-                source: 'updateBundles',
-                type: 'detailed_bundles_chunk',
-                chunkInfo: chunkInfo
-            }
-        };
-
-        return await this.makeRequest('/api/sync', syncData);
-    }
-
-    async syncFinalData(bundlesDetailed, totalExpected) {
-        const syncData = {
-            bundlesDetailed: bundlesDetailed,
-            updateStatus: {
-                bundlesDetailed: {
-                    isComplete: true,
-                    totalRecords: totalExpected,
-                    recordsReceived: bundlesDetailed.length
-                }
-            },
-            requestMetadata: {
-                timestamp: moment().tz(this.timezone).format(),
-                source: 'updateBundles',
-                type: 'detailed_bundles_final'
-            }
-        };
-
-        return await this.makeRequest('/api/sync', syncData);
-    }
-
-    calculateChunkInfo(bundlesDetailed, currentIndex, totalExpected) {
-        const chunkNumber = Math.floor(currentIndex / this.chunkSize) + 1;
-        const totalChunks = Math.ceil(totalExpected / this.chunkSize);
-        const isLastChunk = chunkNumber === totalChunks;
-        
-        return {
-            isChunk: true,
-            chunkNumber: chunkNumber,
-            totalChunks: totalChunks,
-            chunkSize: bundlesDetailed.length,
-            isLastChunk: isLastChunk,
-            totalRecords: totalExpected
-        };
-    }
-
-    shouldSyncDetailedChunk(currentBundlesLength) {
-        return currentBundlesLength >= this.chunkSize;
-    }
-
-    async cleanupLocalFiles(filePaths) {
-        const fs = require('fs').promises;
-        const fsSync = require('fs');
-        
-        for (const filePath of filePaths) {
+        let attempt = 0;
+        while (attempt <= this.maxRetries) {
             try {
-                if (fsSync.existsSync(filePath)) {
-                    await fs.unlink(filePath);
-                    console.log(`🧹 Arquivo removido: ${filePath}`);
-                }
+                const response = await axios.post(
+                    `${this.storageApiUrl}/api/bundles/detailed/batch`,
+                    payload,
+                    {
+                        timeout: this.timeout,
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'x-api-key': this.apiKey
+                        }
+                    }
+                );
+                console.log(`✅ Batch sincronizado: chunk ${metadata.chunkNumber} (isLastChunk: ${metadata.isLastChunk})`);
+                return response.data;
             } catch (error) {
-                console.warn(`⚠️ Erro ao remover ${filePath}:`, error.message);
-            }
-        }
-    }
-
-    async makeRequest(endpoint, data, retryCount = 0) {
-        try {
-            const response = await axios.post(`${this.storageApiUrl}${endpoint}`, data, {
-                timeout: this.timeout,
-                headers: {
-                    'Content-Type': 'application/json',
-                    'x-api-key': this.apiKey
+                attempt++;
+                if (attempt > this.maxRetries) {
+                    console.error(`❌ Erro ao sincronizar batch após ${this.maxRetries} tentativas:`, error.message);
+                    throw error;
                 }
-            });
-
-            console.log(`✅ Sincronização bem-sucedida - ${endpoint}`);
-            return response.data;
-        } catch (error) {
-            if (retryCount < this.maxRetries) {
-                console.warn(`⚠️ Tentativa ${retryCount + 1}/${this.maxRetries + 1} falhou, tentando novamente...`);
-                await this.delay(1000 * (retryCount + 1)); // Backoff exponencial
-                return await this.makeRequest(endpoint, data, retryCount + 1);
+                console.warn(`⚠️ Tentativa ${attempt}/${this.maxRetries} falhou, tentando novamente...`);
+                await this.delay(1000 * attempt);
             }
-            
-            console.error(`❌ Erro na sincronização após ${this.maxRetries + 1} tentativas:`, error.message);
-            throw error;
         }
     }
 
-    delay(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms));
-    }
-
-    // Métodos para consultar dados específicos das novas rotas
+    /**
+     * Consulta bundles básicos usando a nova rota otimizada
+     */
     async getBundles() {
         try {
             const response = await axios.get(`${this.storageApiUrl}/api/bundles`, {
@@ -180,6 +131,9 @@ class StorageSyncManager {
         }
     }
 
+    /**
+     * Consulta bundles detalhados usando a nova rota otimizada
+     */
     async getBundlesDetailed() {
         try {
             const response = await axios.get(`${this.storageApiUrl}/api/bundles-detailed`, {
@@ -192,131 +146,12 @@ class StorageSyncManager {
         }
     }
 
-    async getAllData() {
-        try {
-            const response = await axios.get(`${this.storageApiUrl}/api/data`, {
-                timeout: this.timeout
-            });
-            return response.data;
-        } catch (error) {
-            console.error('❌ Erro ao buscar todos os dados:', error.message);
-            throw error;
-        }
-    }
-
-    // Sincroniza chunks de bundles detalhados (sistema incremental)
-    async syncDetailedBundlesChunk(bundlesDetailed, chunkInfo) {
-        const syncData = {
-            bundlesDetailed: bundlesDetailed,
-            updateStatus: {
-                bundlesDetailed: {
-                    isComplete: chunkInfo.isLastChunk || false,
-                    totalRecords: chunkInfo.totalExpected || bundlesDetailed.length,
-                    recordsReceived: bundlesDetailed.length
-                }
-            },
-            requestMetadata: {
-                chunkInfo: {
-                    isChunk: true,
-                    chunkNumber: chunkInfo.chunkNumber,
-                    totalChunks: chunkInfo.totalChunks || Math.ceil(chunkInfo.totalExpected / chunkInfo.chunkSize),
-                    chunkSize: chunkInfo.chunkSize || 200,
-                    isLastChunk: chunkInfo.isLastChunk || false
-                },
-                syncType: 'detailed_chunk',
-                timestamp: moment().tz(this.timezone).format()
-            }
-        };
-
-        console.log(`🔄 Sincronizando chunk ${chunkInfo.chunkNumber} (${bundlesDetailed.length} bundles)...`);
-        return this.makeRequest('/api/sync', syncData);
-    }
-
-    // Sincronização final de bundles detalhados
-    async syncDetailedBundlesFinal(bundlesDetailed, finalInfo) {
-        const syncData = {
-            bundlesDetailed: bundlesDetailed,
-            updateStatus: {
-                bundlesDetailed: {
-                    isComplete: true,
-                    totalRecords: finalInfo.totalExpected || bundlesDetailed.length,
-                    recordsReceived: bundlesDetailed.length
-                }
-            },
-            requestMetadata: {
-                chunkInfo: {
-                    isChunk: false,
-                    isFinalSync: true,
-                    totalBundles: bundlesDetailed.length
-                },
-                syncType: 'detailed_final',
-                timestamp: moment().tz(this.timezone).format()
-            }
-        };
-
-        console.log(`🏁 Sincronização final (${bundlesDetailed.length} bundles detalhados)...`);
-        return this.makeRequest('/api/sync', syncData);
-    }
-
-    // Sincroniza fila de falhas com o storage
-    async syncFailedBundlesQueue(queueData) {
-        const syncData = {
-            failedBundlesQueue: queueData,
-            updateStatus: {
-                failedBundlesQueue: {
-                    isComplete: true,
-                    totalRecords: queueData.totalFailed || 0,
-                    recordsReceived: queueData.bundles ? queueData.bundles.length : 0
-                }
-            },
-            requestMetadata: {
-                syncType: 'failed_queue',
-                timestamp: moment().tz(this.timezone).format()
-            }
-        };
-
-        console.log(`📤 Sincronizando fila de falhas (${queueData.totalFailed} bundles)...`);
-        return this.makeRequest('/api/sync', syncData);
-    }
-
-    // Recupera fila de falhas do storage
-    async getFailedBundlesQueue() {
-        try {
-            console.log('📥 Recuperando fila de falhas do storage...');
-            
-            const response = await axios.get(`${this.storageApiUrl}/api/sync`, {
-                timeout: this.timeout,
-                headers: {
-                    'x-api-key': this.apiKey,
-                    'Content-Type': 'application/json'
-                }
-            });
-
-            return {
-                success: true,
-                queue: response.data.queue,
-                metadata: response.data.metadata
-            };
-        } catch (error) {
-            console.error('❌ Erro ao recuperar fila de falhas:', error.message);
-            return {
-                success: false,
-                error: error.message,
-                queue: {
-                    timestamp: new Date().toISOString(),
-                    totalFailed: 0,
-                    retryable: 0,
-                    bundles: []
-                }
-            };
-        }
-    }
-
-    // Limpa arquivos locais após sincronização bem-sucedida
+    /**
+     * Limpa arquivos locais após sincronização bem-sucedida
+     */
     async cleanupLocalFiles(filePaths) {
         const fs = require('fs');
         let cleaned = 0;
-        
         for (const filePath of filePaths) {
             try {
                 if (fs.existsSync(filePath)) {
@@ -328,9 +163,12 @@ class StorageSyncManager {
                 console.warn(`⚠️ Erro ao remover ${filePath}:`, error.message);
             }
         }
-        
         console.log(`🧹 Limpeza concluída: ${cleaned}/${filePaths.length} arquivos removidos`);
         return cleaned;
+    }
+
+    delay(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
     }
 }
 

@@ -185,50 +185,31 @@ class UpdateController {
     }
 
     async autoResumeIncompleteUpdates() {
-        console.log(`${this.config.logPrefix} 🔍 Verificando por atualizações incompletas...`);
-        
+        console.log(`${this.config.logPrefix} 🔍 Verificando status de atualização na Storage API...`);
         try {
-            const { updateBundlesWithDetails, checkAndResumeUpdate } = require('./updateBundles');
-            
-            const hasIncompleteUpdate = await checkAndResumeUpdate();
-            
-            if (hasIncompleteUpdate && !this.isUpdateInProgress()) {
-                console.log(`${this.config.logPrefix} 🔄 INICIANDO AUTO-RESUME de atualização incompleta em 5 segundos...`);
-                console.log(`${this.config.logPrefix} ⏰ Aguardando inicialização completa do servidor...`);
-                
-                setTimeout(async () => {
-                    try {
-                        console.log(`${this.config.logPrefix} 🚀 Executando auto-resume da atualização detalhada...`);
-                        
-                        const result = await this.executeControlledUpdate(
-                            () => updateBundlesWithDetails('brazilian'), 
-                            'auto-resume-detailed'
-                        );
-                        
-                        if (result.success) {
-                            console.log(`${this.config.logPrefix} ✅ Auto-resume concluído com sucesso!`);
-                            console.log(`${this.config.logPrefix} 📊 Resultado:`, result.result?.totalBundles ? `${result.result.totalBundles} bundles processados` : 'Processamento completo');
-                        } else {
-                            console.log(`${this.config.logPrefix} ⚠️ Auto-resume foi ignorado:`, result);
-                        }
-                    } catch (error) {
-                        console.error(`${this.config.logPrefix} ❌ ERRO durante auto-resume:`, error.message);
-                        console.error(`${this.config.logPrefix} 💡 A atualização pode ser reiniciada manualmente via endpoint /api/admin/update`);
-                    }
-                }, 5000);
-                
-                return { resumed: true, type: 'auto-resume-detailed', scheduled: true };
-            } else if (hasIncompleteUpdate && this.isUpdateInProgress()) {
-                console.log(`${this.config.logPrefix} ⏳ Atualização incompleta detectada, mas já há uma atualização em andamento`);
-                return { resumed: false, reason: 'already_updating' };
+            const axios = require('axios');
+            const storageApiUrl = process.env.STORAGE_API_URL || 'https://bundleset-api-storage.vercel.app';
+            const apiKey = process.env.STORAGE_API_KEY;
+            const response = await axios.get(`${storageApiUrl}/api/admin?operation=version-status`, {
+                timeout: 10000,
+                headers: apiKey ? { 'x-api-key': apiKey } : {}
+            });
+            const status = response.data;
+            if (status && status.staging_session_id) {
+                console.warn(`${this.config.logPrefix} ⚠️ Existe uma sessão de staging ativa (${status.staging_session_id}). Uma atualização anterior pode ter sido interrompida.`);
+                // Aqui você pode decidir alertar, esperar, ou iniciar uma nova atualização do zero
+                return {
+                    resumeNeeded: true,
+                    stagingSessionId: status.staging_session_id,
+                    message: 'Staging session ativa detectada. Recomenda-se iniciar uma nova atualização completa.'
+                };
             } else {
-                console.log(`${this.config.logPrefix} ✅ Nenhuma atualização incompleta encontrada`);
-                return { resumed: false, reason: 'no_incomplete_updates' };
+                console.log(`${this.config.logPrefix} ✅ Nenhuma atualização incompleta detectada na Storage API.`);
+                return { resumeNeeded: false };
             }
-            
         } catch (error) {
-            console.error(`${this.config.logPrefix} ❌ Erro durante verificação de auto-resume:`, error.message);
-            return { resumed: false, reason: 'error', error: error.message };
+            console.error(`${this.config.logPrefix} ❌ Erro ao consultar status da Storage API:`, error.message);
+            return { resumeNeeded: false, error: error.message };
         }
     }
 

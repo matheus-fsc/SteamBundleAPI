@@ -7,7 +7,8 @@ const moment = require('moment-timezone');
 const fs = require('fs');
 
 const { fetchAndSaveBundles } = require('./services/fetchBundles');
-const { updateBundlesWithDetails, checkAndResumeUpdate } = require('./services/updateBundles');
+const { updateBundlesWithDetails, checkAndResumeUpdate, loadStorageDataWithRetry } = require('./services/updateBundles');
+const { storageSyncManager } = require('./services/storageSync');
 const updateController = require('./services/updateController'); // Importa para ativar auto-resume
 const routes = require('./routes');
 const { requestLogger, corsOptions } = require('./middleware/security');
@@ -92,98 +93,134 @@ function getNextCronExecution(cronExpr, fromTime) {
 global.getNextScheduledUpdate = getNextScheduledUpdate;
 global.getNextCronExecution = getNextCronExecution;
 
-const checkLastVerification = () => {
-    console.log('🔍 Verificando status dos arquivos de bundles...');
-    const bundlesExists = fs.existsSync(BUNDLES_FILE);
-    const bundlesDetailedExists = fs.existsSync(BUNDLES_DETAILED_FILE);
-    console.log(`📋 bundles.json: ${bundlesExists ? '✅ Existe' : '❌ Não encontrado'}`);
-    console.log(`📄 bundleDetailed.json: ${bundlesDetailedExists ? '✅ Existe' : '❌ Não encontrado'}`);
+const checkLastVerification = async () => {
+    console.log('🔍 Verificando status dos dados no Storage API...');
     
-    // --- NOVA LÓGICA DE VERIFICAÇÃO INTELIGENTE ---
-    if (!bundlesExists && !bundlesDetailedExists) {
-        console.log('🚨 Ambos os arquivos ausentes - iniciando coleta completa do início...');
-        fetchAndSaveBundles();
-        return;
-    }
-    
-    if (bundlesExists && !bundlesDetailedExists) {
-        console.log('🔍 bundles.json existe, mas bundleDetailed.json não. Verificando integridade...');
+    try {
+        // Testa conectividade com Storage API
+        const connectivity = await storageSyncManager.testConnection();
+        if (!connectivity.success) {
+            console.log('❌ Storage API indisponível - executando coleta completa...');
+            fetchAndSaveBundles();
+            return;
+        }
+        
+        console.log('✅ Storage API conectado');
+        
+        // Verifica dados básicos (bundles) com retry automático
+        let bundlesData = null;
         try {
-            const bundlesData = JSON.parse(fs.readFileSync(BUNDLES_FILE, 'utf-8'));
+            console.log('📡 Verificando bundles básicos com retry...');
+            bundlesData = await loadStorageDataWithRetry('bundles', 3);
+        } catch (error) {
+            console.log('⚠️ Erro ao buscar dados básicos após retry:', error.message);
+        }
+        
+        // Verifica dados detalhados (bundlesDetailed) com retry automático
+        let detailedData = null;
+        try {
+            console.log('📡 Verificando bundles detalhados com retry...');
+            detailedData = await loadStorageDataWithRetry('bundlesDetailed', 3);
+        } catch (error) {
+            console.log('⚠️ Erro ao buscar dados detalhados após retry:', error.message);
+        }
+        
+        const hasBundles = bundlesData && bundlesData.bundles && bundlesData.bundles.length > 0;
+        const hasDetailed = detailedData && detailedData.bundles && detailedData.bundles.length > 0;
+        
+        console.log(`📋 Bundles básicos: ${hasBundles ? `✅ ${bundlesData.bundles.length} registros` : '❌ Não encontrados'}`);
+        console.log(`📄 Bundles detalhados: ${hasDetailed ? `✅ ${detailedData.bundles.length} registros` : '❌ Não encontrados'}`);
+        
+        // --- NOVA LÓGICA DE VERIFICAÇÃO COM STORAGE API ---
+        if (!hasBundles && !hasDetailed) {
+            console.log('🚨 Ambas as tabelas vazias/ausentes - iniciando coleta completa do início...');
+            fetchAndSaveBundles();
+            return;
+        }
+        
+        if (hasBundles && !hasDetailed) {
+            console.log('🔍 Bundles básicos existem, mas detalhados não. Verificando integridade...');
             
-            // Verifica se o arquivo bundles.json está completo
-            if (!bundlesData.bundles || !Array.isArray(bundlesData.bundles) || bundlesData.bundles.length === 0) {
-                console.log('⚠️ bundles.json existe mas está vazio ou corrompido - reiniciando coleta completa...');
-                fetchAndSaveBundles();
-                return;
-            }
-            
-            // Verifica se tem a estrutura mínima esperada
+            // Verifica se os dados básicos têm estrutura válida
             const hasValidStructure = bundlesData.bundles.every(bundle => 
                 bundle.Link && typeof bundle.Link === 'string' && bundle.Link.includes('/bundle/')
             );
             
             if (!hasValidStructure) {
-                console.log('⚠️ bundles.json existe mas tem estrutura inválida - reiniciando coleta completa...');
+                console.log('⚠️ Dados básicos no Storage têm estrutura inválida - reiniciando coleta completa...');
                 fetchAndSaveBundles();
                 return;
             }
             
-            console.log(`✅ bundles.json está íntegro (${bundlesData.bundles.length} bundles)`);
-            console.log('🚀 bundleDetailed.json ausente - iniciando apenas atualização detalhada...');
+            console.log(`✅ Dados básicos íntegros (${bundlesData.bundles.length} bundles)`);
+            console.log('🚀 Dados detalhados ausentes - iniciando apenas atualização detalhada...');
             
             // Executa apenas a atualização detalhada via updateController
             setTimeout(() => {
                 updateController.executeControlledUpdate(
                     () => updateBundlesWithDetails('brazilian'), 
-                    'missing-detailed-file'
+                    'missing-detailed-data'
                 ).catch(error => {
                     console.error('❌ Erro ao executar atualização detalhada:', error.message);
                 });
             }, 2000);
             return;
-            
-        } catch (error) {
-            console.log('⚠️ Erro ao ler bundles.json - reiniciando coleta completa...', error.message);
+        }
+        
+        if (!hasBundles && hasDetailed) {
+            console.log('⚠️ Dados detalhados existem mas básicos não - situação inconsistente');
+            console.log('🚨 Reiniciando coleta completa para garantir consistência...');
             fetchAndSaveBundles();
             return;
         }
-    }
-    
-    if (!bundlesExists && bundlesDetailedExists) {
-        console.log('⚠️ bundleDetailed.json existe mas bundles.json não - situação inconsistente');
-        console.log('🚨 Reiniciando coleta completa para garantir consistência...');
-        fetchAndSaveBundles();
-        return;
-    }
-    
-    // Se ambos existem, faz a verificação de tempo com base no modo de agendamento
-    if (bundlesExists && bundlesDetailedExists) {
-        console.log('✅ Ambos os arquivos existem - verificando timestamp...');
         
-        if (fs.existsSync(LAST_CHECK_FILE)) {
-            const lastCheckData = fs.readFileSync(LAST_CHECK_FILE, 'utf-8');
-            const lastCheck = JSON.parse(lastCheckData).lastCheck;
-            const now = moment().tz(TIMEZONE);
-            const lastCheckMoment = moment.tz(lastCheck, TIMEZONE);
-            const hoursSinceLastCheck = now.diff(lastCheckMoment, 'hours');
+        // Se ambos existem, verifica se estão atualizados
+        if (hasBundles && hasDetailed) {
+            console.log('✅ Ambos os conjuntos de dados existem - verificando atualização...');
             
-            console.log(`⏰ Última verificação: ${lastCheckMoment.format('DD/MM/YYYY HH:mm:ss')} (${hoursSinceLastCheck}h atrás)`);
+            // Verifica timestamp da última atualização
+            const lastUpdateTimestamp = bundlesData.metadata?.last_update || detailedData.metadata?.last_update;
             
-            // Determina se precisa atualizar baseado no modo e horário
-            const needsUpdate = shouldUpdateNow(lastCheckMoment, now, scheduleMode);
-            
-            if (needsUpdate.shouldUpdate) {
-                console.log(`🔄 ${needsUpdate.reason} - iniciando atualização...`);
-                fetchAndSaveBundles();
+            if (lastUpdateTimestamp) {
+                const lastUpdate = moment.tz(lastUpdateTimestamp, TIMEZONE);
+                const now = moment().tz(TIMEZONE);
+                const hoursSinceLastUpdate = now.diff(lastUpdate, 'hours');
+                
+                console.log(`⏰ Última atualização: ${lastUpdate.format('DD/MM/YYYY HH:mm:ss')} (${hoursSinceLastUpdate}h atrás)`);
+                
+                // Determina se precisa atualizar baseado no modo e horário
+                const needsUpdate = shouldUpdateNow(lastUpdate, now, scheduleMode);
+                
+                if (needsUpdate.shouldUpdate) {
+                    console.log(`🔄 ${needsUpdate.reason} - iniciando atualização...`);
+                    fetchAndSaveBundles();
+                } else {
+                    console.log(`✅ ${needsUpdate.reason}`);
+                    console.log(`📅 Próxima atualização agendada: ${getNextScheduledUpdate()}`);
+                    
+                    // Verifica se dados estão completos
+                    const isComplete = detailedData.metadata?.isComplete || detailedData.isComplete;
+                    if (!isComplete) {
+                        console.log('⚠️ Dados detalhados incompletos detectados - verificando recuperação...');
+                        setTimeout(() => {
+                            checkAndResumeUpdate().catch(error => {
+                                console.error('❌ Erro ao verificar recuperação:', error.message);
+                            });
+                        }, 1000);
+                    }
+                }
             } else {
-                console.log(`✅ ${needsUpdate.reason}`);
-                console.log(`📅 Próxima atualização agendada: ${getNextScheduledUpdate()}`);
+                console.log('📝 Timestamp de atualização não encontrado - iniciando verificação inicial...');
+                fetchAndSaveBundles();
             }
-        } else {
-            console.log('📝 Arquivo de timestamp não encontrado - iniciando verificação inicial...');
-            fetchAndSaveBundles();
         }
+        
+    } catch (error) {
+        console.error('❌ Erro durante verificação do Storage API:', error.message);
+        console.log('🔄 Fallback: verificando arquivos locais...');
+        
+        // Fallback para verificação local se Storage API falhar completamente
+        checkLastVerificationLocal();
     }
 };
 
@@ -224,6 +261,60 @@ function shouldUpdateNow(lastCheck, now, mode) {
     };
 }
 
+// Função de fallback para verificação local (se Storage API falhar)
+const checkLastVerificationLocal = () => {
+    console.log('🔍 [FALLBACK] Verificando arquivos locais...');
+    const bundlesExists = fs.existsSync(BUNDLES_FILE);
+    const bundlesDetailedExists = fs.existsSync(BUNDLES_DETAILED_FILE);
+    console.log(`📋 bundles.json: ${bundlesExists ? '✅ Existe' : '❌ Não encontrado'}`);
+    console.log(`📄 bundleDetailed.json: ${bundlesDetailedExists ? '✅ Existe' : '❌ Não encontrado'}`);
+    
+    if (!bundlesExists && !bundlesDetailedExists) {
+        console.log('🚨 [FALLBACK] Ambos os arquivos ausentes - iniciando coleta completa...');
+        fetchAndSaveBundles();
+        return;
+    }
+    
+    if (bundlesExists && !bundlesDetailedExists) {
+        console.log('🔍 [FALLBACK] Apenas bundles.json existe - iniciando atualização detalhada...');
+        setTimeout(() => {
+            updateController.executeControlledUpdate(
+                () => updateBundlesWithDetails('brazilian'), 
+                'fallback-missing-detailed'
+            ).catch(error => {
+                console.error('❌ Erro ao executar atualização detalhada:', error.message);
+            });
+        }, 2000);
+        return;
+    }
+    
+    if (bundlesExists && bundlesDetailedExists) {
+        console.log('✅ [FALLBACK] Ambos os arquivos existem - verificando timestamp...');
+        
+        if (fs.existsSync(LAST_CHECK_FILE)) {
+            const lastCheckData = fs.readFileSync(LAST_CHECK_FILE, 'utf-8');
+            const lastCheck = JSON.parse(lastCheckData).lastCheck;
+            const now = moment().tz(TIMEZONE);
+            const lastCheckMoment = moment.tz(lastCheck, TIMEZONE);
+            const hoursSinceLastCheck = now.diff(lastCheckMoment, 'hours');
+            
+            console.log(`⏰ [FALLBACK] Última verificação: ${lastCheckMoment.format('DD/MM/YYYY HH:mm:ss')} (${hoursSinceLastCheck}h atrás)`);
+            
+            const needsUpdate = shouldUpdateNow(lastCheckMoment, now, scheduleMode);
+            
+            if (needsUpdate.shouldUpdate) {
+                console.log(`🔄 [FALLBACK] ${needsUpdate.reason} - iniciando atualização...`);
+                fetchAndSaveBundles();
+            } else {
+                console.log(`✅ [FALLBACK] ${needsUpdate.reason}`);
+            }
+        } else {
+            console.log('📝 [FALLBACK] Timestamp não encontrado - iniciando verificação...');
+            fetchAndSaveBundles();
+        }
+    }
+};
+
 console.log(`🕐 Configuração de agendamento: ${scheduleMode}`);
 console.log(`📅 Cron: ${cronExpression} (${getScheduleDescription(scheduleMode)})`);
 
@@ -248,15 +339,18 @@ cron.schedule(cronExpression, () => {
 
 console.log(`✅ Agendamento ativo: ${getScheduleDescription(scheduleMode)}`);
 
-checkLastVerification();
-
-checkAndResumeUpdate().then(hasIncompleteUpdate => {
-    if (hasIncompleteUpdate) {
-        console.log('📋 Sistema pronto para continuar atualização incompleta');
-    }
-}).catch(error => {
-    console.error('❌ Erro ao verificar atualização incompleta:', error.message);
-});
+// Aguarda um pouco antes da verificação para dar tempo do database processar dados recentes
+setTimeout(async () => {
+    await checkLastVerification();
+    
+    checkAndResumeUpdate().then(hasIncompleteUpdate => {
+        if (hasIncompleteUpdate) {
+            console.log('📋 Sistema pronto para continuar atualização incompleta');
+        }
+    }).catch(error => {
+        console.error('❌ Erro ao verificar atualização incompleta:', error.message);
+    });
+}, 3000); // 3 segundos de delay
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {

@@ -169,19 +169,81 @@ const fetchAndSaveBundles = async (limitForTesting = null) => {
                 throw new Error(`Conectividade falhada: ${connectivity.error}`);
             }
             
-            // Sincroniza bundles básicos
-            await storageSyncManager.syncBasicBundles(uniqueBundles);
-            console.log('✅ Bundles básicos sincronizados com storage backend');
+            // 📊 SINCRONIZA ESTADO INICIAL (em progresso)
+            const initialSyncData = {
+                updateStatus: {
+                    bundles: {
+                        isComplete: false,
+                        status: 'in_progress',
+                        totalRecords: 0,
+                        recordsReceived: 0,
+                        startTime: moment().tz(TIMEZONE).format(),
+                        phase: 'collecting_bundles'
+                    }
+                },
+                requestMetadata: {
+                    timestamp: moment().tz(TIMEZONE).format(),
+                    source: 'fetchBundles',
+                    type: 'basic_bundles_start'
+                }
+            };
+            await storageSyncManager.syncBasicBundles([], initialSyncData);
+            console.log('📊 Estado inicial sincronizado: coleta em progresso');
+            
+            // Sincroniza bundles básicos (estado final)
+            const finalSyncData = {
+                updateStatus: {
+                    bundles: {
+                        isComplete: true,
+                        status: 'completed',
+                        totalRecords: uniqueBundles.length,
+                        recordsReceived: uniqueBundles.length,
+                        startTime: initialSyncData.updateStatus.bundles.startTime,
+                        endTime: moment().tz(TIMEZONE).format(),
+                        phase: 'collection_completed'
+                    }
+                },
+                requestMetadata: {
+                    timestamp: moment().tz(TIMEZONE).format(),
+                    source: 'fetchBundles',
+                    type: 'basic_bundles_complete'
+                }
+            };
+            await storageSyncManager.syncBasicBundles(uniqueBundles, finalSyncData);
+            console.log(`✅ Bundles básicos sincronizados: ${uniqueBundles.length} bundles coletados`);
+            console.log('📊 Estado final sincronizado: coleta completa');
+            
+            // 🧹 LIMPEZA DE ARQUIVOS LOCAIS PARA RENDER FREE
+            try {
+                const filesToClean = [];
+                
+                // Remove bundles.json se existir (economiza espaço volátil)
+                if (fsSync.existsSync('./bundles.json')) {
+                    filesToClean.push('./bundles.json');
+                }
+                
+                // Remove bundles-old.json se existir (não mais necessário)
+                if (fsSync.existsSync('./bundles-old.json')) {
+                    filesToClean.push('./bundles-old.json');
+                }
+                
+                if (filesToClean.length > 0) {
+                    console.log(`🧹 Limpando ${filesToClean.length} arquivo(s) local(is) após sincronização...`);
+                    for (const file of filesToClean) {
+                        await fs.unlink(file);
+                        console.log(`   ✅ Removido: ${file}`);
+                    }
+                    console.log('🚀 Arquivos locais limpos - espaço volátil liberado para logs');
+                }
+            } catch (cleanupError) {
+                console.warn(`⚠️ Erro na limpeza de arquivos: ${cleanupError.message}`);
+            }
             
         } catch (syncError) {
             console.error('❌ Erro na sincronização com storage:', syncError.message);
             throw syncError; // Re-lança o erro para interromper o processo
         }
 
-        console.log('🔄 Iniciando atualização de detalhes...');
-        await updateBundlesWithDetails();
-        console.log('✅ Detalhes das bundles atualizados.');
-        
         if (keepAliveStarted) {
             console.log('💓 Parando keep-alive - fetch concluído com sucesso');
             keepAlive.stop();
