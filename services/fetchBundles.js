@@ -3,7 +3,6 @@ const cheerio = require('cheerio');
 const fs = require('fs').promises;
 const fsSync = require('fs');
 const moment = require('moment-timezone');
-const { updateBundlesWithDetails } = require('./updateBundles');
 const { keepAlive } = require('./keepAlive');
 const { storageSyncManager } = require('./storageSync');
 
