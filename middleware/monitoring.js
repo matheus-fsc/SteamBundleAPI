@@ -1,32 +1,30 @@
-﻿const fs = require('fs');
-const os = require('os');
-const healthCheck = (req, res) => {
+﻿const { storageSyncManager } = require('../services/storageSync');
+const healthCheck = async (req, res) => {
     const health = {
         status: 'UP',
         timestamp: new Date().toISOString(),
-        uptime: process.uptime(),
-        memory: {
-            used: process.memoryUsage().heapUsed / 1024 / 1024,
-            total: process.memoryUsage().heapTotal / 1024 / 1024,
-            system: os.totalmem() / 1024 / 1024 / 1024,
-            free: os.freemem() / 1024 / 1024 / 1024
-        },
-        cpu: {
-            loadAverage: os.loadavg(),
-            cores: os.cpus().length
-        },
-        files: {
-            bundlesExists: fs.existsSync('bundles.json'),
-            bundlesDetailedExists: fs.existsSync('bundleDetailed.json'),
-            lastCheckExists: fs.existsSync('last_check.json')
+        dependencies: {
+            storage_api: {
+                status: 'UNKNOWN',
+                url: process.env.STORAGE_API_URL
+            }
         }
     };
-    if (!health.files.bundlesExists || !health.files.bundlesDetailedExists) {
+
+    try {
+        // Ping na sua API de Storage
+        const storageStatus = await storageSyncManager.testConnection();
+        if (storageStatus.success) {
+            health.dependencies.storage_api.status = 'UP';
+        } else {
+            health.dependencies.storage_api.status = 'DOWN';
+            health.status = 'DEGRADED';
+        }
+    } catch (error) {
+        health.dependencies.storage_api.status = 'DOWN';
         health.status = 'DEGRADED';
     }
-    if (health.memory.used > 500) {
-        health.status = 'WARNING';
-    }
+
     res.status(health.status === 'UP' ? 200 : 503).json(health);
 };
 const errorHandler = (err, req, res, next) => {

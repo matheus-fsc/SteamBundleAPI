@@ -18,52 +18,7 @@ const STATE_CONFIG = {
 };
 
 class StateManager {
-    constructor() {
-        // Arquivos de estado
-        this.UPDATE_STATE_FILE = path.join(__dirname, '../updateState.json');
-        this.BUNDLES_DETAILED_FILE = path.join(__dirname, '../bundleDetailed.json');
-        
-        // Cache em memória para o estado de atualização (Render Free friendly)
-        this.updateStateCache = null;
-        
-        this._ensureDataDirectory();
-        
-        console.log('📊 Gerenciador de Estado inicializado:');
-        console.log(`   💾 Intervalo de salvamento: ${STATE_CONFIG.SAVE_INTERVAL_BATCHES} lotes`);
-        console.log(`   📊 Check de memória: ${STATE_CONFIG.MEMORY_CHECK_INTERVAL_BATCHES} lotes`);
-        console.log(`   🚨 Limite de memória: ${STATE_CONFIG.MAX_MEMORY_USAGE_MB}MB`);
-    }
 
-    async _ensureDataDirectory() {
-        try {
-            const dataDir = path.dirname(this.UPDATE_STATE_FILE);
-            await fs.mkdir(dataDir, { recursive: true });
-        } catch (error) {
-            console.warn('⚠️ Erro ao criar diretório de dados:', error.message);
-        }
-    }
-
-    /**
-     * Cria estado inicial de atualização
-     */
-    createInitialUpdateState(bundlesToProcess, limitForTesting, language) {
-        return {
-            status: 'in_progress',
-            startTime: Date.now(),
-            total: bundlesToProcess.length,
-            completed: 0,
-            lastProcessedIndex: -1,
-            language: language,
-            isTestMode: !!limitForTesting,
-            processedBundles: [],
-            errors: [],
-            resumeCount: 0
-        };
-    }
-
-    /**
-     * Carrega estado de atualização
-     */
     loadUpdateState() {
         try {
             // Em ambiente Render Free, usa cache em memória
@@ -196,62 +151,6 @@ class StateManager {
     /**
      * Salva dados detalhados de bundles com metadados otimizados
      */
-    async saveDetailedBundlesData(detailedBundles, bundlesToProcess, isComplete = false, isTestMode = false, startTime, updateState = null) {
-        const memory = this.getMemoryUsage();
-        const totalTime = (Date.now() - startTime) / 1000;
-        
-        // --- ESTRUTURA OTIMIZADA: STATUS NO INÍCIO ---
-        const result = {
-            // STATUS E INFORMAÇÕES CRÍTICAS NO INÍCIO (para verificação rápida)
-            isComplete: isComplete,
-            status: isComplete ? 'completed' : 'in_progress',
-            totalBundles: detailedBundles.length,
-            processedCount: bundlesToProcess.length,
-            
-            // RESUMO DE ESTADO
-            updateStatus: updateState ? {
-                status: updateState.status,
-                completed: updateState.completed,
-                total: updateState.total,
-                lastProcessedIndex: updateState.lastProcessedIndex,
-                resumeCount: updateState.resumeCount,
-                canResume: !isComplete
-            } : null,
-            
-            // METADADOS TEMPORAIS
-            last_update: moment().tz(STATE_CONFIG.TIMEZONE).format(),
-            lastSaved: new Date().toISOString(),
-            processingTimeSeconds: totalTime,
-            bundlesPerSecond: detailedBundles.length / totalTime,
-            
-            // CONFIGURAÇÕES
-            isTestMode: !!isTestMode,
-            memoryUsage: memory,
-            
-            // DADOS PRINCIPAIS (no final para otimizar leitura)
-            bundles: detailedBundles
-        };
-        
-        const outputFile = isTestMode ? path.join(__dirname, '../data/bundleDetailed_test.json') : this.BUNDLES_DETAILED_FILE;
-        
-        try {
-            // Salva arquivo local apenas se não for modo teste
-            if (!isTestMode) {
-                await fs.writeFile(outputFile, JSON.stringify(result, null, 2), 'utf-8');
-            }
-            
-            if (isComplete) {
-                console.log(`💾 ✅ Salvamento final: ${detailedBundles.length} bundles (${memory.heapUsed}MB)`);
-            } else {
-                console.log(`💾 🔄 Salvamento parcial: ${detailedBundles.length} bundles (${memory.heapUsed}MB) - Checkpoint: ${updateState?.completed}/${updateState?.total}`);
-            }
-        } catch (error) {
-            console.error('❌ Erro ao salvar dados detalhados:', error.message);
-            throw error;
-        }
-        
-        return result;
-    }
 
     /**
      * Verifica se deve salvar checkpoint baseado em configurações
@@ -270,50 +169,7 @@ class StateManager {
         return batchesProcessed % STATE_CONFIG.MEMORY_CHECK_INTERVAL_BATCHES === 0;
     }
 
-    /**
-     * Verifica se há estado de atualização incompleta para recovery
-     */
-    async checkAndResumeUpdate() {
-        try {
-            // Verifica estado salvo
-            const state = this.loadUpdateState();
-            if (!state) {
-                console.log('📭 Nenhum estado de atualização encontrado');
-                return false;
-            }
-
-            // Verifica se atualização estava em progresso
-            if (state.status !== 'in_progress') {
-                console.log(`📊 Estado anterior: ${state.status} - nenhum resume necessário`);
-                return false;
-            }
-
-            // Verifica se não é muito antigo (evita resume de estados corrompidos)
-            const timeSinceStart = (Date.now() - state.startTime) / (1000 * 60);
-            if (timeSinceStart > 120) { // Mais de 2 horas
-                console.log(`⏰ Estado muito antigo (${Math.round(timeSinceStart)} min) - ignorando para segurança`);
-                await this.clearUpdateState();
-                return false;
-            }
-
-            // Verifica se há dados detalhados parciais
-            const quickCheck = await this.quickStatusCheck(this.BUNDLES_DETAILED_FILE);
-            if (quickCheck.exists && !quickCheck.isComplete) {
-                console.log(`🔄 Atualização incompleta detectada:`);
-                console.log(`   📊 Estado: ${state.completed}/${state.total} bundles processados`);
-                console.log(`   📂 Arquivo: ${quickCheck.totalBundles || 'N/A'} bundles salvos`);
-                console.log(`   ⏰ Iniciado há: ${Math.round(timeSinceStart)} minutos`);
-                return true;
-            }
-
-            console.log('✅ Nenhuma atualização incompleta encontrada');
-            return false;
-
-        } catch (error) {
-            console.error('❌ Erro ao verificar resume:', error.message);
-            return false;
-        }
-    }
+    // ...existing code...
 
     /**
      * Força garbage collection se disponível

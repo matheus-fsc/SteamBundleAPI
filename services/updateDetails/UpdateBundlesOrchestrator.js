@@ -85,113 +85,77 @@ class UpdateBundlesOrchestrator {
                 };
             }
 
-            // === VERIFICAÇÃO DE ESTADO EXISTENTE ===
-            // NOTA: Com a lógica otimizada acima, o StateManager se torna um backup de curto prazo.
-            // A fonte autoritativa é o Storage API, que já filtrou bundles processados.
-            // O StateManager serve apenas para recovery de sessões interrompidas.
-            let updateState = this.stateManager.loadUpdateState();
-            let detailedBundles = [];
-            let startIndex = 0;
-            let actualStartTime = Date.now();
-            
-            if (updateState && updateState.status === 'in_progress') {
-                console.log(`🔄 CONTINUANDO atualização em progresso...`);
-                console.log(`   📊 Progresso anterior: ${updateState.completed}/${updateState.total}`);
-                console.log(`   ⏰ Iniciado: ${new Date(updateState.startTime).toLocaleString()}`);
-                
-                startIndex = updateState.lastProcessedIndex + 1;
-                actualStartTime = updateState.startTime;
-                updateState.resumeCount++;
-                
-                // --- CORREÇÃO CRÍTICA ---
-                // Carregar os bundles já processados para não perdê-los.
-                try {
-                    const detailedDataPath = this.stateManager.BUNDLES_DETAILED_FILE;
-                    if (require('fs').existsSync(detailedDataPath)) {
-                        const partialData = JSON.parse(require('fs').readFileSync(detailedDataPath, 'utf-8'));
-                        if (partialData && partialData.bundles) {
-                            detailedBundles = partialData.bundles;
-                            console.log(`📂 Dados parciais carregados: ${detailedBundles.length} bundles recuperados do arquivo local.`);
-                        }
-                    }
-                } catch (error) {
-                    console.warn('⚠️ Erro ao carregar dados detalhados parciais:', error.message);
-                    // Considere limpar o estado se os dados parciais estiverem corrompidos
-                    await this.stateManager.clearUpdateState();
-                    return { success: false, reason: 'CORRUPTED_PARTIAL_DATA' };
-                }
-                
-                // Tenta carregar dados parciais existentes (verificação adicional)
-                try {
-                    const quickCheck = await this.stateManager.quickStatusCheck(this.stateManager.BUNDLES_DETAILED_FILE);
-                    if (quickCheck.exists && quickCheck.totalBundles > 0) {
-                        console.log(`📂 Verificação rápida confirmada: ${quickCheck.totalBundles} bundles salvos`);
-                    }
-                } catch (error) {
-                    console.warn('⚠️ Erro ao verificar dados parciais:', error.message);
-                }
-            } else {
-                console.log(`🆕 NOVA atualização iniciada`);
-                updateState = this.stateManager.createInitialUpdateState(bundlesToProcess, limitForTesting, language);
-                actualStartTime = updateState.startTime;
-            }
-            
-            await this.stateManager.saveUpdateState(updateState);
-
-            // === CARREGAMENTO DA FILA DE FALHAS ===
-            console.log('\n🔄 Carregando fila de falhas...');
-            await this.failedManager.loadFailedQueue();
-
+            let updateState = this.stateManager.createInitialUpdateState(bundlesToProcess, limitForTesting, language);
             // === LOOP PRINCIPAL DE PROCESSAMENTO ===
+
             let consecutiveFailures = 0;
-            let batchesProcessed = Math.floor(startIndex / this.performanceManager.currentParallel);
             let totalBatches = Math.ceil(bundlesToProcess.length / this.performanceManager.currentParallel);
-            let lastSyncProgress = 0; // Rastreia último sync para evitar duplicatas
-            
-            console.log(`\n🚀 Processando de ${startIndex} até ${bundlesToProcess.length} (${totalBatches - batchesProcessed} lotes restantes)`);
+            let currentChunkBundles = [];
+            const SYNC_INTERVAL = this.syncService.SYNC_INTERVAL_BUNDLES;
+
+            console.log(`\n🚀 Processando de 0 até ${bundlesToProcess.length} (${totalBatches} lotes)`);
             console.log(`🧠 Sistema adaptativo ativo: ${this.performanceManager.currentDelay}ms delay, ${this.performanceManager.currentParallel} parallel`);
 
-            for (let i = startIndex; i < bundlesToProcess.length; i += this.performanceManager.currentParallel) {
+            for (let i = 0; i < bundlesToProcess.length; i += this.performanceManager.currentParallel) {
                 const batchIndex = Math.floor(i / this.performanceManager.currentParallel);
                 const batch = bundlesToProcess.slice(i, i + this.performanceManager.currentParallel);
-                
+
                 console.log(`\n🚀 Lote ${batchIndex + 1}/${totalBatches}: Processando ${batch.length} bundles (${this.performanceManager.currentDelay}ms delay)...`);
-                
+
                 // === PROCESSAMENTO DO LOTE ===
                 const batchResult = await this._processBatch(batch, batchIndex, language);
-                
+
                 // Adiciona resultados bem-sucedidos ao chunk atual
                 currentChunkBundles.push(...batchResult.successfulBundles);
-                
+
                 // Atualiza estado
                 updateState.completed += batch.length;
                 updateState.lastProcessedIndex = i + batch.length - 1;
-                
+
                 // === GESTÃO DE FALHAS ===
                 consecutiveFailures = this._handleBatchFailures(batchResult, consecutiveFailures);
-                
+
                 // === OTIMIZAÇÃO ADAPTATIVA ===
                 if (this.performanceManager.shouldOptimize(batchIndex)) {
                     this.performanceManager.optimizeSettings(batchIndex);
                 }
-                
-                // === CHECKPOINT E SINCRONIZAÇÃO ===
-                await this._handleOptimizedCheckpointAndSync(
-                    currentChunkBundles,
-                    updateState,
-                    bundlesToProcess,
-                    limitForTesting,
-                    batchesProcessed
-                );
-                
-                batchesProcessed++;
-                
+
+                // === SINCRONIZAÇÃO POR CHUNK ===
+                if (currentChunkBundles.length >= SYNC_INTERVAL) {
+                    const syncResult = await this.syncService.performAutoSync(
+                        currentChunkBundles,
+                        updateState,
+                        bundlesToProcess
+                    );
+                    if (syncResult.synced) {
+                        currentChunkBundles = [];
+                        if (global.gc) global.gc();
+                        console.log('🧹 Chunk sincronizado e memória liberada.');
+                    }
+                }
+
                 // === RELATÓRIOS DE PROGRESSO ===
                 this._logOptimizedProgress(batchIndex, updateState, bundlesToProcess, batchResult.batchTime, actualStartTime, currentChunkBundles.length);
-                
+
                 // Delay adaptativo entre lotes
                 if (i + this.performanceManager.currentParallel < bundlesToProcess.length) {
                     await this._delay(this.performanceManager.currentDelay);
+                }
+            }
+
+            // === FINALIZAÇÃO: Sincroniza bundles restantes ===
+            if (currentChunkBundles.length > 0) {
+            // REUTILIZA performAutoSync para a sincronização final
+            updateState.completed = bundlesToProcess.length; // Garante que isLastChunk seja true
+            const finalSyncResult = await this.syncService.performAutoSync(
+                currentChunkBundles,
+                updateState,
+                bundlesToProcess
+            );
+                if (finalSyncResult.synced) {
+                    currentChunkBundles = [];
+                    if (global.gc) global.gc();
+                    console.log('🧹 Sincronização final e memória liberada.');
                 }
             }
 
@@ -577,12 +541,7 @@ class UpdateBundlesOrchestrator {
         return new Promise(resolve => setTimeout(resolve, ms));
     }
 
-    /**
-     * Verifica e resume atualizações incompletas
-     */
-    async checkAndResumeUpdate() {
-        return await this.stateManager.checkAndResumeUpdate();
-    }
+    // ...existing code...
 
     /**
      * Processa apenas bundles que falharam
@@ -609,8 +568,7 @@ module.exports = {
     updateBundlesWithDetails: (language, limitForTesting) => 
         updateBundlesOrchestrator.updateBundlesWithDetails(language, limitForTesting),
     
-    checkAndResumeUpdate: () => 
-        updateBundlesOrchestrator.checkAndResumeUpdate(),
+    // ...existing code...
     
     processFailedBundles: (existingDetailedBundles) => 
         updateBundlesOrchestrator.processFailedBundles(existingDetailedBundles),

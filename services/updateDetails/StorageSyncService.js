@@ -70,43 +70,29 @@ class StorageSyncService {
     /**
      * Sincronização automática baseada no progresso
      */
-    async performAutoSync(detailedBundles, updateState, bundlesToProcess, isTestMode = false) {
-        if (isTestMode || detailedBundles.length === 0) {
-            return { synced: false, reason: 'test_mode_or_no_data' };
+    async performAutoSync(chunkToSync, updateState, bundlesToProcess) {
+        if (!chunkToSync || chunkToSync.length === 0) {
+            return { synced: false, reason: 'no_data' };
         }
 
         try {
-            console.log(`🔄 SINCRONIZAÇÃO AUTO: Enviando ${detailedBundles.length} bundles para Storage API...`);
-            
-            const chunkInfo = {
-                chunkNumber: Math.ceil(updateState.completed / this.SYNC_INTERVAL_BUNDLES),
-                chunkSize: this.SYNC_INTERVAL_BUNDLES,
-                totalBundles: detailedBundles.length,
-                totalExpected: bundlesToProcess.length,
-                isIncremental: true,
-                progress: Math.round((updateState.completed / bundlesToProcess.length) * 100),
-                processedCount: updateState.completed
-            };
-            
-            await this.storageSyncManager.syncDetailedBundlesChunk(detailedBundles, chunkInfo);
-            console.log(`✅ SYNC AUTO: Chunk ${chunkInfo.chunkNumber} enviado (${updateState.completed}/${bundlesToProcess.length} - ${chunkInfo.progress}%)`);
-            
-            // Marca último sync para evitar duplicatas
+            console.log(`🔄 SINCRONIZAÇÃO AUTO: Enviando ${chunkToSync.length} bundles...`);
+
+            const chunkNumber = Math.ceil(updateState.completed / this.SYNC_INTERVAL_BUNDLES);
+            const isLastChunk = (updateState.completed >= bundlesToProcess.length);
+
+            await this.storageSyncManager.syncBatch(chunkToSync, {
+                sessionId: updateState.sessionId,
+                chunkNumber: chunkNumber,
+                isLastChunk: isLastChunk
+            });
+
+            console.log(`✅ SYNC AUTO: Chunk ${chunkNumber} enviado com sucesso.`);
             this.lastSyncProgress = updateState.completed;
-            
-            // Limpa dados locais após sincronização
-            const cleanupResult = await this.performLocalCleanup(detailedBundles);
-            
-            return { 
-                synced: true, 
-                chunkInfo, 
-                cleanupResult,
-                bundlesRemoved: cleanupResult.bundlesRemoved 
-            };
-            
+            return { synced: true };
+
         } catch (syncError) {
             console.error('❌ ERRO AUTO-SYNC:', syncError.message);
-            console.log('💡 Continuando processamento - dados salvos localmente como fallback');
             return { synced: false, error: syncError.message };
         }
     }
@@ -132,40 +118,13 @@ class StorageSyncService {
                 gcResult = { before: memoryBefore, after: memoryAfter };
                 console.log(`🧹 GC pós-sync: ${memoryBefore.heapUsed}MB → ${memoryAfter.heapUsed}MB`);
             }
-            
-            return {
-                bundlesRemoved: syncedBundleIds.size,
-                syncedBundleIds: Array.from(syncedBundleIds),
-                gcResult
-            };
-            
-        } catch (cleanupError) {
-            console.warn(`⚠️ Erro na limpeza local pós-sync: ${cleanupError.message}`);
-            return { bundlesRemoved: 0, error: cleanupError.message };
-        }
-    }
 
-    /**
-     * Sincronização final completa
-     */
-    async performFinalSync(detailedBundles, bundlesToProcess) {
-        try {
-            console.log(`🔄 SINCRONIZAÇÃO FINAL: Enviando ${detailedBundles.length} bundles finais para Storage API...`);
-            
-            // Sincronização final - envia todos os dados
-            await this.storageSyncManager.syncDetailedBundlesFinal(detailedBundles, {
-                totalExpected: bundlesToProcess.length,
-                isComplete: true,
-                finalSync: true
-            });
-            console.log('✅ SINCRONIZAÇÃO FINAL: Dados completos enviados para storage backend');
-            
-            return { synced: true, final: true };
-            
+            // Aqui você pode adicionar lógica adicional de limpeza local, se necessário
+
+            return { cleaned: true, gcResult };
         } catch (syncError) {
-            console.error('❌ Erro na sincronização final com storage:', syncError.message);
-            console.log('💡 Continuando com salvamento local como fallback');
-            return { synced: false, error: syncError.message };
+            console.error('❌ Erro na limpeza local após sync:', syncError.message);
+            return { cleaned: false, error: syncError.message };
         }
     }
 
