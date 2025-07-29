@@ -218,13 +218,25 @@ class UpdateController {
         let needsBasicUpdate = false;
         let needsDetailedUpdate = false;
 
-        // Cenário 1: Base de dados completamente vazia.
+        // Consulta rápida para saber se há bundles detalhados (ex: campo description preenchido)
+        let hasDetailed = false;
+        try {
+            const { rows } = await storageSyncManager.queryStorage(`SELECT COUNT(*) as count FROM bundles WHERE description IS NOT NULL AND description <> ''`);
+            hasDetailed = parseInt(rows[0]?.count) > 0;
+        } catch (e) {
+            console.warn(`${this.config.logPrefix} ⚠️ Não foi possível verificar se há bundles detalhados: ${e.message}`);
+        }
+
         if (bundlesTable && bundlesTable.exists && bundlesTable.records === 0) {
             console.log(`${this.config.logPrefix} 🚀 DETETADO: A tabela 'bundles' está vazia. É necessária uma atualização completa.`);
             needsBasicUpdate = true;
             needsDetailedUpdate = true;
-        } else if (bundlesTable && bundlesTable.exists) {
-            console.log(`${this.config.logPrefix} ✅ Verificação concluída. A tabela principal parece estar preenchida.`);
+        } else if (bundlesTable && bundlesTable.exists && bundlesTable.records > 0 && !hasDetailed) {
+            console.log(`${this.config.logPrefix} 🚀 DETETADO: Existem bundles básicos, mas não há detalhes. É necessária atualização detalhada.`);
+            needsBasicUpdate = false;
+            needsDetailedUpdate = true;
+        } else if (bundlesTable && bundlesTable.exists && bundlesTable.records > 0 && hasDetailed) {
+            console.log(`${this.config.logPrefix} ✅ Verificação concluída. Bundles básicos e detalhados presentes.`);
         } else {
             console.log(`${this.config.logPrefix} ⚠️ Tabela principal não encontrada ou estado inválido. A verificação foi ignorada.`);
         }
