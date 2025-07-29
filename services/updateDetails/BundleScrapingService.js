@@ -362,7 +362,8 @@ class BundleScrapingService {
         }
         pageDetails.categorias = categorias;
 
-        // ===== NOVO: Extração e formatação de preço BRL =====
+
+        // ===== NOVO: Extração e formatação de preço BRL e preço formatado =====
         let preco = $('.discount_final_price').first().text().trim();
         if (!preco) {
             preco = $('.bundle_final_price').first().text().trim();
@@ -372,14 +373,33 @@ class BundleScrapingService {
         }
         // Normaliza para BRL (remove símbolos, converte vírgula para ponto, extrai número)
         let precoBRL = null;
+        let precoFormatado = null;
         if (preco) {
             // Remove "R$", espaços, NBSP, etc.
             precoBRL = preco.replace(/[^\d,\.]/g, '').replace(',', '.');
             // Pega apenas o número (caso haja mais de um)
             const match = precoBRL.match(/\d+(\.\d{2})?/);
             precoBRL = match ? parseFloat(match[0]) : null;
+            // Preço formatado para frontend (mantém R$ e formatação original)
+            precoFormatado = preco;
         }
         pageDetails.preco = precoBRL;
+        pageDetails.formatted_price = precoFormatado;
+
+        // Para imagens (se vierem do bundleData ou do HTML, ou tenta extrair do HTML)
+        let headerImage = bundleData.header_image_url || null;
+        let capsuleImage = bundleData.main_capsule || null;
+        // Tenta extrair do HTML se não vier do bundleData
+        if (!headerImage) {
+            const img = $(".bundle_header_image, .bundle_header img").first().attr("src");
+            if (img) headerImage = img;
+        }
+        if (!capsuleImage) {
+            const img = $(".bundle_capsule_image, .bundle_capsule img").first().attr("src");
+            if (img) capsuleImage = img;
+        }
+        pageDetails.header_image = headerImage;
+        pageDetails.capsule_image = capsuleImage;
 
         // Porcentagem de desconto
         let desconto = $('.discount_pct').first().text().trim();
