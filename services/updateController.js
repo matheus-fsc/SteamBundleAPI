@@ -214,7 +214,6 @@ class UpdateController {
 
         const tables = healthCheck.data.tables.details;
         const bundlesTable = tables.bundles;
-        const itemsTable = tables.items; // Assumimos que a health API retorna o estado da tabela 'items'
 
         let needsBasicUpdate = false;
         let needsDetailedUpdate = false;
@@ -224,18 +223,10 @@ class UpdateController {
             console.log(`${this.config.logPrefix} 🚀 DETETADO: A tabela 'bundles' está vazia. É necessária uma atualização completa.`);
             needsBasicUpdate = true;
             needsDetailedUpdate = true;
-        
-        // Cenário 2: Bundles básicos existem, mas os detalhes não (processo interrompido).
-        } else if (bundlesTable && bundlesTable.exists && bundlesTable.records > 0 && itemsTable && itemsTable.exists && itemsTable.records === 0) {
-            console.log(`${this.config.logPrefix} 🚀 DETETADO: A tabela 'bundles' está preenchida, mas a 'items' está vazia. É necessária uma atualização detalhada.`);
-            needsBasicUpdate = false; // A básica já foi feita
-            needsDetailedUpdate = true;
-        
         } else if (bundlesTable && bundlesTable.exists) {
-            console.log(`${this.config.logPrefix} ✅ Verificação concluída. As tabelas principais parecem estar preenchidas.`);
-        
+            console.log(`${this.config.logPrefix} ✅ Verificação concluída. A tabela principal parece estar preenchida.`);
         } else {
-            console.log(`${this.config.logPrefix} ⚠️ Tabelas principais não encontradas ou estado inválido. A verificação foi ignorada.`);
+            console.log(`${this.config.logPrefix} ⚠️ Tabela principal não encontrada ou estado inválido. A verificação foi ignorada.`);
         }
 
         return { needsBasicUpdate, needsDetailedUpdate };
