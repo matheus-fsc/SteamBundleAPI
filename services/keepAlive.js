@@ -16,7 +16,6 @@ class RenderKeepAlive {
             interval: 8 * 60 * 1000,
             maxPings: 180,
             endpoints: [
-                '/api/steam-stats',
                 '/api/update-status',
                 '/'
             ]
@@ -77,53 +76,63 @@ class RenderKeepAlive {
     }
 
     /**
-     * Executa um ping para manter acordado
+     * Executa um ping para manter acordado, com lógica de retentativa.
      */
     async ping() {
         if (!this.isActive) return;
 
-        // Verifica limite máximo
         if (this.pingCount >= this.config.maxPings) {
             console.log('⏰ Keep-alive atingiu limite máximo, parando...');
             this.stop('max-pings-reached');
             return;
         }
 
-        try {
-            const endpoint = this.config.endpoints[this.pingCount % this.config.endpoints.length];
-            const url = this.getBaseUrl() + endpoint;
-            
-            const startPing = Date.now();
-            const response = await axios.get(url, {
-                timeout: 10000,
-                headers: {
-                    'User-Agent': 'Render-KeepAlive/1.0',
-                    'X-Keep-Alive': 'true',
-                    'X-Ping-Count': this.pingCount.toString()
+        // --- INÍCIO DA MODIFICAÇÃO: LÓGICA DE RETENTATIVA ---
+        const MAX_PING_RETRIES = 3;
+        const PING_RETRY_DELAY = 15000; // 15 segundos
+
+        for (let attempt = 1; attempt <= MAX_PING_RETRIES; attempt++) {
+            try {
+                const endpoint = this.config.endpoints[this.pingCount % this.config.endpoints.length];
+                const url = this.getBaseUrl() + endpoint;
+                
+                const startPing = Date.now();
+                await axios.get(url, {
+                    timeout: 10000,
+                    headers: {
+                        'User-Agent': 'Render-KeepAlive/1.0',
+                        'X-Keep-Alive': 'true',
+                        'X-Ping-Count': this.pingCount.toString()
+                    }
+                });
+                const pingDuration = Date.now() - startPing;
+
+                this.pingCount++;
+                this.lastPingTime = new Date();
+                const totalMinutes = Math.round((new Date() - this.startTime) / 1000 / 60);
+                
+                console.log(`💓 Keep-alive ping #${this.pingCount}: ${endpoint} (${pingDuration}ms) - Ativo há ${totalMinutes}min`);
+
+                if (this.pingCount % 12 === 0) {
+                    console.log(`📊 Keep-alive status: ${this.pingCount}/${this.config.maxPings} pings...`);
                 }
-            });
-            const pingDuration = Date.now() - startPing;
 
-            this.pingCount++;
-            this.lastPingTime = new Date();
+                return; // SUCESSO: Sai do loop e da função.
 
-            const totalMinutes = Math.round((new Date() - this.startTime) / 1000 / 60);
-            
-            console.log(`💓 Keep-alive ping #${this.pingCount}: ${endpoint} (${pingDuration}ms) - Ativo há ${totalMinutes}min`);
-
-            // Log a cada 12 pings (96 minutos ~ 1.6 horas)
-            if (this.pingCount % 12 === 0) {
-                console.log(`📊 Keep-alive status: ${this.pingCount}/${this.config.maxPings} pings - ${totalMinutes}/1440 minutos`);
-            }
-
-        } catch (error) {
-            console.warn(`⚠️ Keep-alive ping falhou: ${error.message}`);
-            
-            // Se falhar muitas vezes seguidas, para o sistema
-            if (error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT') {
-                console.log('🔌 Servidor pode estar dormindo, tentando acordar...');
+            } catch (error) {
+                console.warn(`⚠️ Keep-alive ping falhou (tentativa ${attempt}/${MAX_PING_RETRIES}): ${error.message}`);
+                
+                if (attempt < MAX_PING_RETRIES) {
+                    // Se não for a última tentativa, espera para tentar novamente.
+                    console.log(`🔌 Servidor pode estar dormindo. Tentando acordar em ${PING_RETRY_DELAY / 1000}s...`);
+                    await new Promise(resolve => setTimeout(resolve, PING_RETRY_DELAY));
+                } else {
+                    // Se for a última tentativa, loga um erro final para este ciclo.
+                    console.error(`❌ Falha final no ping #${this.pingCount} após ${MAX_PING_RETRIES} tentativas.`);
+                }
             }
         }
+        // --- FIM DA MODIFICAÇÃO ---
     }
 
     /**

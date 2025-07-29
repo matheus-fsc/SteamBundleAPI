@@ -15,10 +15,10 @@ const ADAPTIVE_CONFIG = {
     DELAY_STEP: 300,       // Ajustes mais suaves
     
     // Configurações de paralelismo - MUITO LIMITADO PARA RENDER FREE
-    MIN_PARALLEL: 1,
-    MAX_PARALLEL: 4,       // MÁXIMO 4 para 0.1 core (muito conservador)
-    INITIAL_PARALLEL: 2,   // Inicia com apenas 2 parallel
-    
+    MIN_PARALLEL: 2,
+    MAX_PARALLEL: 6,       // MÁXIMO 4 para 0.1 core (muito conservador)
+    INITIAL_PARALLEL: 4,   // Inicia com apenas 4 parallel
+
     // Configurações de estabilidade - MAIS DADOS PARA DECISÕES
     STABILITY_WINDOW: 8,   // Menos lotes para análise (economiza RAM)
     SUCCESS_RATE_TARGET: 0.85, 

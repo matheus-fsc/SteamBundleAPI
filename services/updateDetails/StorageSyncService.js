@@ -4,6 +4,20 @@
  */
 
 class StorageSyncService {
+    // [NOVO] Chama o método para finalizar a sessão de detalhes
+    async finishDetailedSyncSession(sessionId) {
+        return await this.storageSyncManager.finishDetailedSyncSession(sessionId);
+    }
+    // [NOVO] Inicia uma sessão de sincronização dedicada para os detalhes
+    async startDetailedSyncSession() {
+        console.log('🔄 A iniciar uma nova sessão de sincronização de detalhes na API...');
+        const sessionId = await this.storageSyncManager.startDetailedSyncSession();
+        if (!sessionId) {
+            throw new Error("Não foi possível obter um ID de sessão da API para a sincronização de detalhes.");
+        }
+        console.log(`✅ Sessão de detalhes iniciada com sucesso: ${sessionId}`);
+        return sessionId;
+    }
     constructor(storageSyncManager) {
         this.storageSyncManager = storageSyncManager;
         this.SYNC_INTERVAL_BUNDLES = 200; // Sincroniza a cada 200 bundles

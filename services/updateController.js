@@ -1,4 +1,18 @@
+const { storageSyncManager } = require('./storageSync'); // Importe o singleton
+
 class UpdateController {
+    /**
+     * [NOVO - Placeholder] Verifica se há sessões de sincronização que não foram concluídas
+     * e tenta retomá-las ou marcá-las como falhas.
+     */
+    async autoResumeIncompleteUpdates() {
+        console.log(`${this.config.logPrefix} [AUTO-RESUME] Lógica de retomada de sessões ainda não implementada.`);
+        // TODO: Implementar a lógica para:
+        // 1. Chamar a API de storage para obter sessões com status "iniciada".
+        // 2. Para cada sessão incompleta, decidir se deve ser reiniciada ou marcada como falha.
+        // 3. Exemplo: const incompleteSessions = await storageSyncManager.getIncompleteSessions();
+        return Promise.resolve();
+    }
     constructor() {
         this.updateState = {
             isUpdating: false,
@@ -184,35 +198,52 @@ class UpdateController {
         };
     }
 
-    async autoResumeIncompleteUpdates() {
-        console.log(`${this.config.logPrefix} 🔍 Verificando status de atualização na Storage API...`);
-        try {
-            const axios = require('axios');
-            const storageApiUrl = process.env.STORAGE_API_URL || 'https://bundleset-api-storage.vercel.app';
-            const apiKey = process.env.STORAGE_API_KEY;
-            const response = await axios.get(`${storageApiUrl}/api/admin?operation=version-status`, {
-                timeout: 10000,
-                headers: apiKey ? { 'x-api-key': apiKey } : {}
-            });
-            const status = response.data;
-            if (status && status.staging_session_id) {
-                console.warn(`${this.config.logPrefix} ⚠️ Existe uma sessão de staging ativa (${status.staging_session_id}). Uma atualização anterior pode ter sido interrompida.`);
-                // Aqui você pode decidir alertar, esperar, ou iniciar uma nova atualização do zero
-                return {
-                    resumeNeeded: true,
-                    stagingSessionId: status.staging_session_id,
-                    message: 'Staging session ativa detectada. Recomenda-se iniciar uma nova atualização completa.'
-                };
-            } else {
-                console.log(`${this.config.logPrefix} ✅ Nenhuma atualização incompleta detectada na Storage API.`);
-                return { resumeNeeded: false };
-            }
-        } catch (error) {
-            console.error(`${this.config.logPrefix} ❌ Erro ao consultar status da Storage API:`, error.message);
-            return { resumeNeeded: false, error: error.message };
+    /**
+     * [ATUALIZADO] Verifica se as atualizações iniciais (básica e/ou detalhada) são necessárias.
+     * @private
+     */
+    async _checkForInitialUpdate() {
+        console.log(`${this.config.logPrefix} 🔍 Verificando a necessidade de atualização inicial ou de continuação...`);
+        
+        const healthCheck = await storageSyncManager.getStorageHealth();
+
+        if (!healthCheck.success || !healthCheck.data?.tables?.details) {
+            console.warn(`${this.config.logPrefix} ⚠️ Não foi possível verificar o estado das tabelas. A verificação será ignorada.`);
+            return { needsBasicUpdate: false, needsDetailedUpdate: false };
         }
+
+        const tables = healthCheck.data.tables.details;
+        const bundlesTable = tables.bundles;
+        const itemsTable = tables.items; // Assumimos que a health API retorna o estado da tabela 'items'
+
+        let needsBasicUpdate = false;
+        let needsDetailedUpdate = false;
+
+        // Cenário 1: Base de dados completamente vazia.
+        if (bundlesTable && bundlesTable.exists && bundlesTable.records === 0) {
+            console.log(`${this.config.logPrefix} 🚀 DETETADO: A tabela 'bundles' está vazia. É necessária uma atualização completa.`);
+            needsBasicUpdate = true;
+            needsDetailedUpdate = true;
+        
+        // Cenário 2: Bundles básicos existem, mas os detalhes não (processo interrompido).
+        } else if (bundlesTable && bundlesTable.exists && bundlesTable.records > 0 && itemsTable && itemsTable.exists && itemsTable.records === 0) {
+            console.log(`${this.config.logPrefix} 🚀 DETETADO: A tabela 'bundles' está preenchida, mas a 'items' está vazia. É necessária uma atualização detalhada.`);
+            needsBasicUpdate = false; // A básica já foi feita
+            needsDetailedUpdate = true;
+        
+        } else if (bundlesTable && bundlesTable.exists) {
+            console.log(`${this.config.logPrefix} ✅ Verificação concluída. As tabelas principais parecem estar preenchidas.`);
+        
+        } else {
+            console.log(`${this.config.logPrefix} ⚠️ Tabelas principais não encontradas ou estado inválido. A verificação foi ignorada.`);
+        }
+
+        return { needsBasicUpdate, needsDetailedUpdate };
     }
 
+    /**
+     * [ATUALIZADO] Inicializa o controlador e retorna um estado de atualização detalhado.
+     */
     async initialize() {
         console.log(`${this.config.logPrefix} 🚀 Inicializando controlador de atualizações...`);
         console.log(`${this.config.logPrefix} 📋 Configurações:`, {
@@ -220,24 +251,18 @@ class UpdateController {
             maxUpdateDuration: `${this.config.maxUpdateDuration/1000}s`
         });
         
+        const { needsBasicUpdate, needsDetailedUpdate } = await this._checkForInitialUpdate();
+        
+        // A verificação de auto-resume continua a ser executada em paralelo
         setTimeout(async () => {
-            console.log(`${this.config.logPrefix} 🔍 Iniciando verificação de auto-resume...`);
-            const result = await this.autoResumeIncompleteUpdates();
-            
-            if (result.scheduled) {
-                console.log(`${this.config.logPrefix} ⏰ Auto-resume agendado - atualização continuará automaticamente`);
-            }
+            console.log(`${this.config.logPrefix} 🔍 Iniciando verificação de auto-resume de sessões incompletas...`);
+            await this.autoResumeIncompleteUpdates();
         }, 2000);
         
-        console.log(`${this.config.logPrefix} ✅ Controlador inicializado`);
-        return { initialized: true };
+        console.log(`${this.config.logPrefix} ✅ Controlador inicializado.`);
+        return { initialized: true, needsBasicUpdate, needsDetailedUpdate };
     }
 }
 
 const updateController = new UpdateController();
-
-updateController.initialize().catch(error => {
-    console.error('[UPDATE CONTROLLER] ❌ Erro durante inicialização:', error.message);
-});
-
 module.exports = updateController;

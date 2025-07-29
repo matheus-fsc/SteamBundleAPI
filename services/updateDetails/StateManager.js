@@ -17,7 +17,33 @@ const STATE_CONFIG = {
     CONSECUTIVE_FAILURE_THRESHOLD: 3 // Mais sensível
 };
 
+
 class StateManager {
+    // [NOVO] Adicionado o constructor para inicializar as propriedades
+    constructor() {
+        this.UPDATE_STATE_FILE = path.join(__dirname, '../update_state.json');
+        this.updateStateCache = null; // Cache em memória para o estado atual
+    }
+
+    // [NOVO] Método em falta para criar o estado inicial da atualização
+    createInitialUpdateState(bundlesToProcess, limit, language) {
+        const initialState = {
+            sessionId: `details_sync_${Date.now()}`,
+            status: 'running',
+            total: bundlesToProcess.length,
+            completed: 0,
+            failed: 0,
+            processedIds: [],
+            startTime: new Date().toISOString(),
+            lastProcessedIndex: -1,
+            language: language,
+            limit: limit,
+            isResumed: false
+        };
+        console.log(`✨ Novo estado de atualização criado. Total a processar: ${initialState.total}`);
+        this.updateStateCache = initialState; // Guarda o novo estado no cache
+        return initialState;
+    }
 
     loadUpdateState() {
         try {

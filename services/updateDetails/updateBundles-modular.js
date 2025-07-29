@@ -15,17 +15,6 @@ const { UpdateBundlesOrchestrator } = require('./UpdateBundlesOrchestrator');
 // Importação do storage sync existente
 const { storageSyncManager } = require('../storageSync');
 
-console.log('🏗️  MIGRAÇÃO MODULAR V2 - Arquitetura reorganizada em updateDetails/');
-console.log('');
-console.log('📁 ESTRUTURA MODULAR:');
-console.log('   📊 AdaptivePerformanceManager - Sistema de otimização adaptativa');
-console.log('   ❌ FailedBundlesManager - Gerenciamento de falhas e retry');
-console.log('   🌐 BundleScrapingService - Scraping e extração de dados');
-console.log('   💾 StateManager - Gerenciamento de estado e persistência');
-console.log('   ☁️  StorageSyncService - Sincronização com Storage API');
-console.log('   🎭 UpdateBundlesOrchestrator - Orquestrador principal');
-console.log('');
-
 // Instanciação dos serviços
 const storageSyncService = new StorageSyncService(storageSyncManager);
 const stateManager = new StateManager();
@@ -86,22 +75,6 @@ const getSystemStatus = () => {
         compatibility: 'Full backward compatibility maintained'
     };
 };
-
-console.log('✅ MIGRAÇÃO MODULAR CONCLUÍDA - Sistema pronto para uso');
-console.log('');
-console.log('🔧 FUNCIONALIDADES DISPONÍVEIS:');
-console.log('   • updateBundlesWithDetails() - Função principal de atualização');
-console.log('   • checkAndResumeUpdate() - Verificação e retomada de atualizações');
-console.log('   • processRetryQueue() - Processamento de fila de retry');
-console.log('   • getSystemStatus() - Status do sistema modular');
-console.log('');
-console.log('🎯 BENEFÍCIOS DA REFATORAÇÃO:');
-console.log('   ✅ Código organizado em módulos especializados');
-console.log('   ✅ Manutenção simplificada e isolada');
-console.log('   ✅ Reutilização de componentes');
-console.log('   ✅ Compatibilidade total com sistema anterior');
-console.log('   ✅ Estrutura escalável para futuras expansões');
-console.log('');
 
 // Exportações para manter compatibilidade
 module.exports = {

@@ -316,29 +316,24 @@ class BundleScrapingService {
     async _extractPageDetails($, bundleData) {
         const pageDetails = {};
 
-        // --- LÓGICA DE EXTRAÇÃO PRECISA ---
+        // Função auxiliar para encontrar valores por label
         const findValuesForLabel = (label) => {
             const values = new Set();
             const labelElement = $(`.details_block b:contains("${label}")`);
-
-            if (labelElement.length > 0) {
-                let currentNode = labelElement[0].nextSibling;
-                while (currentNode && currentNode.tagName !== 'br') {
-                    if (currentNode.tagName === 'a') {
-                        const linkText = $(currentNode).text().trim();
-                        if (linkText) values.add(linkText);
-                    } else if (currentNode.type === 'text') {
-                        const textContent = currentNode.data.trim();
-                        if (textContent && textContent !== ',') {
-                            values.add(textContent);
-                        }
-                    }
-                    currentNode = currentNode.nextSibling;
-                }
+            labelElement.next('span').find('a').each((_, el) => {
+                const text = $(el).text().trim();
+                if (text) values.add(text);
+            });
+            if (values.size === 0) {
+                labelElement.next('a').each((_, el) => {
+                    const text = $(el).text().trim();
+                    if (text) values.add(text);
+                });
             }
             return Array.from(values);
         };
 
+        // Extrai gêneros normalmente
         pageDetails.gênero = findValuesForLabel('Gênero:');
         pageDetails.desenvolvedor = findValuesForLabel('Desenvolvedor:');
         pageDetails.distribuidora = findValuesForLabel('Distribuidora:');
@@ -351,11 +346,53 @@ class BundleScrapingService {
             pageDetails.idiomas = cleanText.split(',').map(lang => lang.trim()).filter(Boolean);
         }
 
-        // Lógica para descritores de conteúdo
-        const descriptors = $('.game_rating_area .descriptorText').html();
-        if (descriptors) {
-            pageDetails.descritores_de_conteúdo = descriptors.split('<br>').map(d => d.trim()).filter(Boolean);
+        // ===== NOVO: Extração detalhada de categorias (vetor) =====
+        // Busca por blocos de categorias (exemplo: gêneros em <span> com vários <a>)
+        const categorias = [];
+        $('.details_block b:contains("Gênero:")').next('span').find('a').each((_, el) => {
+            const cat = $(el).text().trim();
+            if (cat) categorias.push(cat);
+        });
+        // Fallback: se não encontrar, tenta pegar <a> direto após o <b>
+        if (categorias.length === 0) {
+            $('.details_block b:contains("Gênero:")').next('a').each((_, el) => {
+                const cat = $(el).text().trim();
+                if (cat) categorias.push(cat);
+            });
         }
+        pageDetails.categorias = categorias;
+
+        // ===== NOVO: Extração e formatação de preço BRL =====
+        let preco = $('.discount_final_price').first().text().trim();
+        if (!preco) {
+            preco = $('.bundle_final_price').first().text().trim();
+        }
+        if (!preco) {
+            preco = $('.game_purchase_price').first().text().trim();
+        }
+        // Normaliza para BRL (remove símbolos, converte vírgula para ponto, extrai número)
+        let precoBRL = null;
+        if (preco) {
+            // Remove "R$", espaços, NBSP, etc.
+            precoBRL = preco.replace(/[^\d,\.]/g, '').replace(',', '.');
+            // Pega apenas o número (caso haja mais de um)
+            const match = precoBRL.match(/\d+(\.\d{2})?/);
+            precoBRL = match ? parseFloat(match[0]) : null;
+        }
+        pageDetails.preco = precoBRL;
+
+        // Porcentagem de desconto
+        let desconto = $('.discount_pct').first().text().trim();
+        if (!desconto) {
+            desconto = $('.bundle_base_discount').first().text().trim();
+        }
+        // Normaliza para número inteiro (ex: -80% => 80)
+        let descontoNum = null;
+        if (desconto) {
+            const match = desconto.match(/-?(\d+)%?/);
+            descontoNum = match ? parseInt(match[1]) : null;
+        }
+        pageDetails.desconto = descontoNum;
 
         return pageDetails;
     }
