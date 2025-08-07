@@ -262,7 +262,8 @@ class UpdateController {
             
             // Aguardar processamento da API Storage
             console.log(`${this.config.logPrefix} Aguardando processamento da API Storage...`);
-            await new Promise(resolve => setTimeout(resolve, 3000)); // 3 segundos
+            const validationDelay = parseInt(process.env.UPDATE_VALIDATION_DELAY) || 3000;
+            await new Promise(resolve => setTimeout(resolve, validationDelay));
             
             // Validar sucesso
             const isSuccess = await this._validateUpdateSuccess(type, result);
