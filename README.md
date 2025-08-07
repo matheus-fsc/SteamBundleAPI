@@ -115,7 +115,7 @@ GET https://bundleset-api-storage.vercel.app/api/admin?operation=process-logs&pr
 Headers: x-api-key: storage_api_key
 ```
 
-## 🔄 **Sistema Blue-Green Deployment**
+## **Sistema Blue-Green Deployment**
 
 O sistema utiliza três tabelas para atualizações sem downtime:
 
@@ -175,7 +175,7 @@ curl "https://bundleset-api-storage.vercel.app/api/admin?operation=system-status
 curl "https://bundleset-api-storage.vercel.app/api/admin?operation=processed-ids&key=API_KEY"
 ```
 
-## � **Troubleshooting**
+## **Troubleshooting**
 
 ### Problemas Comuns:
 
