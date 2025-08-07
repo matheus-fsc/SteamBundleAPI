@@ -320,54 +320,62 @@ class UpdateController {
     async _checkForInitialUpdate() {
         console.log(`${this.config.logPrefix} 🔍 Verificando a necessidade de atualização inicial ou de continuação...`);
         
-        const healthCheck = await storageSyncManager.getStorageHealth();
-
-        if (!healthCheck.success || !healthCheck.data?.tables?.details) {
-            console.warn(`${this.config.logPrefix} ⚠️ Não foi possível verificar o estado das tabelas. A verificação será ignorada.`);
-            return { needsBasicUpdate: false, needsDetailedUpdate: false };
-        }
-
-        const tables = healthCheck.data.tables.details;
-        const bundlesTable = tables.bundles;
-
         let needsBasicUpdate = false;
         let needsDetailedUpdate = false;
 
-        // Consulta rápida para saber se há bundles detalhados (verificar pela API)
-        let hasDetailed = false;
         try {
+            // Verificar se há bundles básicos
             const axios = require('axios');
-            const detailedCheck = await axios.get(
-                `${process.env.STORAGE_API_URL}/api/bundles-detailed?limit=1`,
+            const basicCheck = await axios.get(
+                `${process.env.STORAGE_API_URL}/api/bundles?limit=1`,
                 {
                     headers: { 'x-api-key': process.env.STORAGE_API_KEY },
                     timeout: 10000
                 }
             );
             
-            hasDetailed = detailedCheck.data?.data?.bundles?.length > 0;
-            if (hasDetailed) {
-                console.log(`${this.config.logPrefix} ✅ Bundles detalhados encontrados na Storage API`);
+            const totalBasicBundles = basicCheck.data?.data?.totalRecords || 0;
+            
+            if (totalBasicBundles === 0) {
+                console.log(`${this.config.logPrefix} 🚀 Nenhum bundle básico encontrado. É necessária atualização básica.`);
+                needsBasicUpdate = true;
+                needsDetailedUpdate = false;
+                return { needsBasicUpdate, needsDetailedUpdate };
             }
-        } catch (e) {
-            console.warn(`${this.config.logPrefix} ⚠️ Não foi possível verificar se há bundles detalhados: ${e.message}`);
-        }
 
-        if (bundlesTable && bundlesTable.exists && bundlesTable.records === 0) {
-            console.log(`${this.config.logPrefix} 🚀 DETETADO: A tabela 'bundles' está vazia. É necessária uma atualização completa.`);
-            needsBasicUpdate = true;
-            needsDetailedUpdate = true;
-        } else if (bundlesTable && bundlesTable.exists && bundlesTable.records > 0 && !hasDetailed) {
-            console.log(`${this.config.logPrefix} 🚀 DETETADO: Existem bundles básicos, mas não há detalhes. É necessária atualização detalhada.`);
-            needsBasicUpdate = false;
-            needsDetailedUpdate = true;
-        } else if (bundlesTable && bundlesTable.exists && bundlesTable.records > 0 && hasDetailed) {
-            console.log(`${this.config.logPrefix} ✅ Verificação concluída. Bundles básicos e detalhados presentes.`);
-        } else {
-            console.log(`${this.config.logPrefix} ⚠️ Tabela principal não encontrada ou estado inválido. A verificação foi ignorada.`);
-        }
+            // Consulta rápida para saber se há bundles detalhados (verificar pela API)
+            let hasDetailed = false;
+            try {
+                const detailedCheck = await axios.get(
+                    `${process.env.STORAGE_API_URL}/api/bundles-detailed?limit=1`,
+                    {
+                        headers: { 'x-api-key': process.env.STORAGE_API_KEY },
+                        timeout: 10000
+                    }
+                );
+                
+                hasDetailed = detailedCheck.data?.data?.bundles?.length > 0;
+                if (hasDetailed) {
+                    console.log(`${this.config.logPrefix} ✅ Bundles detalhados encontrados na Storage API`);
+                }
+            } catch (e) {
+                console.warn(`${this.config.logPrefix} ⚠️ Não foi possível verificar se há bundles detalhados: ${e.message}`);
+            }
 
-        return { needsBasicUpdate, needsDetailedUpdate };
+            if (totalBasicBundles > 0 && !hasDetailed) {
+                console.log(`${this.config.logPrefix} 🚀 DETETADO: Existem bundles básicos, mas não há detalhes. É necessária atualização detalhada.`);
+                needsBasicUpdate = false;
+                needsDetailedUpdate = true;
+            } else if (totalBasicBundles > 0 && hasDetailed) {
+                console.log(`${this.config.logPrefix} ✅ Verificação concluída. Bundles básicos e detalhados presentes.`);
+            }
+
+            return { needsBasicUpdate, needsDetailedUpdate };
+            
+        } catch (error) {
+            console.warn(`${this.config.logPrefix} ⚠️ Erro na verificação inicial: ${error.message}. Assumindo que não precisa atualização.`);
+            return { needsBasicUpdate: false, needsDetailedUpdate: false };
+        }
     }
 
     /**

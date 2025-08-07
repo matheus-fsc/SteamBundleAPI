@@ -145,6 +145,17 @@ class RenderKeepAlive {
             return process.env.RENDER_EXTERNAL_URL;
         }
         
+        // Render automaticamente define RENDER_SERVICE_URL
+        if (process.env.RENDER_SERVICE_URL) {
+            return process.env.RENDER_SERVICE_URL;
+        }
+        
+        // Tentar construir URL do Render se temos o nome do serviço
+        if (process.env.RENDER && process.env.NODE_ENV === 'production') {
+            // Formato típico: https://nome-do-servico.onrender.com
+            return 'https://steambundleapi.onrender.com';
+        }
+        
         // Em desenvolvimento, usa localhost
         const port = process.env.PORT || 3000;
         return `http://localhost:${port}`;
