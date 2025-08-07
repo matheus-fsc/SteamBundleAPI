@@ -14,6 +14,7 @@ const UpdateBundlesOrchestrator = require('./UpdateBundlesOrchestrator');
 
 // Importação do storage sync existente
 const { storageSyncManager } = require('../storageSync');
+const { keepAlive } = require('../keepAlive');
 
 // Instanciação dos serviços
 const storageSyncService = new StorageSyncService(storageSyncManager);
@@ -33,17 +34,42 @@ const updateBundlesWithDetails = async (language = 'english', limitForTesting = 
     console.log(`📁 Módulos carregados de: services/updateDetails/`);
     console.log('');
     
-    // Primeiro carregar bundles básicos
-    const bundlesResponse = await storageSyncService.loadStorageDataWithRetry('bundles');
-    if (!bundlesResponse || !bundlesResponse.bundles || bundlesResponse.bundles.length === 0) {
-        throw new Error('Nenhum bundle básico encontrado para processar');
+    let keepAliveStarted = false;
+    
+    try {
+        // Iniciar keep-alive para manter o Render acordado durante processamento longo
+        console.log('💓 Iniciando keep-alive durante atualização detalhada...');
+        keepAlive.start();
+        keepAliveStarted = true;
+        
+        // Primeiro carregar bundles básicos
+        const bundlesResponse = await storageSyncService.loadStorageDataWithRetry('bundles');
+        if (!bundlesResponse || !bundlesResponse.bundles || bundlesResponse.bundles.length === 0) {
+            throw new Error('Nenhum bundle básico encontrado para processar');
+        }
+        
+        const bundles = bundlesResponse.bundles; // Extrair array de bundles
+        console.log(`📦 ${bundles.length} bundles básicos carregados para processamento detalhado`);
+        
+        // Processar bundles detalhados
+        const result = await orchestrator.updateBundlesDetailed(bundles, limitForTesting, language);
+        
+        // Parar keep-alive após sucesso
+        if (keepAliveStarted) {
+            console.log('🛑 Keep-alive PARADO: task-completed');
+            keepAlive.stop();
+        }
+        
+        return result;
+        
+    } catch (error) {
+        // Parar keep-alive em caso de erro
+        if (keepAliveStarted) {
+            console.log('🛑 Keep-alive PARADO: error-occurred');
+            keepAlive.stop();
+        }
+        throw error;
     }
-    
-    const bundles = bundlesResponse.bundles; // Extrair array de bundles
-    console.log(`📦 ${bundles.length} bundles básicos carregados para processamento detalhado`);
-    
-    // Processar bundles detalhados
-    return await orchestrator.updateBundlesDetailed(bundles, limitForTesting, language);
 };
 
 /**
