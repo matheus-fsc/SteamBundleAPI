@@ -108,7 +108,7 @@ GET /api/emergency-detailed
 Headers: x-api-key: sua_api_key
 ```
 
-### � **Logs Persistentes**
+### **Logs Persistentes**
 ```bash
 # Visualizar logs via Storage API
 GET https://bundleset-api-storage.vercel.app/api/admin?operation=process-logs&process_name=SteamBundleAPI
@@ -154,7 +154,7 @@ O sistema utiliza três tabelas para atualizações sem downtime:
 - **RAM**: 500MB limite - apenas 2 requests concorrentes
 - **Keep-Alive**: Sistema para evitar sleep durante operações longas
 
-## �️ **Principais Comandos**
+## **Principais Comandos**
 
 ### Desenvolvimento:
 ```bash
@@ -197,7 +197,7 @@ curl "https://bundleset-api-storage.vercel.app/api/health"
 curl "https://bundleset-api-storage.vercel.app/api/admin?operation=process-logs&key=API_KEY&limit=20"
 ```
 
-## � **Estrutura de Dados**
+## **Estrutura de Dados**
 ```
 
 ### Bundle Detalhado:
@@ -216,7 +216,7 @@ curl "https://bundleset-api-storage.vercel.app/api/admin?operation=process-logs&
 
 ---
 
-## � **Stack Tecnológica**
+## **Stack Tecnológica**
 
 - **Backend**: Node.js + Express
 - **Database**: PostgreSQL (Vercel)
