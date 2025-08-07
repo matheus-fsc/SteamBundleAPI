@@ -129,15 +129,44 @@ router.get('/api/health', (req, res) => {
     res.redirect('/health');
 });
 
-// Status simples para keep-alive
+// Status simples para keep-alive (ultra-leve)
 router.get('/api/status', (req, res) => {
     try {
+        // Resposta minimalista para reduzir carga durante scraping
+        res.status(200).json({
+            status: 'ok',
+            timestamp: Date.now(),
+            uptime: Math.round(process.uptime())
+        });
+    } catch (error) {
+        res.status(500).json({ 
+            status: 'error', 
+            timestamp: Date.now()
+        });
+    }
+});
+
+// Keep-alive ainda mais leve (só para manter acordado)
+router.get('/ping', (req, res) => {
+    res.status(200).send('pong');
+});
+
+// Status completo (só usar quando necessário)
+router.get('/api/full-status', (req, res) => {
+    try {
         const status = updateController.getStatus();
+        const memoryUsage = process.memoryUsage();
+        
         res.status(200).json({
             status: 'ok',
             timestamp: new Date().toISOString(),
             updateController: status.isUpdating ? 'active' : 'idle',
-            memoryUsage: Math.round(process.memoryUsage().heapUsed / 1024 / 1024) + 'MB'
+            memory: {
+                used: Math.round(memoryUsage.heapUsed / 1024 / 1024) + 'MB',
+                total: Math.round(memoryUsage.heapTotal / 1024 / 1024) + 'MB'
+            },
+            uptime: Math.round(process.uptime()),
+            pid: process.pid
         });
     } catch (error) {
         res.status(500).json({ 

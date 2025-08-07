@@ -13,12 +13,12 @@ class RenderKeepAlive {
         this.startTime = null;
         this.lastPingTime = null;
         this.config = {
-            interval: 8 * 60 * 1000,
-            maxPings: 180,
+            interval: 12 * 60 * 1000, // 12 minutos (menos agressivo)
+            maxPings: 120, // Reduzido para menos stress
+            timeout: 15000, // Timeout maior para evitar 503
             endpoints: [
-                '/health',
-                '/api/status',
-                '/api/update-status'
+                '/ping',       // Endpoint ultra-leve
+                '/api/status'  // Fallback
             ]
         };
     }
@@ -38,11 +38,16 @@ class RenderKeepAlive {
         this.lastPingTime = new Date();
 
         console.log(`🔄 Keep-alive INICIADO: ${reason}`);
-        console.log(`   ⏰ Ping a cada ${this.config.interval / 1000 / 60} minutos`);
-        console.log(`   🎯 Máximo ${this.config.maxPings} pings (${this.config.maxPings * 8 / 60} horas)`);
+        console.log(`   ⏰ Ping a cada ${this.config.interval / 1000 / 60} minutos (MODO CONSERVADOR)`);
+        console.log(`   🎯 Máximo ${this.config.maxPings} pings (${Math.round(this.config.maxPings * 12 / 60)} horas)`);
+        console.log(`   🛡️ Endpoint ultra-leve: /ping`);
 
-        // Primeiro ping imediato
-        this.ping();
+        // Aguardar 3 minutos antes do primeiro ping para deixar o servidor estabilizar
+        setTimeout(() => {
+            if (this.isActive) {
+                this.ping();
+            }
+        }, 3 * 60 * 1000);
 
         // Configura pings regulares
         this.intervalId = setInterval(() => {
@@ -89,21 +94,23 @@ class RenderKeepAlive {
         }
 
         // --- INÍCIO DA MODIFICAÇÃO: LÓGICA DE RETENTATIVA ---
-        const MAX_PING_RETRIES = 3;
-        const PING_RETRY_DELAY = 15000; // 15 segundos
+        const MAX_PING_RETRIES = 2; // Reduzido para menos stress
+        const PING_RETRY_DELAY = 30000; // 30 segundos (mais tempo para servidor recuperar)
 
         for (let attempt = 1; attempt <= MAX_PING_RETRIES; attempt++) {
             try {
-                const endpoint = this.config.endpoints[this.pingCount % this.config.endpoints.length];
+                // Usar endpoint mais leve primeiro
+                const endpoint = this.config.endpoints[0]; // Sempre /api/status
                 const url = this.getBaseUrl() + endpoint;
                 
                 const startPing = Date.now();
                 await axios.get(url, {
-                    timeout: 10000,
+                    timeout: this.config.timeout,
                     headers: {
-                        'User-Agent': 'Render-KeepAlive/1.0',
+                        'User-Agent': 'Render-KeepAlive-Lite/1.0',
                         'X-Keep-Alive': 'true',
-                        'X-Ping-Count': this.pingCount.toString()
+                        'X-Ping-Count': this.pingCount.toString(),
+                        'Connection': 'close' // Não manter conexão aberta
                     }
                 });
                 const pingDuration = Date.now() - startPing;
@@ -112,24 +119,26 @@ class RenderKeepAlive {
                 this.lastPingTime = new Date();
                 const totalMinutes = Math.round((new Date() - this.startTime) / 1000 / 60);
                 
-                console.log(`💓 Keep-alive ping #${this.pingCount}: ${endpoint} (${pingDuration}ms) - Ativo há ${totalMinutes}min`);
-
-                if (this.pingCount % 12 === 0) {
-                    console.log(`📊 Keep-alive status: ${this.pingCount}/${this.config.maxPings} pings...`);
+                // Log menos verboso para não poluir
+                if (this.pingCount % 5 === 0 || pingDuration > 5000) {
+                    console.log(`� Keep-alive ping #${this.pingCount}: ${endpoint} (${pingDuration}ms) - Ativo há ${totalMinutes}min`);
                 }
 
                 return; // SUCESSO: Sai do loop e da função.
 
             } catch (error) {
-                console.warn(`⚠️ Keep-alive ping falhou (tentativa ${attempt}/${MAX_PING_RETRIES}): ${error.message}`);
+                const isServerBusy = error.response?.status === 503 || error.code === 'ECONNRESET';
+                
+                if (isServerBusy && attempt === 1) {
+                    console.log(`⚡ Servidor ocupado (scraping), aguardando ${PING_RETRY_DELAY / 1000}s...`);
+                } else {
+                    console.warn(`⚠️ Keep-alive ping falhou (tentativa ${attempt}/${MAX_PING_RETRIES}): ${error.message}`);
+                }
                 
                 if (attempt < MAX_PING_RETRIES) {
-                    // Se não for a última tentativa, espera para tentar novamente.
-                    console.log(`🔌 Servidor pode estar dormindo. Tentando acordar em ${PING_RETRY_DELAY / 1000}s...`);
                     await new Promise(resolve => setTimeout(resolve, PING_RETRY_DELAY));
                 } else {
-                    // Se for a última tentativa, loga um erro final para este ciclo.
-                    console.error(`❌ Falha final no ping #${this.pingCount} após ${MAX_PING_RETRIES} tentativas.`);
+                    console.log(`⏭️ Pulando ping #${this.pingCount} - servidor muito ocupado com scraping`);
                 }
             }
         }
