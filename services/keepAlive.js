@@ -16,8 +16,9 @@ class RenderKeepAlive {
             interval: 8 * 60 * 1000,
             maxPings: 180,
             endpoints: [
-                '/api/update-status',
-                '/'
+                '/health',
+                '/api/status',
+                '/api/update-status'
             ]
         };
     }

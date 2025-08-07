@@ -333,11 +333,22 @@ class UpdateController {
         let needsBasicUpdate = false;
         let needsDetailedUpdate = false;
 
-        // Consulta rápida para saber se há bundles detalhados (ex: campo description preenchido)
+        // Consulta rápida para saber se há bundles detalhados (verificar pela API)
         let hasDetailed = false;
         try {
-            const { rows } = await storageSyncManager.queryStorage(`SELECT COUNT(*) as count FROM bundles WHERE description IS NOT NULL AND description <> ''`);
-            hasDetailed = parseInt(rows[0]?.count) > 0;
+            const axios = require('axios');
+            const detailedCheck = await axios.get(
+                `${process.env.STORAGE_API_URL}/api/bundles-detailed?limit=1`,
+                {
+                    headers: { 'x-api-key': process.env.STORAGE_API_KEY },
+                    timeout: 10000
+                }
+            );
+            
+            hasDetailed = detailedCheck.data?.data?.bundles?.length > 0;
+            if (hasDetailed) {
+                console.log(`${this.config.logPrefix} ✅ Bundles detalhados encontrados na Storage API`);
+            }
         } catch (e) {
             console.warn(`${this.config.logPrefix} ⚠️ Não foi possível verificar se há bundles detalhados: ${e.message}`);
         }

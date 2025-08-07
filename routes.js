@@ -97,4 +97,23 @@ router.get('/api/test-update', authenticateApiKey, adminRateLimit, async (req, r
     }
 });
 
+// Status simples para keep-alive
+router.get('/api/status', (req, res) => {
+    try {
+        const status = updateController.getStatus();
+        res.status(200).json({
+            status: 'ok',
+            timestamp: new Date().toISOString(),
+            updateController: status.isUpdating ? 'active' : 'idle',
+            memoryUsage: Math.round(process.memoryUsage().heapUsed / 1024 / 1024) + 'MB'
+        });
+    } catch (error) {
+        res.status(500).json({ 
+            status: 'error', 
+            message: error.message,
+            timestamp: new Date().toISOString()
+        });
+    }
+});
+
 module.exports = router;
