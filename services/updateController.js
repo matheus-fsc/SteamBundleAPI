@@ -391,8 +391,8 @@ class UpdateController {
             if (updateType.includes('fetch-basic') || updateType.includes('cron-fetch-basic')) {
                 // Aguardar processamento com retry
                 let retryCount = 0;
-                const maxRetries = 3;
-                const retryDelay = 3000; // 3 segundos
+                const maxRetries = parseInt(process.env.UPDATE_VALIDATION_RETRIES) || 3;
+                const retryDelay = parseInt(process.env.UPDATE_VALIDATION_RETRY_DELAY) || 3000;
                 
                 while (retryCount < maxRetries) {
                     try {
