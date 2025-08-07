@@ -1,340 +1,231 @@
-# 🎮 Steam Bundle API V6.2
+# 🎮 Steam Bundle API
 
-> **Sistema inteligente de coleta e análise de bundles da Steam com otimização específica para Render Free**
+> **Sistema de coleta de bundles da Steam com suporte a logs persistentes e Blue-Green deployment**
 
 [![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org/)
 [![Express](https://img.shields.io/badge/Express-4.21+-blue.svg)](https://expressjs.com/)
-[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Render](https://img.shields.io/badge/Deploy-Render%20Free-purple.svg)](https://render.com/)
 
-## 🚀 **Características Principais**
+## 🚀 **Principais Funcionalidades**
 
-### ⚡ **Sistema Adaptativo Inteligente**
-- **Circuit Breaker Triplo**: Proteção contra falhas em cascata
-- **Performance Adaptativa**: Otimização automática baseada em resultados
-- **Auto-Resume**: Continuação automática após interrupções
-- **NSFW Detection**: Categorização automática de conteúdo adulto
-- **Retry Queue**: Sistema inteligente de reprocessamento
+- **🔍 Coleta Automatizada**: Scraping de bundles da Steam com preços em BRL
+- **📊 Storage API**: Dados armazenados via PostgreSQL na Vercel
+- **🔄 Blue-Green Deployment**: Sistema de backup para atualizações sem downtime
+- **📝 Logs Persistentes**: Sistema de logging na database (substitui console.log)
+- **⏰ Agendamento Inteligente**: Execução semanal (domingos às 3h)
+- **🛡️ Keep-Alive System**: Mantém servidor ativo durante operações longas
 
-### 🛡️ **Proteção Anti-Bloqueio**
-- **Rate Limiting Inteligente**: Delays adaptativos (500-8000ms)
-- **Paralelismo Controlado**: 1-6 requisições simultâneas (otimizado para 0.1 core)
-- **Circuit Breakers**: 3 camadas de proteção contra sobrecarga
-- **Age Verification**: Bypass automático de verificação de idade
-- **User-Agent Rotation**: Headers humanizados para evitar detecção
-
-### 💾 **Otimizado para Render Free**
-- **Baixo Consumo**: 200-300MB RAM (limite 500MB)
-- **CPU Eficiente**: Configurações específicas para 0.1 core
-- **Log Rotation**: Prevenção de crescimento infinito de logs
-- **I/O Otimizado**: Salvamento em lotes para economizar recursos
-- **Memory Management**: Verificação automática de uso de memória
-
-## 📊 **Performance Esperada**
-
-### 🎯 **Render Free (0.1 core + 500MB RAM)**
-- **🔍 Coleta de bundles básicas**: ~5-10 minutos (4900+ bundles)
-- **🔧 Atualização completa**: ~40-80 horas (com sistema conservador)
-- **🧪 Teste pequeno (100 bundles)**: ~10-15 minutos
-- **🧠 Uso de memória**: 200-350MB (bem dentro do limite)
-- **💾 Auto-resume**: Continua automaticamente se reiniciar
-- **🛡️ Proteção contra bloqueio**: 3 níveis de circuit breaker
-- **📈 Taxa de sucesso**: 90-95% dos bundles processados
-- **🔄 Recovery automático**: Retry inteligente para falhas elegíveis
-
-### ⚙️ **Configurações Adaptativas**
-```javascript
-// Sistema V6.2 - Render Free Optimized
-Delays: 500ms - 8000ms (adaptativo)
-Paralelismo: 1-4 simultâneas (conservador)
-Circuit Breakers: 3 camadas de proteção
-Memory Checks: A cada 5 lotes
-Save Interval: A cada 25 lotes (economiza I/O)
-```
-
-## 🗂️ **Estrutura do Projeto**
+## **Arquitetura do Sistema**
 
 ```
-SteamBundleAPI/
-├── 📁 services/
-│   ├── updateBundles.js      # 🧠 Core do sistema adaptativo
-│   ├── fetchBundles.js       # 🔍 Coleta básica de bundles
-│   ├── keepAlive.js          # 💓 Manutenção de conexão
-│   └── updateController.js   # 🎮 Controlador principal
-├── 📁 middleware/
-│   ├── auth.js              # 🔐 Sistema de autenticação
-│   ├── security.js          # 🛡️ Proteções de segurança
-│   ├── monitoring.js        # 📊 Monitoramento de performance
-│   ├── updateControl.js     # ⏸️ Controle de atualizações
-│   └── dataValidation.js    # ✅ Validação de dados
-├── 📁 postman_routes/       # 📮 Coleções Postman organizadas
-├── server.js                # 🚀 Servidor Express principal
-├── routes.js                # 🛤️ Definição de rotas da API
-└── 📊 Arquivos de dados
-    ├── bundles.json         # 📋 Lista básica de bundles
-    ├── bundleDetailed.json  # 📖 Detalhes completos dos bundles
-    ├── updateState.json     # 💾 Estado de processamento
-    └── logs/                # 📝 Logs do sistema
+┌─────────────────────────────────────────────────────────────────────┐
+│                        Steam Bundle API (Render)                   │
+├─────────────────────────────────────────────────────────────────────┤
+│  ┌─────────────────┐  ┌────────────────┐  ┌─────────────────────┐   │
+│  │  Fetch Bundles  │  │  Update Details │  │  Persistent Logger  │   │
+│  │  (Basic Info)   │  │  (Steam Pages)  │  │  (Database Logs)    │   │
+│  └─────────────────┘  └────────────────┘  └─────────────────────┘   │
+└─────────────────────────────────────────────────────────────────────┘
+                                  │
+                                  ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                   Storage API (PostgreSQL - Vercel)                │
+├─────────────────────────────────────────────────────────────────────┤
+│  ┌─────────────┐  ┌─────────────────┐  ┌─────────────────────────┐   │
+│  │   bundles   │  │  bundles_backup │  │    process_logs         │   │
+│  │   (active)  │  │  (blue-green)   │  │    (persistent logs)    │   │
+│  └─────────────┘  └─────────────────┘  └─────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
-## 🚀 **Instalação e Configuração**
+## ⚙️ **Configuração Rápida**
 
-### 1. **Clone o Repositório**
+### 1. **Variáveis de Ambiente (.env)**
 ```bash
-git clone https://github.com/matheus-fsc/SteamBundleAPI.git
-cd SteamBundleAPI
+# === STORAGE API (OBRIGATÓRIO) ===
+STORAGE_API_URL=https://bundleset-api-storage.vercel.app
+STORAGE_API_KEY=sua_api_key_aqui
+
+# === RENDER DEPLOYMENT ===
+NODE_ENV=production
+PORT=3000
+RENDER_EXTERNAL_URL=https://steambundleapi.onrender.com
+
+# === STEAM API (Configuração Conservadora) ===
+STEAM_API_DELAY=2000
+FETCH_BUNDLES_CONCURRENT=2
+BUNDLE_DETAILS_DELAY=3000
+
+# === LOGS PERSISTENTES ===
+PERSISTENT_LOGGING=true
+LOG_BUFFER_SIZE=10
+
+# === AGENDAMENTO ===
+UPDATE_SCHEDULE_MODE=WEEKLY
+CRON_EXPRESSION=0 3 * * 0
+
+# === KEEP-ALIVE ===
+KEEP_ALIVE_ENABLED=true
+KEEP_ALIVE_INTERVAL=480000
 ```
 
-### 2. **Instale as Dependências**
+### 2. **Instalação**
 ```bash
 npm install
-```
-
-### 3. **Configure as Variáveis de Ambiente**
-```bash
-cp .env.example .env
-```
-
-Edite o arquivo `.env`:
-```env
-# Configurações da API Steam
-STEAM_API_DELAY=500
-REQUEST_TIMEOUT=20000
-MAX_RETRIES=3
-
-# Configurações do Servidor
-PORT=3000
-NODE_ENV=production
-
-# Configurações de Segurança
-API_SECRET=seu_secret_aqui
-ALLOWED_ORIGINS=https://seu-dominio.com
-
-# Configurações Render Free (Opcional)
-RENDER_FREE_MODE=true
-MAX_MEMORY_MB=400
-SAVE_INTERVAL_BATCHES=25
-```
-
-### 4. **Inicie o Servidor**
-```bash
 npm start
 ```
 
-## 📖 **Uso da API**
+## 📖 **Endpoints Principais**
 
-### 🔍 **Endpoints Principais**
-
-#### **GET** `/api/bundles` - Lista de Bundles
+### 🔍 **Consulta de Dados**
 ```bash
-curl "https://sua-api.render.com/api/bundles?limit=50&offset=0"
+# Buscar bundles (proxy para Storage API)
+GET /api/bundles-detailed?limit=50&genre=Action
+
+# Estatísticas
+GET /api/steam-stats
+
+# Status do sistema
+GET /health
 ```
 
-#### **GET** `/api/bundles/detailed` - Bundles Detalhados
+### 🔧 **Administração (Protegido)**
 ```bash
-curl "https://sua-api.render.com/api/bundles/detailed?genre=Action"
+# Forçar atualização completa
+GET /api/force-update
+Headers: x-api-key: sua_api_key
+
+# Atualização apenas de detalhes
+GET /api/update-details
+Headers: x-api-key: sua_api_key
+
+# Teste com limite
+GET /api/test-update?limit=100
+Headers: x-api-key: sua_api_key
+
+# Emergência: iniciar detalhamento
+GET /api/emergency-detailed
+Headers: x-api-key: sua_api_key
 ```
 
-#### **POST** `/api/update/start` - Iniciar Atualização
+### � **Logs Persistentes**
 ```bash
-curl -X POST "https://sua-api.render.com/api/update/start" \
-  -H "Authorization: Bearer seu_token" \
-  -H "Content-Type: application/json" \
-  -d '{"language": "brazilian", "testLimit": 100}'
+# Visualizar logs via Storage API
+GET https://bundleset-api-storage.vercel.app/api/admin?operation=process-logs&process_name=SteamBundleAPI
+Headers: x-api-key: storage_api_key
 ```
 
-#### **GET** `/api/update/status` - Status da Atualização
+## 🔄 **Sistema Blue-Green Deployment**
+
+O sistema utiliza três tabelas para atualizações sem downtime:
+
+- **`bundles`**: Tabela principal (produção)
+- **`bundles_backup`**: Backup da versão anterior
+- **`bundles_active`**: Sistema de controle de qual versão usar
+
+### Fluxo de Atualização:
+1. **Backup**: Copia `bundles` → `bundles_backup`
+2. **Update**: Sistema usa `bundles_backup` durante atualização
+3. **Switch**: Após sucesso, volta para `bundles`
+4. **Rollback**: Em caso de falha, restaura do backup
+
+## 📝 **Sistema de Logs Persistentes**
+
+### Por que foi implementado:
+- **Render Free**: Console logs limitados (5min retenção)
+- **Monitoramento**: Histórico completo de operações
+- **Debug**: Logs estruturados com dados JSON
+
+### Como funciona:
+- Logs são enviados para `process_logs` na Storage API
+- Buffer inteligente (10 logs por lote)
+- Fallback para console em desenvolvimento
+- Cleanup automático de logs antigos
+
+## � **Agendamento e Performance**
+
+### Configuração Atual:
+- **Frequência**: Semanal (domingos às 3h)
+- **Fase 1**: Coleta básica (~10-20 min, ~10.000 bundles)
+- **Fase 2**: Detalhamento (~40-80 horas, dados completos)
+
+### Otimizações para Render Free:
+- **CPU**: 0.1 core - delays de 2000ms entre requisições
+- **RAM**: 500MB limite - apenas 2 requests concorrentes
+- **Keep-Alive**: Sistema para evitar sleep durante operações longas
+
+## �️ **Principais Comandos**
+
+### Desenvolvimento:
 ```bash
-curl "https://sua-api.render.com/api/update/status"
+npm start              # Iniciar servidor
+npm run test          # Testes básicos
+node test-storage.js  # Testar conexão Storage API
 ```
 
-#### **POST** `/api/update/pause` - Pausar Atualização
+### Monitoramento:
 ```bash
-curl -X POST "https://sua-api.render.com/api/update/pause" \
-  -H "Authorization: Bearer seu_token"
+# Verificar logs persistentes
+curl "https://bundleset-api-storage.vercel.app/api/admin?operation=process-logs&key=API_KEY"
+
+# Status do sistema Blue-Green
+curl "https://bundleset-api-storage.vercel.app/api/admin?operation=system-status&key=API_KEY"
+
+# Análise de bundles processados
+curl "https://bundleset-api-storage.vercel.app/api/admin?operation=processed-ids&key=API_KEY"
 ```
 
-### 🔧 **Parâmetros de Consulta**
+## � **Troubleshooting**
 
-| Parâmetro | Tipo | Descrição | Exemplo |
-|-----------|------|-----------|---------|
-| `limit` | number | Limite de resultados (1-500) | `?limit=100` |
-| `offset` | number | Offset para paginação | `?offset=50` |
-| `genre` | string | Filtrar por gênero | `?genre=Action` |
-| `developer` | string | Filtrar por desenvolvedor | `?developer=Valve` |
-| `priceRange` | string | Faixa de preço | `?priceRange=0-50` |
-| `language` | string | Idioma dos dados | `?language=english` |
+### Problemas Comuns:
 
-## 🛠️ **Sistema de Monitoramento**
+1. **Keep-alive 503 errors**: Endpoints `/health` e `/api/health` configurados
+2. **Steam API 502**: Delays conservadores (2000ms) implementados
+3. **Bundles duplicados**: Sistema de filtro anti-duplicação ativo
+4. **Logs não aparecem**: Verificar `PERSISTENT_LOGGING=true`
+5. **Update não inicia automaticamente**: Usar `/api/emergency-detailed`
 
-### 📊 **Logs Disponíveis**
-- `services/scraping_debug.log` - Log detalhado de scraping
-- `services/adaptive_performance.log` - Performance do sistema adaptativo
-- `services/failed_bundles_queue.json` - Queue de bundles com falha
-
-### 🔍 **Monitoramento em Tempo Real**
+### Debug:
 ```bash
-# Acompanhar status da atualização
-curl "https://sua-api.render.com/api/update/status" | jq
+# Verificar configuração atual
+curl "https://steambundleapi.onrender.com/health"
 
-# Verificar performance adaptativa
-curl "https://sua-api.render.com/api/monitor/performance" | jq
+# Status da Storage API
+curl "https://bundleset-api-storage.vercel.app/api/health"
 
-# Estatísticas do sistema
-curl "https://sua-api.render.com/api/monitor/stats" | jq
+# Logs do processo atual
+curl "https://bundleset-api-storage.vercel.app/api/admin?operation=process-logs&key=API_KEY&limit=20"
 ```
 
-## ⚡ **Otimizações para Render Free**
-
-### 🎯 **Configurações Recomendadas**
-```javascript
-// Render Free (0.1 core + 500MB RAM)
-STEAM_API_DELAY=500
-PARALLEL_BUNDLES=3
-MAX_MEMORY_USAGE_MB=400
-SAVE_INTERVAL_BATCHES=25
-MEMORY_CHECK_INTERVAL_BATCHES=5
+## � **Estrutura de Dados**
 ```
 
-### 📈 **Estratégias de Performance**
-1. **Paralelismo Controlado**: Máximo 4 requisições simultâneas
-2. **Delays Adaptativos**: 500-8000ms baseado na performance
-3. **Memory Management**: Verificação a cada 5 lotes
-4. **I/O Otimizado**: Salvamento menos frequente
-5. **Log Rotation**: Prevenção de crescimento infinito
-
-### 🔄 **Auto-Resume Inteligente**
-- Salva estado a cada 25 bundles processados
-- Detecta interrupções automáticamente
-- Continua do ponto exato onde parou
-- Mantém queue de falhas entre sessões
-- Recovery automático de configurações
-
-## 🛡️ **Sistema de Proteção**
-
-### 🚨 **Circuit Breakers**
-1. **Traditional Circuit Breaker**: 5 falhas consecutivas → pausa 30s
-2. **Adaptive Circuit Breaker**: 20% queda de performance → reconfiguração
-3. **MAX_RETRIES Circuit Breaker**: 3+ MAX_RETRIES → pausa emergencial
-
-### 🔄 **Retry System**
-- **Tipos Elegíveis**: MAX_RETRIES_REACHED, TIMEOUT_ERROR, NETWORK_ERROR
-- **Configuração**: 2 tentativas máximas, delays de 3s
-- **Processamento**: Sequencial e conservador
-- **Persistência**: Queue salva automaticamente
-
-### � **NSFW Detection**
-- **Detecção Automática**: Via redirecionamento para login
-- **Categorização**: "NSFW/Adult Content" automaticamente
-- **Logs**: Registro detalhado para auditoria
-- **Bypass**: Não requer intervenção manual
-
-## 📚 **Exemplos de Uso**
-
-### 🧪 **Teste Rápido (100 bundles)**
-```bash
-curl -X POST "https://sua-api.render.com/api/update/start" \
-  -H "Authorization: Bearer seu_token" \
-  -H "Content-Type: application/json" \
-  -d '{"testLimit": 100, "language": "brazilian"}'
+### Bundle Detalhado:
+```json
+{
+  "bundle_id": "12345",
+  "item_id": "67890",
+  "item_name": "Game Name",
+  "item_price": 19.99,
+  "item_category": "Action",
+  "item_developer": "Developer Name",
+  "item_tags": ["Action", "Multiplayer"],
+  "processed_at": "2025-08-07T12:00:00.000Z"
+}
 ```
-
-### 🔄 **Atualização Completa com Resume**
-```bash
-# Iniciar atualização completa
-curl -X POST "https://sua-api.render.com/api/update/start" \
-  -H "Authorization: Bearer seu_token"
-
-# Verificar progresso
-curl "https://sua-api.render.com/api/update/status"
-
-# Se interrompido, resume automaticamente no próximo start
-```
-
-### 📊 **Consulta com Filtros**
-```bash
-# Bundles de ação com preço específico
-curl "https://sua-api.render.com/api/bundles/detailed?genre=Action&priceRange=10-30&limit=20"
-
-# Bundles por desenvolvedor
-curl "https://sua-api.render.com/api/bundles/detailed?developer=Valve&offset=0&limit=50"
-```
-
-## 🔧 **Troubleshooting**
-
-### ❌ **Problemas Comuns**
-
-#### **Alta Taxa de Falhas**
-```bash
-# Verificar configuração adaptativa
-curl "https://sua-api.render.com/api/monitor/adaptive-config"
-
-# Forçar configuração conservadora
-curl -X POST "https://sua-api.render.com/api/update/force-conservative"
-```
-
-#### **Memória Insuficiente**
-```bash
-# Verificar uso atual
-curl "https://sua-api.render.com/api/monitor/memory"
-
-# Ajustar configurações
-# Reduzir PARALLEL_BUNDLES e aumentar SAVE_INTERVAL_BATCHES
-```
-
-#### **Performance Baixa**
-```bash
-# Analisar logs adaptativos
-tail -f services/adaptive_performance.log
-
-# Verificar circuit breakers ativos
-curl "https://sua-api.render.com/api/monitor/circuit-breakers"
-```
-
-### 🔍 **Logs Importantes**
-```bash
-# Performance adaptativa
-tail -f services/adaptive_performance.log
-
-# Detalhes de scraping
-tail -f services/scraping_debug.log
-
-# Queue de falhas
-cat services/failed_bundles_queue.json | jq
-```
-
-## 🤝 **Contribuição**
-
-### 📝 **Como Contribuir**
-1. Fork o projeto
-2. Crie uma branch para sua feature (`git checkout -b feature/nova-feature`)
-3. Commit suas mudanças (`git commit -am 'Adiciona nova feature'`)
-4. Push para a branch (`git push origin feature/nova-feature`)
-5. Abra um Pull Request
-
-### 🐛 **Reportar Bugs**
-- Use as [Issues do GitHub](https://github.com/matheus-fsc/SteamBundleAPI/issues)
-- Inclua logs relevantes
-- Descreva o comportamento esperado vs atual
-- Forneça informações do ambiente (Render Free, local, etc.)
-
-## 📜 **Licença**
-
-Este projeto está licenciado sob a MIT License - veja o arquivo [LICENSE](LICENSE) para detalhes.
-
-## � **Agradecimentos**
-
-- **Steam**: Pela API pública de bundles
-- **Render**: Pela plataforma de deploy gratuita
-- **Comunidade Node.js**: Pelas bibliotecas utilizadas
-- **Contributors**: Todos que ajudaram a melhorar o projeto
 
 ---
 
-## 📞 **Suporte**
+## � **Stack Tecnológica**
 
-- **GitHub Issues**: [Reportar problemas](https://github.com/matheus-fsc/SteamBundleAPI/issues)
-- **Documentação**: Este README + comentários no código
-- **Logs**: Sistema de logging detalhado para debugging
+- **Backend**: Node.js + Express
+- **Database**: PostgreSQL (Vercel)
+- **Deploy**: Render (Free Tier)
+- **Monitoring**: Logs persistentes na database
+- **Scheduling**: node-cron (weekly)
 
-**Desenvolvido com ❤️ para a comunidade Steam**
+##  **Suporte**
+
+- **Issues**: [GitHub Issues](https://github.com/matheus-fsc/SteamBundleAPI/issues)
+- **Logs**: Sistema de logging persistente na Storage API
+- **Monitoramento**: Endpoints de health e status
