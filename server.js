@@ -8,10 +8,19 @@ const cron = require('node-cron');
 const moment = require('moment-timezone');
 
 // --- Serviços e Módulos ---
+const { getLogger } = require('./services/PersistentLogger');
 const updateController = require('./services/updateController');
 const { fetchAndSaveBundles } = require('./services/fetchBundles');
 const { updateBundlesWithDetails } = require('./services/updateDetails/updateBundles-modular');
 const routes = require('./routes');
+
+// --- Inicializar Logger Persistente ---
+const logger = getLogger();
+logger.critical('SERVER_START', 'Servidor Steam Bundle API iniciando...', {
+    node_version: process.version,
+    environment: process.env.NODE_ENV,
+    render_mode: process.env.RENDER_FREE_MODE === 'true'
+});
 
 // --- Middlewares ---
 const { requestLogger, corsOptions } = require('./middleware/security');
@@ -55,22 +64,30 @@ app.use(errorHandler); // Middleware para tratamento de erros
 // ====================================================================
 const TIMEZONE = process.env.TIMEZONE || 'America/Sao_Paulo';
 const STEAM_UPDATE_SCHEDULE = {
-    OPTIMIZED: '0 3 * * 3,5', // Às 3 da manhã, todas as quartas e sextas
-    DAILY: '0 3 * * *',       // Todos os dias às 3 da manhã
-    WEEKLY: '0 3 * * 3'       // Todas as quartas às 3 da manhã
+    WEEKLY: '0 3 * * 0',      // 🎯 NOVO PADRÃO: Domingos às 3h (processo demorado)
+    OPTIMIZED: '0 3 * * 3,5', // Quartas e sextas às 3h (legado)
+    DAILY: '0 3 * * *',       // Todos os dias às 3h (só para dev/teste)
+    BIWEEKLY: '0 3 * * 0/2'   // A cada 2 semanas no domingo
 };
-const scheduleMode = process.env.UPDATE_SCHEDULE_MODE || 'OPTIMIZED';
+const scheduleMode = process.env.UPDATE_SCHEDULE_MODE || 'WEEKLY';
 const cronExpression = STEAM_UPDATE_SCHEDULE[scheduleMode] || STEAM_UPDATE_SCHEDULE.OPTIMIZED;
 
 console.log(`🕐 Configuração de agendamento: ${scheduleMode} (${cronExpression})`);
 
 cron.schedule(cronExpression, async () => {
-    console.log(`\n🔄 [CRON] A disparar atualização agendada (${moment().tz(TIMEZONE).format('YYYY-MM-DD HH:mm:ss')})`);
+    const logger = getLogger();
+    logger.critical('CRON_UPDATE', `Atualização agendada iniciada (${moment().tz(TIMEZONE).format('YYYY-MM-DD HH:mm:ss')})`);
+    
     try {
+        logger.milestone('CRON_UPDATE', 'Fase 1: Fetch básico iniciado', 1, 2);
         await updateController.executeControlledUpdate(fetchAndSaveBundles, 'cron-fetch-basic');
+        
+        logger.milestone('CRON_UPDATE', 'Fase 2: Detalhamento iniciado', 2, 2);
         await updateController.executeControlledUpdate(updateBundlesWithDetails, 'cron-fetch-detailed');
+        
+        logger.critical('CRON_UPDATE', 'Atualização agendada finalizada com sucesso');
     } catch (error) {
-        console.error('❌ [CRON] Erro durante a atualização agendada:', error.message);
+        logger.error('CRON_UPDATE', 'Erro durante atualização agendada', error);
     }
 }, { timezone: TIMEZONE });
 
@@ -81,6 +98,10 @@ cron.schedule(cronExpression, async () => {
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, async () => {
+    logger.critical('SERVER_READY', `Servidor iniciado na porta ${PORT}`, {
+        port: PORT,
+        timestamp: new Date().toISOString()
+    });
     console.log(`🚀 Servidor a ser executado na porta ${PORT}`);
     
     try {

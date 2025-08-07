@@ -3,6 +3,8 @@ const { FailedBundlesManager } = require('./FailedBundlesManager');
 const { BundleScrapingService } = require('./BundleScrapingService');
 const { StateManager } = require('./StateManager');
 const { StorageSyncService } = require('./StorageSyncService');
+const { BundleFilterService } = require('./BundleFilterService');
+const { getLogger } = require('../PersistentLogger');
 const { storageSyncManager } = require('../storageSync');
 const axios = require('axios');
 
@@ -18,8 +20,11 @@ class UpdateBundlesOrchestrator {
         this.stateManager = new StateManager();
         this.syncService = new StorageSyncService(storageSyncManager);
         this.failedManager = new FailedBundlesManager(storageSyncManager);
+        this.filterService = new BundleFilterService(storageSyncManager);
+        this.logger = getLogger();
         
-        console.log('🚀 Orquestrador de Bundles inicializado...');
+        // Log apenas inicialização - sem console poluído
+        this.logger.info('ORCHESTRATOR_INIT', 'Orquestrador de Bundles inicializado');
     }
 
     // Helper para extrair o ID da Steam a partir do link do bundle
@@ -33,9 +38,37 @@ class UpdateBundlesOrchestrator {
         const actualStartTime = Date.now();
         
         try {
-            let updateState = this.stateManager.createInitialUpdateState(bundlesToProcess, limitForTesting, language);
+            // 🔍 FILTRAR BUNDLES JÁ PROCESSADOS (CORREÇÃO CRÍTICA)
+            this.logger.progress('BUNDLE_FILTER', 'Aplicando filtro de bundles já processados');
+            console.log('🛡️ [ANTI-DUPLICAÇÃO] Aplicando filtro de bundles já processados...');
+            const filterResult = await this.filterService.filterUnprocessedBundles(bundlesToProcess);
+            
+            if (filterResult.needsProcessing === 0) {
+                this.logger.critical('PROCESS_COMPLETE', 'Todos os bundles básicos já possuem detalhes', filterResult);
+                console.log('✅ [CONCLUÍDO] Todos os bundles básicos já possuem detalhes!');
+                return {
+                    success: true,
+                    totalProcessed: 0,
+                    totalBasic: filterResult.totalBasic,
+                    alreadyProcessed: filterResult.alreadyProcessed,
+                    skipped: filterResult.alreadyProcessed,
+                    message: 'Nenhum bundle precisa ser processado - todos já têm detalhes!'
+                };
+            }
+            
+            // Usar apenas bundles não processados
+            const actualBundlesToProcess = filterResult.unprocessedBundles;
+            this.logger.milestone('BUNDLE_OPTIMIZATION', 'Otimização aplicada', 
+                actualBundlesToProcess.length, filterResult.totalBasic, {
+                    skipped: filterResult.alreadyProcessed,
+                    optimization_percent: ((filterResult.alreadyProcessed / filterResult.totalBasic) * 100).toFixed(1)
+                }
+            );
+            console.log(`✅ [OTIMIZADO] Processando apenas ${actualBundlesToProcess.length} bundles (pulando ${filterResult.alreadyProcessed} já processados)`);
+            
+            let updateState = this.stateManager.createInitialUpdateState(actualBundlesToProcess, limitForTesting, language);
             let consecutiveFailures = 0;
-            let totalBatches = Math.ceil(bundlesToProcess.length / this.performanceManager.currentParallel);
+            let totalBatches = Math.ceil(actualBundlesToProcess.length / this.performanceManager.currentParallel);
             let currentChunkBundles = [];
 
             // Configuração para diferentes ambientes
@@ -52,13 +85,18 @@ class UpdateBundlesOrchestrator {
                 GC_INTERVAL: 50              
             };
 
-            console.log(`\n🚀 Processando de 0 até ${bundlesToProcess.length} (${totalBatches} lotes)`);
+            console.log(`\n🚀 Processando de 0 até ${actualBundlesToProcess.length} (${totalBatches} lotes)`);
             console.log(`💾 MODO ${isProduction ? 'PRODUÇÃO' : 'LOCAL'}: Sync a cada ${renderConfig.SYNC_INTERVAL} bundles`);
 
-            for (let i = 0; i < bundlesToProcess.length; i += this.performanceManager.currentParallel) {
+            for (let i = 0; i < actualBundlesToProcess.length; i += this.performanceManager.currentParallel) {
                 const batchIndex = Math.floor(i / this.performanceManager.currentParallel);
-                const batch = bundlesToProcess.slice(i, i + this.performanceManager.currentParallel);
-                console.log(`\n🚀 Lote ${batchIndex + 1}/${totalBatches}: Processando ${batch.length} bundles...`);
+                const batch = actualBundlesToProcess.slice(i, i + this.performanceManager.currentParallel);
+                // Log de progresso apenas no milestone (não para cada lote)
+                if (batchIndex % 10 === 0 || batchIndex === totalBatches - 1) {
+                    this.logger.milestone('BATCH_PROGRESS', 'Processamento em andamento', 
+                        batchIndex + 1, totalBatches, { current_batch_size: batch.length });
+                    console.log(`\n🚀 Lote ${batchIndex + 1}/${totalBatches}: Processando ${batch.length} bundles...`);
+                }
                 
                 const batchResult = await this._processBatch(batch, batchIndex, language);
                 currentChunkBundles.push(...batchResult.successfulBundles);
@@ -66,7 +104,7 @@ class UpdateBundlesOrchestrator {
 
                 // Sync frequente para liberar memória
                 if (currentChunkBundles.length >= renderConfig.SYNC_INTERVAL || 
-                    (i + this.performanceManager.currentParallel >= bundlesToProcess.length)) {
+                    (i + this.performanceManager.currentParallel >= actualBundlesToProcess.length)) {
                     
                     console.log(`📤 SYNC: ${currentChunkBundles.length} bundles (liberando memória)...`);
                     
@@ -76,14 +114,21 @@ class UpdateBundlesOrchestrator {
                             currentChunkBundles,
                             {
                                 ...updateState,
-                                completed: i + batch.length
+                                completed: i + batch.length,
+                                totalBasic: filterResult.totalBasic,
+                                alreadyProcessed: filterResult.alreadyProcessed
                             },
-                            bundlesToProcess,
+                            actualBundlesToProcess,
                             limitForTesting
                         );
                         
                         if (syncResult.synced) {
                             console.log(`✅ SYNC: Chunk enviado com sucesso - ${currentChunkBundles.length} bundles.`);
+                            
+                            // Marcar bundles como processados no cache
+                            const bundleIds = currentChunkBundles.map(b => b.bundle_id || b.id);
+                            this.filterService.markAsProcessed(bundleIds);
+                            
                             currentChunkBundles = []; // Limpar array
                         }
                         
@@ -105,16 +150,16 @@ class UpdateBundlesOrchestrator {
                     this.performanceManager.optimizeSettings(batchIndex);
                 }
                 
-                this._logOptimizedProgress(batchIndex, updateState, bundlesToProcess, batchResult.batchTime, actualStartTime, currentChunkBundles.length);
+                this._logOptimizedProgress(batchIndex, updateState, actualBundlesToProcess, batchResult.batchTime, actualStartTime, currentChunkBundles.length);
                 
-                if (i + this.performanceManager.currentParallel < bundlesToProcess.length) {
+                if (i + this.performanceManager.currentParallel < actualBundlesToProcess.length) {
                     const baseDelay = this.performanceManager.currentDelay;
                     const extraDelay = isProduction ? 500 : 0;
                     await this._delay(baseDelay + extraDelay);
                 }
             }
             
-            return await this._optimizedFinalization(currentChunkBundles, bundlesToProcess, updateState, limitForTesting, actualStartTime);
+            return await this._optimizedFinalization(currentChunkBundles, actualBundlesToProcess, updateState, limitForTesting, actualStartTime, filterResult);
         } catch (error) {
             console.error('❌ ERRO FATAL no processamento:', error);
             throw error;
@@ -196,7 +241,7 @@ class UpdateBundlesOrchestrator {
         console.log(`📈 Progresso: ${updateState.completed}/${bundlesToProcess.length} (${(updateState.completed/bundlesToProcess.length*100).toFixed(1)}%) | Tempo: ${elapsed.toFixed(1)}s | ETA: ${eta.toFixed(1)}s | Chunk: ${chunkSize}\n`);
     }
 
-    async _optimizedFinalization(currentChunkBundles, bundlesToProcess, updateState, limitForTesting, actualStartTime) {
+    async _optimizedFinalization(currentChunkBundles, actualBundlesToProcess, updateState, limitForTesting, actualStartTime, filterResult) {
         console.log('\n🏁 FINALIZANDO PROCESSAMENTO...');
         
         if (currentChunkBundles.length > 0) {
@@ -205,7 +250,7 @@ class UpdateBundlesOrchestrator {
                 const finalSyncResult = await this.syncService.performAutoSync(
                     currentChunkBundles,
                     updateState,
-                    bundlesToProcess,
+                    actualBundlesToProcess,
                     limitForTesting
                 );
                 
@@ -222,7 +267,8 @@ class UpdateBundlesOrchestrator {
         const finalConfig = this.performanceManager.getCurrentConfig();
         console.log(`\n🎯 PROCESSAMENTO CONCLUÍDO!`);
         console.log(`   ⏱️  Tempo total: ${((Date.now() - actualStartTime) / 1000 / 60).toFixed(1)} minutos`);
-        console.log(`   📊 Processados: ${updateState.completed}/${bundlesToProcess.length} bundles`);
+        console.log(`   📊 Processados: ${updateState.completed}/${actualBundlesToProcess.length} bundles (apenas não processados)`);
+        console.log(`   🛡️ Bundles básicos totais: ${filterResult.totalBasic} (${filterResult.alreadyProcessed} já processados, ${actualBundlesToProcess.length} novos)`);
         console.log(`   🧠 Config final adaptativa: ${finalConfig.delay}ms delay, ${finalConfig.parallel} parallel`);
         
         if (finalConfig.bestConfig) {
@@ -248,7 +294,7 @@ class UpdateBundlesOrchestrator {
                 await axios.post(adminUrl, {
                     data_type: 'bundlesDetailed',
                     is_complete: true,
-                    total_records: bundlesToProcess?.length || updateState.completed || 0,
+                    total_records: filterResult.totalBasic || updateState.completed || 0,
                     last_session_id: updateState.sessionId,
                     attempt: attempt
                 }, {
