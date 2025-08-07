@@ -1,18 +1,7 @@
 const { storageSyncManager } = require('./storageSync'); // Importe o singleton
+const BackupSystem = require('./BackupSystem');
 
 class UpdateController {
-    /**
-     * [NOVO - Placeholder] Verifica se há sessões de sincronização que não foram concluídas
-     * e tenta retomá-las ou marcá-las como falhas.
-     */
-    async autoResumeIncompleteUpdates() {
-        console.log(`${this.config.logPrefix} [AUTO-RESUME] Lógica de retomada de sessões ainda não implementada.`);
-        // TODO: Implementar a lógica para:
-        // 1. Chamar a API de storage para obter sessões com status "iniciada".
-        // 2. Para cada sessão incompleta, decidir se deve ser reiniciada ou marcada como falha.
-        // 3. Exemplo: const incompleteSessions = await storageSyncManager.getIncompleteSessions();
-        return Promise.resolve();
-    }
     constructor() {
         this.updateState = {
             isUpdating: false,
@@ -28,6 +17,34 @@ class UpdateController {
             maxUpdateDuration: 900000,    
             logPrefix: '[UPDATE CONTROLLER]'
         };
+
+        // Sistema de backup integrado
+        this.backupSystem = new BackupSystem();
+    }
+
+    /**
+     * [MELHORADO] Verifica se há sessões de sincronização que não foram concluídas
+     * e tenta retomá-las ou marcá-las como falhas.
+     */
+    async autoResumeIncompleteUpdates() {
+        console.log(`${this.config.logPrefix} [AUTO-RESUME] Verificando sessões incompletas...`);
+        
+        try {
+            // Verificar status do sistema de backup
+            const systemStatus = await this.backupSystem.getSystemStatus();
+            if (systemStatus && systemStatus.update_status === 'updating') {
+                console.log(`${this.config.logPrefix} [AUTO-RESUME] Sistema em modo de atualização detectado`);
+                
+                // Se sistema ficou em estado de updating, restaurar
+                console.log(`${this.config.logPrefix} [AUTO-RESUME] Finalizando atualização pendente...`);
+                await this.backupSystem.finishUpdate();
+            }
+            
+        } catch (error) {
+            console.error(`${this.config.logPrefix} [AUTO-RESUME] Erro na verificação: ${error.message}`);
+        }
+        
+        return Promise.resolve();
     }
 
     isUpdateInProgress() {
@@ -41,6 +58,78 @@ class UpdateController {
         }
         
         return this.updateState.isUpdating;
+    }
+
+    /**
+     * [NOVO] Executa atualização com sistema de backup Blue-Green
+     */
+    async executeWithBackup(updateType, updateFunction) {
+        console.log(`${this.config.logPrefix} Executando "${updateType}" com sistema de backup...`);
+        
+        try {
+            // 1. Preparar sistema para atualização (cria backup e switch)
+            console.log(`${this.config.logPrefix} Preparando backup antes de "${updateType}"...`);
+            const backupResult = await this.backupSystem.startUpdate();
+            
+            if (!backupResult.success) {
+                throw new Error(`Falha no backup: ${backupResult.error}`);
+            }
+
+            console.log(`${this.config.logPrefix} Sistema usando tabela: ${backupResult.active_table}`);
+
+            // 2. Executar a atualização na tabela principal
+            this.startUpdate(updateType);
+            
+            try {
+                const updateResult = await updateFunction();
+                
+                // 3. Se sucesso, finalizar e voltar para tabela principal
+                if (updateResult && updateResult.success !== false) {
+                    console.log(`${this.config.logPrefix} Atualização "${updateType}" bem-sucedida, finalizando...`);
+                    await this.backupSystem.finishUpdate();
+                    this.endUpdate(true);
+                    return updateResult;
+                } else {
+                    throw new Error('Atualização retornou falha');
+                }
+
+            } catch (updateError) {
+                console.error(`${this.config.logPrefix} Erro na atualização "${updateType}": ${updateError.message}`);
+                
+                // 4. Em caso de erro, manter backup ativo
+                console.log(`${this.config.logPrefix} Mantendo sistema em backup devido ao erro`);
+                this.endUpdate(false);
+                throw updateError;
+            }
+
+        } catch (backupError) {
+            console.error(`${this.config.logPrefix} Erro crítico no sistema de backup: ${backupError.message}`);
+            this.endUpdate(false);
+            throw backupError;
+        }
+    }
+
+    /**
+     * [NOVO] Restaura sistema em caso de emergência
+     */
+    async emergencyRestore() {
+        console.log(`${this.config.logPrefix} RESTAURAÇÃO DE EMERGÊNCIA iniciada...`);
+        
+        try {
+            const restoreResult = await this.backupSystem.emergencyRestore();
+            
+            if (restoreResult.success) {
+                console.log(`${this.config.logPrefix} ✅ Restauração concluída: ${restoreResult.records} registros`);
+                this.forceReset(); // Resetar estado do controller
+                return restoreResult;
+            } else {
+                throw new Error(`Restauração falhou: ${restoreResult.error}`);
+            }
+
+        } catch (error) {
+            console.error(`${this.config.logPrefix} ❌ FALHA CRÍTICA na restauração: ${error.message}`);
+            throw error;
+        }
     }
 
     startUpdate(type) {
@@ -133,7 +222,7 @@ class UpdateController {
         return true;
     }
 
-    async executeControlledUpdate(updateFunction, type) {
+    async executeControlledUpdate(updateFunction, type, useBackup = true) {
         if (this.updateState.isUpdating && this.updateState.updatePromise) {
             console.log(`⏳ ${this.config.logPrefix} Atualização "${type}" já em andamento, aguardando conclusão...`);
             this.incrementRequestCount();
@@ -146,9 +235,15 @@ class UpdateController {
             return Promise.resolve({ skipped: true, reason: 'too_recent' });
         }
 
-        this.startUpdate(type);
-        
-        this.updateState.updatePromise = this._executeUpdate(updateFunction, type);
+        // Escolher método de execução baseado no parâmetro useBackup
+        if (useBackup) {
+            console.log(`${this.config.logPrefix} Executando "${type}" com sistema de backup...`);
+            this.updateState.updatePromise = this.executeWithBackup(type, updateFunction);
+        } else {
+            console.log(`${this.config.logPrefix} Executando "${type}" sem backup...`);
+            this.startUpdate(type);
+            this.updateState.updatePromise = this._executeUpdate(updateFunction, type);
+        }
         
         return this.updateState.updatePromise;
     }

@@ -4,6 +4,7 @@ const { BundleScrapingService } = require('./BundleScrapingService');
 const { StateManager } = require('./StateManager');
 const { StorageSyncService } = require('./StorageSyncService');
 const { storageSyncManager } = require('../storageSync');
+const axios = require('axios');
 
 /**
  * Orquestrador Principal de Atualização de Bundles
@@ -17,437 +18,285 @@ class UpdateBundlesOrchestrator {
         this.stateManager = new StateManager();
         this.syncService = new StorageSyncService(storageSyncManager);
         this.failedManager = new FailedBundlesManager(storageSyncManager);
+        
         console.log('🚀 Orquestrador de Bundles inicializado...');
     }
 
-    // [NOVO] Helper para extrair o ID da Steam a partir do link do bundle
+    // Helper para extrair o ID da Steam a partir do link do bundle
     _extractSteamIdFromLink(link) {
         if (!link) return null;
         const match = link.match(/\/bundle\/(\d+)/);
         return match ? match[1] : null;
     }
 
-    /**
-     * Função principal: Atualiza bundles com detalhes
-     */
-    async updateBundlesWithDetails(language = 'brazilian', limitForTesting = null) {
+    async updateBundlesDetailed(bundlesToProcess, limitForTesting = null, language = 'portuguese') {
         const actualStartTime = Date.now();
+        
         try {
-            console.log('\n🚀 INICIANDO ATUALIZAÇÃO DE BUNDLES DETALHADOS...');
-            const allBundlesData = await this.syncService.loadStorageDataWithRetry('bundles');
-            if (!allBundlesData || !allBundlesData.bundles || allBundlesData.bundles.length === 0) {
-                return { success: false, reason: 'NO_BASIC_BUNDLES' };
-            }
-            const allBundlesMap = new Map(allBundlesData.bundles.map(b => [b.id, b]));
-            const detailedBundlesData = await this.syncService.loadStorageDataWithRetry('bundlesDetailed');
-            const processedBundleIds = new Set();
-            if (detailedBundlesData && detailedBundlesData.bundles) {
-                detailedBundlesData.bundles.forEach(b => processedBundleIds.add(b.bundle_id));
-            }
-            let bundlesToProcess = Array.from(allBundlesMap.values()).filter(bundle => !processedBundleIds.has(bundle.id));
-            if (limitForTesting) {
-                bundlesToProcess = bundlesToProcess.slice(0, limitForTesting);
-            }
-            console.log(`📊 Total de bundles para processar: ${bundlesToProcess.length}`);
-            if (bundlesToProcess.length === 0) {
-                return { success: true, message: 'Todos os bundles já foram processados' };
-            }
             let updateState = this.stateManager.createInitialUpdateState(bundlesToProcess, limitForTesting, language);
             let consecutiveFailures = 0;
             let totalBatches = Math.ceil(bundlesToProcess.length / this.performanceManager.currentParallel);
             let currentChunkBundles = [];
+
+            // Configuração para diferentes ambientes
+            const isProduction = process.env.NODE_ENV === 'production';
+            const renderConfig = isProduction ? {
+                MAX_CHUNK_SIZE: 50,           
+                SYNC_INTERVAL: 25,            
+                MEMORY_CHECK_INTERVAL: 10,    
+                GC_INTERVAL: 20              
+            } : {
+                MAX_CHUNK_SIZE: 100,           
+                SYNC_INTERVAL: 50,            
+                MEMORY_CHECK_INTERVAL: 20,    
+                GC_INTERVAL: 50              
+            };
+
             console.log(`\n🚀 Processando de 0 até ${bundlesToProcess.length} (${totalBatches} lotes)`);
+            console.log(`💾 MODO ${isProduction ? 'PRODUÇÃO' : 'LOCAL'}: Sync a cada ${renderConfig.SYNC_INTERVAL} bundles`);
+
             for (let i = 0; i < bundlesToProcess.length; i += this.performanceManager.currentParallel) {
                 const batchIndex = Math.floor(i / this.performanceManager.currentParallel);
                 const batch = bundlesToProcess.slice(i, i + this.performanceManager.currentParallel);
                 console.log(`\n🚀 Lote ${batchIndex + 1}/${totalBatches}: Processando ${batch.length} bundles...`);
+                
                 const batchResult = await this._processBatch(batch, batchIndex, language);
                 currentChunkBundles.push(...batchResult.successfulBundles);
                 updateState.completed += batch.length;
+
+                // Sync frequente para liberar memória
+                if (currentChunkBundles.length >= renderConfig.SYNC_INTERVAL || 
+                    (i + this.performanceManager.currentParallel >= bundlesToProcess.length)) {
+                    
+                    console.log(`📤 SYNC: ${currentChunkBundles.length} bundles (liberando memória)...`);
+                    
+                    try {
+                        // Usar método de sync padrão
+                        const syncResult = await this.syncService.performAutoSync(
+                            currentChunkBundles,
+                            {
+                                ...updateState,
+                                completed: i + batch.length
+                            },
+                            bundlesToProcess,
+                            limitForTesting
+                        );
+                        
+                        if (syncResult.synced) {
+                            console.log(`✅ SYNC: Chunk enviado com sucesso - ${currentChunkBundles.length} bundles.`);
+                            currentChunkBundles = []; // Limpar array
+                        }
+                        
+                    } catch (syncError) {
+                        console.error(`❌ ERRO SYNC: ${syncError.message}`);
+                    }
+                }
+
+                // Garbage collection periódico
+                if (isProduction && batchIndex % renderConfig.GC_INTERVAL === 0) {
+                    if (global.gc) {
+                        console.log(`🗑️  Executando garbage collection...`);
+                        global.gc();
+                    }
+                }
+
                 consecutiveFailures = this._handleBatchFailures(batchResult, consecutiveFailures);
                 if (this.performanceManager.shouldOptimize(batchIndex)) {
                     this.performanceManager.optimizeSettings(batchIndex);
                 }
+                
                 this._logOptimizedProgress(batchIndex, updateState, bundlesToProcess, batchResult.batchTime, actualStartTime, currentChunkBundles.length);
+                
                 if (i + this.performanceManager.currentParallel < bundlesToProcess.length) {
-                    await this._delay(this.performanceManager.currentDelay);
+                    const baseDelay = this.performanceManager.currentDelay;
+                    const extraDelay = isProduction ? 500 : 0;
+                    await this._delay(baseDelay + extraDelay);
                 }
             }
+            
             return await this._optimizedFinalization(currentChunkBundles, bundlesToProcess, updateState, limitForTesting, actualStartTime);
         } catch (error) {
-            console.error('❌ Erro crítico durante atualização:', error.message);
-            return { success: false, error: error.message };
+            console.error('❌ ERRO FATAL no processamento:', error);
+            throw error;
         }
     }
 
-    /**
-     * Processa um lote de bundles
-     */
     async _processBatch(batch, batchIndex, language) {
         const batchStartTime = Date.now();
-        // [NOVO] Extrai o ID da Steam do link ANTES de chamar o scraping
-        const results = await Promise.allSettled(
-            batch.map(bundle => {
-                const steamId = this._extractSteamIdFromLink(bundle.link);
-                if (!steamId) {
-                    console.log(`❌ [ID: ${bundle.id}] Falha: Link inválido ou sem ID (${bundle.link})`);
-                    return Promise.resolve({ value: { success: false, reason: 'INVALID_LINK' } });
-                }
-                // Chama o serviço de scraping com o ID correto da Steam
-                return this.scrapingService.fetchBundleDetails(steamId, language);
-            })
+        const batchResults = await Promise.allSettled(
+            batch.map(bundle => this.scrapingService.fetchBundleDetails(bundle.id, language))
         );
+
         const successfulBundles = [];
-        const failedBundleIds = [];
-        for (let j = 0; j < results.length; j++) {
-            const result = results[j];
-            const bundle = batch[j];
-            const steamId = this._extractSteamIdFromLink(bundle.link) || bundle.id;
-            if (result.status === 'fulfilled' && result.value.success) {
-                const bundleWithId = { ...result.value.data, id: bundle.id, steam_id: steamId };
-                successfulBundles.push(bundleWithId);
-                console.log(`✅ [ID: ${bundle.id} | SteamID: ${steamId}] ${bundleWithId.name}`);
+        const failedBundles = [];
+
+        batchResults.forEach((result, index) => {
+            if (result.status === 'fulfilled' && result.value && result.value.success) {
+                successfulBundles.push(result.value.data);
             } else {
-                const reason = result.status === 'fulfilled' ? result.value.reason : 'PROMISE_REJECTED';
-                this.failedManager.addFailedBundle(bundle.id, bundle, reason, j);
-                failedBundleIds.push(bundle.id);
-                console.log(`❌ [ID: ${bundle.id} | SteamID: ${steamId}] Falha: ${reason}`);
+                const originalBundle = batch[index];
+                let errorDetails;
+                
+                if (result.status === 'rejected') {
+                    errorDetails = `Rejected: ${result.reason?.message || result.reason || 'Promise rejected'}`;
+                } else if (result.value) {
+                    errorDetails = `Failed: ${result.value.reason || result.value.error || 'Unknown failure'} (Status: ${result.value.statusCode || 'N/A'})`;
+                } else {
+                    errorDetails = 'No response received';
+                }
+                
+                console.log(`❌ [ID: ${originalBundle.id} | SteamID: ${this._extractSteamIdFromLink(originalBundle.link)}] Falha: ${errorDetails}`);
+                failedBundles.push({
+                    ...originalBundle,
+                    error: errorDetails,
+                    steam_id: this._extractSteamIdFromLink(originalBundle.link)
+                });
             }
-        }
+        });
+
         const batchTime = Date.now() - batchStartTime;
-        this.performanceManager.recordBatchResult(batchIndex, successfulBundles.length, batch.length, batchTime, failedBundleIds);
-        console.log(`📊 Lote ${batchIndex + 1}: ${successfulBundles.length}/${batch.length} sucessos (${(successfulBundles.length / batch.length * 100).toFixed(1)}%) em ${(batchTime / 1000).toFixed(1)}s`);
-        return { successfulBundles, failedBundleIds, batchTime };
+        this.performanceManager.recordBatchResult(
+            batchIndex, 
+            successfulBundles.length, 
+            batch.length, 
+            batchTime,
+            failedBundles.map(b => b.id)
+        );
+
+        console.log(`📊 Lote ${batchIndex + 1}: ${successfulBundles.length}/${batch.length} sucessos (${(successfulBundles.length/batch.length*100).toFixed(1)}%) em ${(batchTime/1000).toFixed(1)}s`);
+
+        return {
+            successfulBundles,
+            failedBundles,
+            batchTime,
+            successCount: successfulBundles.length,
+            totalCount: batch.length
+        };
     }
 
-    /**
-     * Trata falhas do lote e circuit breaker
-     */
     _handleBatchFailures(batchResult, consecutiveFailures) {
-        if (batchResult.failedBundleIds.length > 0) {
+        if (batchResult.successCount === 0) {
             consecutiveFailures++;
-
-            // Circuit breaker para falhas consecutivas
             if (consecutiveFailures >= 3) {
-                console.log(`🚨 CIRCUIT BREAKER: ${consecutiveFailures} lotes consecutivos com falhas`);
-                console.log(`⏸️  Pausando por 30 segundos para estabilização...`);
-                // Implementar pausa se necessário
-                consecutiveFailures = 0; // Reset após pausa
+                console.warn(`⚠️  ${consecutiveFailures} lotes consecutivos falharam completamente. Pode haver problema de conectividade.`);
             }
         } else {
-            consecutiveFailures = 0; // Reset se lote foi bem-sucedido
+            consecutiveFailures = 0;
         }
-
         return consecutiveFailures;
     }
 
-    /**
-     * Gerencia checkpoints e sincronização automática OTIMIZADA
-     * Usa currentChunkBundles em vez de detailedBundles acumulados
-     */
-    async _handleOptimizedCheckpointAndSync(currentChunkBundles, updateState, bundlesToProcess, limitForTesting, batchesProcessed) {
-        const SYNC_INTERVAL_BUNDLES = 200;
-        const shouldSyncByProgress = updateState.completed > 0 &&
-            (updateState.completed % SYNC_INTERVAL_BUNDLES === 0);
+    _logOptimizedProgress(batchIndex, updateState, bundlesToProcess, batchTime, actualStartTime, chunkSize) {
+        const elapsed = (Date.now() - actualStartTime) / 1000;
+        const avgTimePerBundle = elapsed / updateState.completed;
+        const remaining = bundlesToProcess.length - updateState.completed;
+        const eta = remaining * avgTimePerBundle;
+        
+        console.log(`💾 Memória: ${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)}MB heap usado | Chunk: ${chunkSize} bundles`);
+        console.log(`📈 Progresso: ${updateState.completed}/${bundlesToProcess.length} (${(updateState.completed/bundlesToProcess.length*100).toFixed(1)}%) | Tempo: ${elapsed.toFixed(1)}s | ETA: ${eta.toFixed(1)}s | Chunk: ${chunkSize}\n`);
+    }
 
-        if (shouldSyncByProgress && currentChunkBundles.length > 0) {
-            console.log(`\n🔄 CHECKPOINT: ${updateState.completed} bundles processados - iniciando sincronização...`);
-
+    async _optimizedFinalization(currentChunkBundles, bundlesToProcess, updateState, limitForTesting, actualStartTime) {
+        console.log('\n🏁 FINALIZANDO PROCESSAMENTO...');
+        
+        if (currentChunkBundles.length > 0) {
+            console.log(`📤 FINALIZANDO: Enviando últimos ${currentChunkBundles.length} bundles...`);
             try {
-                // Sincronização automática do chunk atual
-                const syncResult = await this.syncService.performAutoSync(
+                const finalSyncResult = await this.syncService.performAutoSync(
                     currentChunkBundles,
                     updateState,
                     bundlesToProcess,
                     limitForTesting
                 );
-
-                if (syncResult.synced) {
-                    console.log("✅ Chunk sincronizado com a API. Limpando cache de memória local.");
-
-                    // SIMPLESMENTE LIMPE O ARRAY
-                    currentChunkBundles.length = 0;
-
-                    // Força garbage collection
-                    this.stateManager.forceGarbageCollection();
-
-                    console.log(`🧹 Cache limpo - memória otimizada para próximo chunk`);
-                }
-
-                // Salva fila de falhas
-                await this.failedManager.saveFailedQueue();
-                if (this.failedManager.failedQueue.size > 0) {
-                    await this.failedManager.syncWithStorage();
-                }
-
-                // Salva estado simples (apenas como log de atividade)
-                await this.stateManager.saveUpdateState(updateState);
-
-                console.log(`💾 Checkpoint completo: Estado + falhas sincronizados (${this.failedManager.failedQueue.size} falhas)`);
-
-            } catch (syncError) {
-                console.error('❌ Erro durante sincronização do checkpoint:', syncError.message);
-                console.log('💡 Continuando processamento - dados mantidos em memória');
-            }
-        }
-
-        // Log de memória periódico
-        if (batchesProcessed % 5 === 0) {
-            const memory = this.stateManager.getMemoryUsage();
-            console.log(`📊 Memória: ${memory.heapUsed}MB | Chunk atual: ${currentChunkBundles.length} bundles | Progresso: ${updateState.completed}/${bundlesToProcess.length}`);
-        }
-    }
-
-    /**
-     * Logs de progresso OTIMIZADOS
-     */
-    _logOptimizedProgress(batchIndex, updateState, bundlesToProcess, batchTime, actualStartTime, chunkSize) {
-        const elapsed = (Date.now() - actualStartTime) / 1000;
-        const avgBatchTime = batchTime / 1000;
-        const totalBatches = Math.ceil(bundlesToProcess.length / this.performanceManager.currentParallel);
-        const remaining = totalBatches - batchIndex - 1;
-        const estimatedTimeLeft = remaining * avgBatchTime;
-        const progress = ((updateState.completed / bundlesToProcess.length) * 100).toFixed(1);
-
-        console.log(`📈 Progresso: ${updateState.completed}/${bundlesToProcess.length} (${progress}%) | Tempo: ${elapsed.toFixed(1)}s | ETA: ${estimatedTimeLeft.toFixed(1)}s | Chunk: ${chunkSize}`);
-    }
-
-    /**
-     * Finalização OTIMIZADA
-     */
-    async _optimizedFinalization(currentChunkBundles, bundlesToProcess, updateState, limitForTesting, actualStartTime) {
-        console.log(`\n🎉 LOOP PRINCIPAL CONCLUÍDO em ${(Date.now() - actualStartTime) / 1000}s`);
-
-        // === SINCRONIZAÇÃO FINAL DOS BUNDLES RESTANTES ===
-        if (currentChunkBundles.length > 0) {
-            console.log(`\n📤 SINCRONIZAÇÃO FINAL: ${currentChunkBundles.length} bundles restantes no chunk...`);
-
-            try {
-                // [CORREÇÃO] Chamamos performAutoSync, que já sabe como lidar com o último chunk.
-                updateState.completed = bundlesToProcess.length; // Garante que isLastChunk seja true
-                const finalSyncResult = await this.syncService.performAutoSync(
-                    currentChunkBundles,
-                    updateState,
-                    bundlesToProcess
-                );
+                
                 if (finalSyncResult.synced) {
-                    console.log(`✅ Sincronização final bem-sucedida: ${currentChunkBundles.length} bundles enviados`);
-                    currentChunkBundles.length = 0; // Limpa chunk final
-                } else {
-                    console.warn(`⚠️ Sincronização final falhou - dados mantidos localmente`);
+                    console.log(`✅ SYNC FINAL: ${currentChunkBundles.length} bundles enviados com sucesso.`);
                 }
-            } catch (finalSyncError) {
-                console.error('❌ Erro na sincronização final:', finalSyncError.message);
+            } catch (error) {
+                console.error('❌ ERRO no sync final:', error.message);
             }
-        } else {
-            console.log(`✅ Nenhum bundle restante - todas as sincronizações foram bem-sucedidas`);
         }
 
-        // === PROCESSAMENTO DE RETRY ===
-        const failedStats = this.failedManager.getStats();
-        if (failedStats.retryable > 0) {
-            console.log(`\n🔄 PROCESSANDO RETRY: ${failedStats.retryable} bundles elegíveis...`);
-            const retryResult = await this.failedManager.processRetryQueue(
-                (bundleId) => this.scrapingService.retryFailedBundle(bundleId)
-            );
-            console.log(`✅ Retry concluído: ${retryResult.success} sucessos de ${retryResult.processed} tentativas`);
+        await this.syncService.finishDetailedSyncSession(updateState.sessionId);
+
+        const finalConfig = this.performanceManager.getCurrentConfig();
+        console.log(`\n🎯 PROCESSAMENTO CONCLUÍDO!`);
+        console.log(`   ⏱️  Tempo total: ${((Date.now() - actualStartTime) / 1000 / 60).toFixed(1)} minutos`);
+        console.log(`   📊 Processados: ${updateState.completed}/${bundlesToProcess.length} bundles`);
+        console.log(`   🧠 Config final adaptativa: ${finalConfig.delay}ms delay, ${finalConfig.parallel} parallel`);
+        
+        if (finalConfig.bestConfig) {
+            console.log(`   🏆 Melhor configuração encontrada: ${finalConfig.bestConfig.delay}ms, ${finalConfig.bestConfig.parallel} parallel (lote ${finalConfig.bestConfig.batchIndex})`);
         }
 
-        // === LIMPEZA FINAL ===
-        console.log(`\n🧹 LIMPEZA FINAL: Removendo arquivos de estado locais...`);
-
-        // Limpa arquivos locais (API é agora 100% atualizada)
-        try {
-            await this.stateManager.clearUpdateState();
-            console.log(`✅ Estados locais limpos - API é agora a fonte autoritativa`);
-        } catch (cleanupError) {
-            console.warn(`⚠️ Erro na limpeza final: ${cleanupError.message}`);
+        const failedReport = this.performanceManager.getFailedBundlesReport();
+        if (failedReport.count > 0) {
+            console.log(`   ❌ Bundles problemáticos: ${failedReport.count} únicos`);
         }
 
-        // [NOVO] Adicionar chamada para a finalização de detalhes na API
-        try {
-            console.log(`\n⚙️  A finalizar sessão de detalhes ${updateState.sessionId} na API para processamento final...`);
-            await this.syncService.finishDetailedSyncSession(updateState.sessionId);
-            console.log(`✅ Finalização da sessão de detalhes solicitada com sucesso.`);
+        console.log(`✅ Sessão ${updateState.sessionId} finalizada com sucesso!`);
 
-            // NOVO: Atualiza sync_status na API admin (bundlesDetailed)
+        // Aguardar um pouco para que a API processe a transferência para a tabela bundles
+        console.log('⏳ Aguardando processamento da transferência para tabela bundles (10s)...');
+        await this._delay(10000);
+
+        // Atualizar status admin com retry
+        const adminUrl = `${process.env.STORAGE_API_URL}/api/admin`;
+        
+        for (let attempt = 1; attempt <= 3; attempt++) {
             try {
-                const axios = require('axios');
-                const adminUrl = process.env.STORAGE_API_URL ? `${process.env.STORAGE_API_URL}/api/admin?operation=sync-status-update` : 'https://bundleset-api-storage.vercel.app/api/admin?operation=sync-status-update';
                 await axios.post(adminUrl, {
                     data_type: 'bundlesDetailed',
                     is_complete: true,
-                    total_records: bundlesToProcess.length,
-                    last_session_id: updateState.sessionId
+                    total_records: bundlesToProcess?.length || updateState.completed || 0,
+                    last_session_id: updateState.sessionId,
+                    attempt: attempt
                 }, {
                     headers: {
                         'x-api-key': process.env.STORAGE_API_KEY || '',
                         'Content-Type': 'application/json'
                     },
-                    timeout: 15000
+                    timeout: 30000 // 30s timeout
                 });
-                console.log('✅ sync_status atualizado na API admin (bundlesDetailed)');
+                
+                console.log(`✅ sync_status atualizado na API admin (bundlesDetailed) - Tentativa ${attempt}`);
+                break; // Sucesso, sai do loop
+                
             } catch (err) {
-                console.warn('⚠️ Falha ao atualizar sync_status na API admin (bundlesDetailed):', err.message);
-            }
-        } catch (error) {
-            console.error('❌ Erro ao solicitar a finalização da sessão de detalhes:', error.message);
-        }
-
-        // === RELATÓRIO FINAL ===
-        const finalConfig = this.performanceManager.getCurrentConfig();
-        const finalPerformance = this.performanceManager.calculateCurrentPerformance();
-        const totalTime = (Date.now() - actualStartTime) / 1000;
-
-        console.log(`\n🎊 ATUALIZAÇÃO CONCLUÍDA COM SUCESSO!`);
-        console.log(`📊 RELATÓRIO FINAL:`);
-        console.log(`   ✅ Bundles processados: ${updateState.completed}/${bundlesToProcess.length} (${((updateState.completed / bundlesToProcess.length) * 100).toFixed(1)}%)`);
-        console.log(`   ❌ Falhas finais: ${failedStats.total} (${failedStats.retryable} elegíveis para retry)`);
-        console.log(`   ⏱️  Tempo total: ${totalTime.toFixed(1)}s`);
-        console.log(`   🚀 Performance: ${(updateState.completed / totalTime).toFixed(2)} bundles/s`);
-        console.log(`   🧠 Config final adaptativa: ${finalConfig.delay}ms delay, ${finalConfig.parallel} parallel`);
-        console.log(`   🎯 Taxa de sucesso: ${finalPerformance ? (finalPerformance.successRate * 100).toFixed(1) + '%' : 'N/A'}`);
-        console.log(`   ☁️  Fonte de verdade: Storage API (100% sincronizada)`);
-
-        return {
-            success: true,
-            totalBundles: updateState.completed,
-            totalAttempted: bundlesToProcess.length,
-            failedStats,
-            finalPerformance,
-            totalTime,
-            optimizedFlow: true,
-            dataSource: 'storage_api'
-        };
-    }
-
-    /**
-     * Logs de progresso
-     */
-    _logProgress(batchIndex, updateState, bundlesToProcess, batchTime, actualStartTime) {
-        const elapsed = (Date.now() - actualStartTime) / 1000;
-        const avgBatchTime = batchTime / 1000;
-        const totalBatches = Math.ceil(bundlesToProcess.length / this.performanceManager.currentParallel);
-        const remaining = totalBatches - batchIndex - 1;
-        const estimatedTimeLeft = remaining * avgBatchTime;
-
-        console.log(`📈 Progresso: ${updateState.completed}/${bundlesToProcess.length} | Tempo: ${elapsed.toFixed(1)}s | ETA: ${estimatedTimeLeft.toFixed(1)}s | Resumos: ${updateState.resumeCount}`);
-    }
-
-    /**
-     * Processo de finalização
-     */
-    async _finalizationProcess(detailedBundles, bundlesToProcess, updateState, limitForTesting, actualStartTime) {
-        console.log(`🎉 Processamento concluído em ${(Date.now() - actualStartTime) / 1000}s`);
-
-        // Relatório final do sistema adaptativo
-        const finalConfig = this.performanceManager.getCurrentConfig();
-        const failedReport = this.performanceManager.getFailedBundlesReport();
-        const finalPerformance = this.performanceManager.calculateCurrentPerformance();
-        const failedStats = this.failedManager.getStats();
-
-        console.log(`\n🧠 RELATÓRIO FINAL ADAPTATIVO:`);
-        console.log(`   🎯 Performance final: ${finalPerformance ? (finalPerformance.successRate * 100).toFixed(1) + '%' : 'N/A'} sucesso`);
-        console.log(`   ⚙️  Configuração final: ${finalConfig.delay}ms delay, ${finalConfig.parallel} parallel`);
-        console.log(`   🔧 Otimizações realizadas: ${finalConfig.optimizations}`);
-        console.log(`   ❌ Bundles problemáticos: ${failedReport.count} únicos`);
-
-        if (finalConfig.bestConfig) {
-            console.log(`   🏆 Melhor configuração encontrada: ${finalConfig.bestConfig.delay}ms, ${finalConfig.bestConfig.parallel} parallel (lote ${finalConfig.bestConfig.batchIndex})`);
-        }
-
-        // Remove duplicatas e salva resultado final
-        const uniqueDetailedBundles = Array.from(new Map(detailedBundles.map(bundle => [bundle.bundleid, bundle])).values());
-
-        console.log(`\n💾 Salvando dados finais...`);
-        console.log(`📊 Total único processado: ${uniqueDetailedBundles.length} bundles`);
-
-        // Atualiza estado para completo
-        updateState.status = 'completed';
-        updateState.completed = bundlesToProcess.length;
-
-        // Sincronização final
-        if (!limitForTesting && uniqueDetailedBundles.length > 0) {
-            const finalSyncResult = await this.syncService.performFinalSync(uniqueDetailedBundles, bundlesToProcess);
-            if (finalSyncResult.synced) {
-                // Limpa arquivos locais após sincronização final
-                await this.syncService.cleanupLocalFiles([
-                    this.stateManager.BUNDLES_DETAILED_FILE,
-                    this.stateManager.UPDATE_STATE_FILE,
-                    this.failedManager.FAILED_BUNDLES_FILE
-                ]);
+                console.warn(`⚠️ Falha na tentativa ${attempt}/3 ao atualizar sync_status:`, err.message);
+                
+                if (attempt < 3) {
+                    console.log(`⏳ Aguardando 8s antes da próxima tentativa...`);
+                    await this._delay(8000);
+                } else {
+                    console.error('❌ Todas as tentativas falharam ao atualizar sync_status (continuando mesmo assim)');
+                }
             }
         }
 
-        // Salva resultado final
-        const result = await this.stateManager.saveDetailedBundlesData(uniqueDetailedBundles, bundlesToProcess, true, limitForTesting, actualStartTime, updateState);
-
-        // Limpa estado de atualização
-        await this.stateManager.clearUpdateState();
-
-        // Processa fila de retry se há falhas
-        if (failedStats.retryable > 0) {
-            console.log(`\n🔄 Processando ${failedStats.retryable} bundles elegíveis para retry...`);
-            const retryResult = await this.failedManager.processRetryQueue(
-                (bundleId) => this.scrapingService.retryFailedBundle(bundleId)
-            );
-            console.log(`✅ Retry concluído: ${retryResult.success} sucessos de ${retryResult.processed} tentativas`);
-        }
-
-        console.log(`\n🎊 ATUALIZAÇÃO CONCLUÍDA COM SUCESSO!`);
-        console.log(`📊 Resultado final:`);
-        console.log(`   ✅ Bundles processados: ${uniqueDetailedBundles.length}/${bundlesToProcess.length} (${((uniqueDetailedBundles.length / bundlesToProcess.length) * 100).toFixed(1)}%)`);
-        console.log(`   ❌ Falhas registradas: ${failedStats.total} (${failedStats.retryable} elegíveis para retry)`);
-        console.log(`   ⏱️  Tempo total: ${((Date.now() - actualStartTime) / 1000).toFixed(1)}s`);
-        console.log(`   🚀 Performance: ${(uniqueDetailedBundles.length / ((Date.now() - actualStartTime) / 1000)).toFixed(2)} bundles/s`);
-
-        return {
-            success: true,
-            totalBundles: uniqueDetailedBundles.length,
-            totalAttempted: bundlesToProcess.length,
-            failedStats,
-            finalPerformance,
-            result
+        return { 
+            completed: updateState.completed, 
+            sessionId: updateState.sessionId,
+            finalConfig: finalConfig
         };
     }
 
-    /**
-     * Helper para delay
-     */
     async _delay(ms) {
         return new Promise(resolve => setTimeout(resolve, ms));
     }
 
-
-    /**
-     * Processa apenas bundles que falharam
-     */
     async processFailedBundles(existingDetailedBundles = []) {
-        console.log('\n🔄 INICIANDO PROCESSAMENTO DE RETRY...');
-
-        const loaded = await this.failedManager.loadFailedQueue();
-        if (!loaded) {
-            console.log('📭 Nenhuma queue de falhas encontrada');
-            return { processed: 0, success: 0, failed: 0 };
+        console.log('🔄 Processando bundles que falharam anteriormente...');
+        
+        const failedBundles = await this.failedManager.getFailedBundles();
+        if (failedBundles.length === 0) {
+            console.log('✅ Nenhum bundle falho encontrado para reprocessar.');
+            return { processed: 0, successful: 0 };
         }
 
-        return await this.failedManager.processRetryQueue(
-            (bundleId) => this.scrapingService.retryFailedBundle(bundleId)
-        );
+        console.log(`📋 Encontrados ${failedBundles.length} bundles falhos para reprocessar`);
+        return await this.updateBundlesDetailed(failedBundles, null, 'pt');
     }
 }
 
-// Instância singleton
-const updateBundlesOrchestrator = new UpdateBundlesOrchestrator();
-
-module.exports = {
-    updateBundlesWithDetails: (language, limitForTesting) =>
-        updateBundlesOrchestrator.updateBundlesWithDetails(language, limitForTesting),
-
-
-    processFailedBundles: (existingDetailedBundles) =>
-        updateBundlesOrchestrator.processFailedBundles(existingDetailedBundles),
-
-    // Para compatibilidade com código existente
-    UpdateBundlesOrchestrator
-};
+module.exports = UpdateBundlesOrchestrator;

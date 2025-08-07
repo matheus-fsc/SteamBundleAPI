@@ -87,7 +87,7 @@ router.get('/api/test-update', authenticateApiKey, adminRateLimit, async (req, r
             });
         }
         console.log(`[TEST] Iniciando atualização de teste com ${limit} bundles...`);
-        updateController.executeControlledUpdate(() => updateBundlesWithDetails('brazilian', limit), 'test-update');
+        updateController.executeControlledUpdate(() => updateBundlesWithDetails('english', limit), 'test-update');
         res.status(202).json({ 
             message: `Teste de atualização iniciado em segundo plano (${limit} bundles).`,
             status: updateController.getStatus() 

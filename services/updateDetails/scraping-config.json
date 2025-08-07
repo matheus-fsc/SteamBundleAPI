@@ -1,0 +1,78 @@
+{
+  "delays": {
+    "betweenRequests": 1000,
+    "afterError": 2000,
+    "afterRateLimit": 10000,
+    "afterAgeGate": 3000,
+    "randomVariation": 2000
+  },
+  "timeouts": {
+    "request": 25000,
+    "nsfw": 15000,
+    "fallback": 12000
+  },
+  "retries": {
+    "maxAttempts": 1,
+    "delayMultiplier": 2,
+    "backoffStrategy": "exponential"
+  },
+  "fallback": {
+    "enabled": true,
+    "maxApps": 15,
+    "batchSize": 3,
+    "delay": 800
+  },
+  "extraction": {
+    "enableMultipleSelectors": true,
+    "enableFallbackDescription": true,
+    "enablePriceNormalization": true,
+    "maxDescriptionLength": 500
+  },
+  "performance": {
+    "parallelBundles": 2,
+    "conservativeMode": true,
+    "enableGarbageCollection": true,
+    "monitorPerformance": true
+  },
+  "logging": {
+    "level": "warn",
+    "enableFileLogging": true,
+    "enableConsoleColors": true,
+    "logPerformanceMetrics": true
+  },
+  "environments": {
+    "development": {
+      "delays": {
+        "betweenRequests": 500
+      },
+      "logging": {
+        "level": "debug"
+      },
+      "performance": {
+        "parallelBundles": 1
+      }
+    },
+    "production": {
+      "delays": {
+        "betweenRequests": 1000
+      },
+      "performance": {
+        "conservativeMode": true
+      },
+      "logging": {
+        "level": "warn"
+      }
+    },
+    "testing": {
+      "delays": {
+        "betweenRequests": 200
+      },
+      "retries": {
+        "maxAttempts": 1
+      },
+      "fallback": {
+        "maxApps": 5
+      }
+    }
+  }
+}

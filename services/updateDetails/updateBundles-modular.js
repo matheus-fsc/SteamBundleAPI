@@ -10,7 +10,7 @@ const { FailedBundlesManager } = require('./FailedBundlesManager');
 const { BundleScrapingService } = require('./BundleScrapingService');
 const { StateManager } = require('./StateManager');
 const { StorageSyncService } = require('./StorageSyncService');
-const { UpdateBundlesOrchestrator } = require('./UpdateBundlesOrchestrator');
+const UpdateBundlesOrchestrator = require('./UpdateBundlesOrchestrator');
 
 // Importação do storage sync existente
 const { storageSyncManager } = require('../storageSync');
@@ -23,23 +23,27 @@ const failedManager = new FailedBundlesManager(storageSyncManager);
 const scrapingService = new BundleScrapingService();
 
 // Orquestrador principal
-const orchestrator = new UpdateBundlesOrchestrator({
-    storageSyncService,
-    stateManager,
-    adaptiveManager,
-    failedManager,
-    scrapingService
-});
+const orchestrator = new UpdateBundlesOrchestrator();
 
 /**
  * Função principal compatível com o sistema original
  */
-const updateBundlesWithDetails = async (language = 'brazilian', limitForTesting = null) => {
+const updateBundlesWithDetails = async (language = 'english', limitForTesting = null) => {
     console.log('🚀 INICIANDO ATUALIZAÇÃO COM ARQUITETURA MODULAR V2');
     console.log(`📁 Módulos carregados de: services/updateDetails/`);
     console.log('');
     
-    return await orchestrator.updateBundlesWithDetails(language, limitForTesting);
+    // Primeiro carregar bundles básicos
+    const bundlesResponse = await storageSyncService.loadStorageDataWithRetry('bundles');
+    if (!bundlesResponse || !bundlesResponse.bundles || bundlesResponse.bundles.length === 0) {
+        throw new Error('Nenhum bundle básico encontrado para processar');
+    }
+    
+    const bundles = bundlesResponse.bundles; // Extrair array de bundles
+    console.log(`📦 ${bundles.length} bundles básicos carregados para processamento detalhado`);
+    
+    // Processar bundles detalhados
+    return await orchestrator.updateBundlesDetailed(bundles, limitForTesting, language);
 };
 
 /**

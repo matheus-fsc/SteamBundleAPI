@@ -111,8 +111,8 @@ class StorageSyncManager {
 
     // [CORRIGIDO] Finaliza a sessão, acionando o processamento na API
     async finishSyncSession(sessionId) {
-        // A URL foi corrigida de '/api/sync/finish' para '/api/finish'
-        const apiCall = () => axios.post(`${this.storageApiUrl}/api/finish`, {}, {
+        // A URL foi corrigida de '/api/sync/finish' para '/api/finish' e adicionado parâmetro type=basic
+        const apiCall = () => axios.post(`${this.storageApiUrl}/api/finish?type=basic`, {}, {
             headers: { 'x-api-key': this.apiKey, 'X-Session-ID': sessionId }
         });
 
@@ -211,13 +211,65 @@ class StorageSyncManager {
 
     /**
      * Consulta bundles básicos usando a nova rota otimizada
+     * CORRIGIDO: Agora busca TODOS os bundles disponíveis usando paginação
      */
     async getBundles() {
         try {
-            const response = await axios.get(`${this.storageApiUrl}/api/bundles`, {
-                timeout: this.timeout
-            });
-            return response.data;
+            let allBundles = [];
+            let offset = 0;
+            const limit = 1000; // Busca 1000 por vez para otimizar
+            let hasMore = true;
+            
+            console.log('🔍 Buscando TODOS os bundles básicos da API...');
+            
+            while (hasMore) {
+                const response = await axios.get(`${this.storageApiUrl}/api/bundles`, {
+                    timeout: this.timeout,
+                    params: {
+                        limit: limit,
+                        offset: offset
+                    }
+                });
+                
+                const responseData = response.data;
+                const bundles = responseData?.data?.bundles || [];
+                
+                if (bundles.length > 0) {
+                    // Debug: mostra os primeiros IDs para verificar se são corretos
+                    const firstFewIds = bundles.slice(0, 3).map(b => b.id).join(', ');
+                    console.log(`📦 Carregados ${bundles.length} bundles (total: ${allBundles.length})`);
+                    console.log(`🔍 Primeiros IDs retornados pela API: ${firstFewIds}`);
+                    
+                    allBundles.push(...bundles);
+                    
+                    // Verifica se há mais dados baseado na resposta da API
+                    hasMore = responseData?.pagination?.hasMore || false;
+                    offset += limit;
+                } else {
+                    hasMore = false;
+                }
+                
+                // Pequeno delay para não sobrecarregar a API
+                if (hasMore) {
+                    await this.delay(100);
+                }
+            }
+            
+            console.log(`✅ Total de ${allBundles.length} bundles básicos carregados da API`);
+            
+            // Retorna no formato esperado pelo sistema
+            return {
+                data: {
+                    bundles: allBundles,
+                    count: allBundles.length,
+                    totalRecords: allBundles.length
+                },
+                metadata: {
+                    retrievedAt: new Date().toISOString(),
+                    dataType: 'bundles_complete',
+                    optimized: true
+                }
+            };
         } catch (error) {
             console.error('❌ Erro ao buscar bundles básicos:', error.message);
             throw error;
@@ -226,13 +278,61 @@ class StorageSyncManager {
 
     /**
      * Consulta bundles detalhados usando a nova rota otimizada
+     * CORRIGIDO: Agora busca TODOS os bundles detalhados disponíveis usando paginação
      */
     async getBundlesDetailed() {
         try {
-            const response = await axios.get(`${this.storageApiUrl}/api/bundles-detailed`, {
-                timeout: this.timeout
-            });
-            return response.data;
+            let allBundles = [];
+            let offset = 0;
+            const limit = 1000; // Busca 1000 por vez para otimizar
+            let hasMore = true;
+            
+            console.log('🔍 Buscando TODOS os bundles detalhados da API...');
+            
+            while (hasMore) {
+                const response = await axios.get(`${this.storageApiUrl}/api/bundles-detailed`, {
+                    timeout: this.timeout,
+                    params: {
+                        limit: limit,
+                        offset: offset
+                    }
+                });
+                
+                const responseData = response.data;
+                const bundles = responseData?.data?.bundles || responseData?.bundles || [];
+                
+                if (bundles.length > 0) {
+                    allBundles.push(...bundles);
+                    console.log(`📦 Carregados ${bundles.length} bundles detalhados (total: ${allBundles.length})`);
+                    
+                    // Verifica se há mais dados baseado na resposta da API
+                    hasMore = responseData?.pagination?.hasMore || false;
+                    offset += limit;
+                } else {
+                    hasMore = false;
+                }
+                
+                // Pequeno delay para não sobrecarregar a API
+                if (hasMore) {
+                    await this.delay(100);
+                }
+            }
+            
+            console.log(`✅ Total de ${allBundles.length} bundles detalhados carregados da API`);
+            
+            // Retorna no formato esperado pelo sistema
+            return {
+                data: {
+                    bundles: allBundles,
+                    count: allBundles.length,
+                    totalRecords: allBundles.length
+                },
+                metadata: {
+                    retrievedAt: new Date().toISOString(),
+                    dataType: 'bundlesDetailed_complete',
+                    optimized: true
+                }
+            };
         } catch (error) {
             console.error('❌ Erro ao buscar bundles detalhados:', error.message);
             throw error;

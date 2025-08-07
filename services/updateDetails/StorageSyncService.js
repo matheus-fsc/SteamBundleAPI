@@ -3,7 +3,55 @@
  * Controla upload incremental, limpeza de cache e sincronização automática
  */
 
+const BundleDataMapper = require('./BundleDataMapper');
+
 class StorageSyncService {
+    constructor(storageSyncManager) {
+        this.storageSyncManager = storageSyncManager;
+        this.SYNC_INTERVAL_BUNDLES = 200; // Sincroniza a cada 200 bundles
+        this.lastSyncProgress = 0; // Rastreia última sincronização
+        this.dataMapper = new BundleDataMapper(); // Mapeador de dados
+        
+        console.log('🔄 Serviço de Sincronização inicializado:');
+        console.log(`   📊 Intervalo de sync: ${this.SYNC_INTERVAL_BUNDLES} bundles`);
+        console.log(`   ☁️  Backend: Storage API com PostgreSQL`);
+        console.log(`   🔄 Mapeador de dados: Ativo`);
+    }
+
+    /**
+     * [NOVO] Método específico para sincronizar bundles detalhados com mapeamento
+     * @param {Array} bundlesData - Array de dados brutos do scraping
+     * @param {Object} metadata - Metadados da sessão
+     */
+    async syncDetailedBundles(bundlesData, metadata = {}) {
+        console.log(`📤 SYNC DETAILED: Preparando ${bundlesData.length} bundles para envio...`);
+
+        try {
+            // Mapear dados do chunk_data para o formato do banco
+            const mappedBundles = this.dataMapper.mapBundlesBatch(bundlesData);
+            
+            if (mappedBundles.length === 0) {
+                throw new Error('Nenhum bundle foi mapeado com sucesso');
+            }
+
+            // Obter estatísticas do mapeamento
+            const stats = this.dataMapper.getMapingStats(bundlesData, mappedBundles);
+            console.log(`📊 Estatísticas do mapeamento:`, stats);
+
+            // Criar payload para API
+            const payload = this.dataMapper.createSyncPayload(mappedBundles, metadata);
+
+            // Enviar para API
+            const result = await this.storageSyncManager.syncDetailedBatch(payload.bundles, payload.metadata);
+
+            console.log(`✅ SYNC DETAILED: ${mappedBundles.length} bundles enviados com sucesso`);
+            return result;
+
+        } catch (error) {
+            console.error('❌ ERRO SYNC DETAILED:', error.message);
+            throw error;
+        }
+    }
     // [NOVO] Chama o método para finalizar a sessão de detalhes
     async finishDetailedSyncSession(sessionId) {
         return await this.storageSyncManager.finishDetailedSyncSession(sessionId);
@@ -17,15 +65,6 @@ class StorageSyncService {
         }
         console.log(`✅ Sessão de detalhes iniciada com sucesso: ${sessionId}`);
         return sessionId;
-    }
-    constructor(storageSyncManager) {
-        this.storageSyncManager = storageSyncManager;
-        this.SYNC_INTERVAL_BUNDLES = 200; // Sincroniza a cada 200 bundles
-        this.lastSyncProgress = 0; // Rastreia última sincronização
-        
-        console.log('🔄 Serviço de Sincronização inicializado:');
-        console.log(`   📊 Intervalo de sync: ${this.SYNC_INTERVAL_BUNDLES} bundles`);
-        console.log(`   ☁️  Backend: Storage API com PostgreSQL`);
     }
 
     /**

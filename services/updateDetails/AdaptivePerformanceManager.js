@@ -14,10 +14,10 @@ const ADAPTIVE_CONFIG = {
     INITIAL_DELAY: 1500,   // Mais conservador para Render
     DELAY_STEP: 300,       // Ajustes mais suaves
     
-    // Configurações de paralelismo - MUITO LIMITADO PARA RENDER FREE
-    MIN_PARALLEL: 2,
-    MAX_PARALLEL: 6,       // MÁXIMO 4 para 0.1 core (muito conservador)
-    INITIAL_PARALLEL: 4,   // Inicia com apenas 4 parallel
+    // Configurações de paralelismo - ULTRA CONSERVADOR PARA RENDER 512MB
+    MIN_PARALLEL: 1,       // Mínimo 1 para casos críticos
+    MAX_PARALLEL: 3,       // MÁXIMO 3 para render 512MB (muito limitado)
+    INITIAL_PARALLEL: 2,   // Inicia com apenas 2 parallel para economizar RAM
 
     // Configurações de estabilidade - MAIS DADOS PARA DECISÕES
     STABILITY_WINDOW: 8,   // Menos lotes para análise (economiza RAM)
