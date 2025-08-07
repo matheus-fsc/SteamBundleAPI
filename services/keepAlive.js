@@ -164,6 +164,10 @@ class RenderKeepAlive {
     /**
      * Status do keep-alive
      */
+    isRunning() {
+        return this.isActive && this.intervalId !== null;
+    }
+
     getStatus() {
         if (!this.isActive) {
             return {
