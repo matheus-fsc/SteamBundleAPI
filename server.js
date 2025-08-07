@@ -97,9 +97,20 @@ app.listen(PORT, async () => {
                     if (initStatus.needsBasicUpdate) {
                         console.log('✨ [ARRANQUE] Etapa 1: A procurar bundles básicos...');
                         await updateController.executeControlledUpdate(fetchAndSaveBundles, 'initial-fetch-basic');
+                        
+                        // ✅ CORREÇÃO CRÍTICA: Verificar se agora precisa da atualização detalhada
+                        console.log('🔍 [ARRANQUE] Verificando se é necessária atualização detalhada após fetch básico...');
+                        const postBasicCheck = await updateController.checkForUpdatesNeeded();
+                        
+                        if (postBasicCheck.needsDetailedUpdate) {
+                            console.log('✨ [ARRANQUE] Etapa 2: A procurar detalhes dos bundles (detectado automaticamente)...');
+                            await updateController.executeControlledUpdate(updateBundlesWithDetails, 'initial-fetch-detailed');
+                        } else {
+                            console.log('ℹ️ [ARRANQUE] Atualização detalhada não necessária após fetch básico.');
+                        }
                     }
                     
-                    // Executa a atualização detalhada apenas se for necessária
+                    // Executa a atualização detalhada apenas se for necessária (caso original)
                     if (initStatus.needsDetailedUpdate) {
                         console.log('✨ [ARRANQUE] Etapa 2: A procurar detalhes dos bundles...');
                         await updateController.executeControlledUpdate(updateBundlesWithDetails, 'initial-fetch-detailed');

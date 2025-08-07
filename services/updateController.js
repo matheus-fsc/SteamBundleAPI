@@ -314,8 +314,14 @@ class UpdateController {
     }
 
     /**
-     * [ATUALIZADO] Verifica se as atualizações iniciais (básica e/ou detalhada) são necessárias.
-     * @private
+     * [PÚBLICO] Verifica se as atualizações são necessárias (usado após fetch básico)
+     */
+    async checkForUpdatesNeeded() {
+        return await this._checkForInitialUpdate();
+    }
+
+    /**
+     * [PÚBLICO] Verifica se as atualizações iniciais (básica e/ou detalhada) são necessárias.
      */
     async _checkForInitialUpdate() {
         console.log(`${this.config.logPrefix} 🔍 Verificando a necessidade de atualização inicial ou de continuação...`);

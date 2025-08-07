@@ -60,6 +60,21 @@ router.get('/api/force-update', authenticateApiKey, adminRateLimit, async (req, 
     }
 });
 
+// ✅ ENDPOINT DE EMERGÊNCIA: Forçar apenas atualização detalhada
+router.get('/api/emergency-detailed', authenticateApiKey, adminRateLimit, async (req, res) => {
+    try {
+        console.log('[EMERGENCY] Iniciando atualização detalhada de emergência...');
+        updateController.executeControlledUpdate(updateBundlesWithDetails, 'emergency-detailed');
+        res.status(202).json({ 
+            message: 'Atualização detalhada de emergência iniciada em segundo plano.',
+            status: updateController.getStatus(),
+            note: 'Este endpoint força a atualização detalhada mesmo se já houver dados'
+        });
+    } catch (error) {
+        res.status(500).json({ error: 'Erro ao iniciar atualização detalhada de emergência' });
+    }
+});
+
 // Endpoint para atualizar os detalhes das bundles (PROTEGIDO)
 router.get('/api/update-details', authenticateApiKey, adminRateLimit, async (req, res) => {
     try {
