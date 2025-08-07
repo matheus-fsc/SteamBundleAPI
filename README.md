@@ -142,7 +142,7 @@ O sistema utiliza três tabelas para atualizações sem downtime:
 - Fallback para console em desenvolvimento
 - Cleanup automático de logs antigos
 
-## � **Agendamento e Performance**
+## **Agendamento e Performance**
 
 ### Configuração Atual:
 - **Frequência**: Semanal (domingos às 3h)
