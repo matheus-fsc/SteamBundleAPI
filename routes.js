@@ -98,6 +98,37 @@ router.get('/api/test-update', authenticateApiKey, adminRateLimit, async (req, r
     }
 });
 
+// Health check para keep-alive e monitoramento
+router.get('/health', (req, res) => {
+    try {
+        const memoryUsage = process.memoryUsage();
+        const uptime = process.uptime();
+        
+        res.status(200).json({
+            status: 'healthy',
+            uptime: Math.round(uptime),
+            memory: {
+                used: Math.round(memoryUsage.heapUsed / 1024 / 1024) + 'MB',
+                total: Math.round(memoryUsage.heapTotal / 1024 / 1024) + 'MB'
+            },
+            timestamp: new Date().toISOString(),
+            pid: process.pid,
+            version: require('./package.json').version || '2.0.0'
+        });
+    } catch (error) {
+        res.status(503).json({ 
+            status: 'unhealthy', 
+            error: error.message,
+            timestamp: new Date().toISOString()
+        });
+    }
+});
+
+// Health check alternativo
+router.get('/api/health', (req, res) => {
+    res.redirect('/health');
+});
+
 // Status simples para keep-alive
 router.get('/api/status', (req, res) => {
     try {
