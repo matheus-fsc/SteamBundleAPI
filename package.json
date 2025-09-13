@@ -4,7 +4,7 @@
   "description": "API para buscar e gerenciar bundles da Steam com Storage Backend",
   "main": "server.js",
   "dependencies": {
-    "axios": "^1.7.9",
+    "axios": "^1.12.0",
     "cheerio": "^1.0.0-rc.12",
     "compression": "^1.8.1",
     "cors": "^2.8.5",
