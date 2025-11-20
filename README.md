@@ -4,11 +4,11 @@ Sistema completo de scraping de bundles da Steam com detecção de promoções f
 
 ## Características
 
-- **Scraping Híbrido**: aiohttp (rápido) + Playwright (preços dinâmicos)
+- **Scraping Híbrido**: aiohttp para requests rápidos + Playwright para preços dinâmicos
 - **Banco de Dados**: PostgreSQL com histórico completo de preços
-- **Detecção de Fraudes**: Identifica "metade do dobro" automaticamente
-- **Proteção SD Card**: Otimizado para Orange Pi (logs em RAM)
-- **Sync Cloud**: Sincronização automática com Supabase
+- **Detecção de Fraudes**: Identifica automaticamente promoções falsas do tipo "metade do dobro"
+- **Proteção SD Card**: Otimizado para Orange Pi com logs em RAM
+- **Sincronização Cloud**: Integração automática com Supabase
 - **Cron Robusto**: Execuções periódicas sem memory leaks
 
 ## Estrutura do Projeto
@@ -33,10 +33,10 @@ SteamBundleAPI/
 │   └── run_sync.py            # Helper de sincronização
 ├── docker-compose.yml          # Orquestração Docker
 ├── Dockerfile                  # Container da aplicação
-└── docs/
-    ├── ARCHITECTURE.md        # Arquitetura detalhada
-    ├── DEPLOY.md             # Guia de deploy
-    └── MIGRATION_GUIDE.md    # Guia de migração
+├── ARCHITECTURE.md             # Arquitetura detalhada
+├── DEPLOY.md                   # Guia de deploy
+├── MIGRATION_GUIDE.md          # Guia de migração
+└── OLD_VERSION_DEPRECATED.md   # Versão Node.js descontinuada
 ```
 
 ## Quick Start
@@ -87,11 +87,11 @@ Supabase Cloud (vitrine pública, API REST)
 
 ### Fluxo de Dados
 
-1. **Fase 1**: Scraping rápido com aiohttp (90% dos bundles)
-2. **Fase 2**: Scraping com Playwright para preços dinâmicos (10% restante)
+1. **Fase 1**: Scraping rápido com aiohttp para 90% dos bundles
+2. **Fase 2**: Scraping com Playwright para preços dinâmicos nos 10% restantes
 3. **Persistência**: PostgreSQL local com histórico infinito
-4. **Análise**: Detecção de promoções falsas via histórico
-5. **Sync**: Envio de dados filtrados para Supabase
+4. **Análise**: Detecção de promoções falsas via análise de histórico
+5. **Sincronização**: Envio de dados filtrados para Supabase
 
 Ver [ARCHITECTURE.md](ARCHITECTURE.md) para detalhes completos.
 
