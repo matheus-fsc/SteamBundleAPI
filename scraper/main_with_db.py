@@ -7,11 +7,11 @@ import json
 import os
 from pathlib import Path
 from typing import List, Dict
-from scraper import BundleScraper
-from filters import BundleFilter
-from logger import Logger
-from database import Database, BundleModel, ScrapingLogModel
-from browser_scraper import BrowserScraper
+from .scraper import BundleScraper
+from .filters import BundleFilter
+from .logger import Logger
+from .database import Database, BundleModel, ScrapingLogModel
+from .browser_scraper import BrowserScraper
 import datetime
 
 

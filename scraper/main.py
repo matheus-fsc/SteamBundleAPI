@@ -1,9 +1,9 @@
 import asyncio
 import json
 from pathlib import Path
-from scraper import BundleScraper
-from filters import BundleFilter
-from logger import Logger
+from .scraper import BundleScraper
+from .filters import BundleFilter
+from .logger import Logger
 
 
 async def main():
