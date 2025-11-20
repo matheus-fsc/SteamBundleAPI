@@ -1,0 +1,14 @@
+# Crontab para execução periódica do scraper no Docker
+# Formato: minuto hora dia mês dia-da-semana comando
+
+# Scraping completo: Todo dia às 3:00 AM (horário de menos carga)
+0 3 * * * cd /app && python -m scraper.main_with_db >> /proc/1/fd/1 2>&1
+
+# Scraping rápido: Todo dia às 15:00 PM (meio do dia)
+0 15 * * * cd /app && python -m scraper.main_with_db >> /proc/1/fd/1 2>&1
+
+# Sincronização Supabase: A cada 6 horas (apenas bundles recentes)
+0 */6 * * * cd /app && python -m scraper.sync_supabase >> /proc/1/fd/1 2>&1
+
+# Nota: >> /proc/1/fd/1 redireciona output para stdout do Docker
+# Isso permite ver logs com 'docker compose logs -f'

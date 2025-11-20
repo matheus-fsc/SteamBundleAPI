@@ -1,0 +1,117 @@
+# Docker Compose para Steam Bundle Scraper
+# Otimizado para Orange Pi com proteção do cartão SD
+
+version: '3.8'
+
+services:
+  # Banco de dados PostgreSQL
+  postgres:
+    image: postgres:15-alpine
+    container_name: steam_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: steam
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
+      POSTGRES_DB: steam_bundles
+    volumes:
+      # Dados do banco em volume Docker (não no SD Card)
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U steam"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Scraper Python
+  scraper:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: steam_scraper
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # Configurações de ambiente
+      DATABASE_URL: postgresql+asyncpg://steam:${DB_PASSWORD:-changeme}@postgres/steam_bundles
+      DOCKER_ENV: "true"              # Ativa modo Docker
+      DISABLE_FILE_LOGS: "true"        # Desabilita logs em arquivo
+      PYTHONUNBUFFERED: "1"            # Output imediato
+      
+      # Configurações do scraper (opcional)
+      REQUEST_DELAY: ${REQUEST_DELAY:-2}
+      MAX_CONCURRENT_REQUESTS: ${MAX_CONCURRENT_REQUESTS:-5}
+    
+    # IMPORTANTE: Logs em tmpfs (RAM) para proteger o SD Card
+    tmpfs:
+      - /app/logs:size=50M
+    
+    # Volume apenas para o código (read-only em produção)
+    volumes:
+      - ./scraper:/app/scraper:ro
+    
+    # Comando para executar
+    # Pode ser ajustado para usar cron ou schedule
+    command: python -m scraper.main_with_db
+    
+    # Limites de recursos (importante para Orange Pi)
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'      # Limita CPU
+          memory: 1G       # Limita memória
+        reservations:
+          memory: 512M
+
+  # Cron para execução periódica (RECOMENDADO para produção)
+  scraper-cron:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: steam_scraper_cron
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+asyncpg://steam:${DB_PASSWORD:-changeme}@postgres/steam_bundles
+      DOCKER_ENV: "true"
+      DISABLE_FILE_LOGS: "true"
+      PYTHONUNBUFFERED: "1"
+      TZ: America/Sao_Paulo
+      
+      # Supabase (opcional - descomente se usar)
+      # ENABLE_SUPABASE_SYNC: "true"
+      # SUPABASE_URL: ${SUPABASE_URL}
+      # SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY}
+    
+    tmpfs:
+      - /app/logs:size=50M
+    
+    volumes:
+      - ./scraper:/app/scraper:ro
+      - ./scripts/crontab:/etc/crontabs/root:ro
+      - ./scripts/entrypoint-cron.sh:/entrypoint.sh:ro
+    
+    # Usa script de entrypoint personalizado
+    entrypoint: ["/bin/sh", "/entrypoint.sh"]
+    
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          memory: 256M
+
+volumes:
+  # Volume Docker gerenciado (melhor performance que bind mount no SD)
+  postgres_data:
+    driver: local
+
+networks:
+  default:
+    name: steam_network

@@ -1,0 +1,25 @@
+# Dependências do Steam Bundle Scraper
+
+# HTTP assíncrono
+aiohttp>=3.9.0
+
+# Parsing de HTML
+beautifulsoup4>=4.12.0
+lxml>=4.9.0
+
+# Banco de Dados
+sqlalchemy>=2.0.0
+aiosqlite>=0.19.0  # SQLite assíncrono (para desenvolvimento)
+asyncpg>=0.29.0    # PostgreSQL assíncrono (para produção no Orange Pi)
+
+# Sincronização Supabase (opcional)
+supabase>=2.0.0
+
+# Browser automation (para preços dinâmicos)
+playwright>=1.40.0
+
+# Opcional: para progress bars
+tqdm>=4.66.0
+
+# Opcional: para validação de dados
+pydantic>=2.5.0
