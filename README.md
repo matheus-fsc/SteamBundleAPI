@@ -313,21 +313,6 @@ print('OK' if sync.test_connection() else 'FALHOU')
 "
 ```
 
-## Testes
-
-```bash
-# Teste completo
-python test_scraper.py
-
-# Teste de scraping
-python test_scraper.py single
-
-# Teste de listagem
-python test_scraper.py list
-
-# Teste de banco de dados
-python test_database.py
-```
 
 Ver [TEST_RESULTS.md](TEST_RESULTS.md) para resultados.
 
@@ -394,4 +379,3 @@ MIT License - veja LICENSE para detalhes.
 
 **v1.x** (Deprecated)
 - Versão Node.js descontinuada
-- Ver [OLD_VERSION_DEPRECATED.md](OLD_VERSION_DEPRECATED.md)
