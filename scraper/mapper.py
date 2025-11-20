@@ -1,6 +1,3 @@
-"""
-Mapeia HTML para objetos estruturados - equivalente ao BundleDataMapper.js
-"""
 from bs4 import BeautifulSoup
 from typing import Dict, List, Optional
 from datetime import datetime

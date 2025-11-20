@@ -1,7 +1,3 @@
-"""
-Logger simples - equivalente ao PersistentLogger.js
-OTIMIZADO PARA ORANGE PI: Logs vão para stdout para proteção do cartão SD
-"""
 import logging
 from datetime import datetime
 from pathlib import Path
@@ -10,13 +6,6 @@ import os
 
 
 class Logger:
-    """
-    Logger para o scraper com suporte a arquivo e console
-    
-    MODO DOCKER (padrão): Logs apenas para stdout, Docker gerencia
-    MODO DESENVOLVIMENTO: Logs para arquivo e console
-    """
-    
     def __init__(self, name: str = 'steam_scraper', log_dir: Optional[str] = None):
         self.logger = logging.getLogger(name)
         self.logger.setLevel(logging.INFO)

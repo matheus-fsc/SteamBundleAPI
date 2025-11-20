@@ -1,6 +1,6 @@
 # Steam Bundle Scraper - Setup e Deploy no Orange Pi
 
-## 🚀 Quick Start (Desenvolvimento Local)
+## Quick Start (Desenvolvimento Local)
 
 ```bash
 # 1. Instalar dependências
@@ -14,7 +14,7 @@ playwright install chromium
 python main_with_db.py
 ```
 
-## 🐳 Deploy no Orange Pi com Docker
+## Deploy no Orange Pi com Docker
 
 ### Pré-requisitos
 
@@ -42,7 +42,7 @@ nano .env  # Edite e adicione senha segura
 docker compose up -d
 
 # 4. Verifique logs
-docker compose logs -f scraper
+docker compose logs -f scraper-cron
 
 # 5. Verifique banco de dados
 docker compose exec postgres psql -U steam -d steam_bundles
@@ -76,7 +76,7 @@ docker stats
 docker compose down -v  # Remove volumes também
 ```
 
-## 📊 Estrutura de Banco de Dados
+## Estrutura de Banco de Dados
 
 ### Tabelas
 
@@ -113,7 +113,7 @@ FROM bundles
 WHERE is_valid = true;
 ```
 
-## ⚙️ Configurações
+## Configurações
 
 ### Proteção do Cartão SD
 
@@ -137,7 +137,7 @@ deploy:
 
 ### Frequência de Scraping
 
-#### Opção 1: Cron no Docker (RECOMENDADO) ✅
+#### Opção 1: Cron no Docker (RECOMENDADO)
 
 O projeto já vem com serviço `scraper-cron` configurado:
 
@@ -155,10 +155,10 @@ docker compose logs -f scraper-cron
 ```
 
 **Vantagens do Cron no Docker:**
-- ✅ Processo morre e renasce limpo (evita memory leaks)
-- ✅ Isolado do sistema host
-- ✅ Logs integrados com Docker
-- ✅ Fácil de ajustar horários
+- Processo morre e renasce limpo (evita memory leaks)
+- Isolado do sistema host
+- Logs integrados com Docker
+- Fácil de ajustar horários
 
 **Customizar horários:**
 
@@ -182,109 +182,7 @@ docker compose exec scraper python -m scraper.main_with_db
 docker compose exec scraper python -m scraper.sync_supabase
 ```
 
-## 🔍 Estratégia Híbrida de Scraping
-
-O scraper usa duas fases:
-
-### Fase 1: aiohttp (Rápido)
-- Scraping básico de todos os bundles
-- Detecta bundles com preços dinâmicos
-- ~90% dos bundles funcionam aqui
-
-### Fase 2: Playwright (Pesado)
-- Apenas para bundles que falharam na Fase 1
-- Executa JavaScript para preços dinâmicos
-- Bundles "Complete Your Collection"
-
-### Detecção Automática
-
-O scraper detecta automaticamente quando precisa de browser:
-- Preço None ou 0
-- Texto "Complete Your Collection"
-- Elementos de preço dinâmico
-
-## 📈 Análise de Promoções Reais
-
-O sistema mantém histórico de preços para detectar "metade do dobro":
-
-```python
-# Analisar bundle específico
-from scraper.database import Database
-
-async def analyze():
-    db = Database()
-    await db.init_db()
-    
-    bundle = await db.get_bundle_by_id('28631')
-    analysis = bundle.get_real_discount()
-    
-    print(analysis)
-    # {'is_real': False, 'reason': 'Preço original inflado', ...}
-
-asyncio.run(analyze())
-```
-
-## 🛡️ Segurança
-
-- Containers rodam como usuário não-root
-- Banco de dados com senha forte (configure em `.env`)
-- Read-only volumes quando possível
-- Network isolada no Docker
-
-## 📝 Monitoramento
-
-```bash
-# Ver uso de recursos
-docker stats
-
-# Ver logs em tempo real
-docker compose logs -f
-
-# Ver últimas execuções
-docker compose exec postgres psql -U steam -d steam_bundles -c "SELECT * FROM scraping_logs ORDER BY started_at DESC LIMIT 5;"
-```
-
-## 🐛 Troubleshooting
-
-### Playwright não funciona
-
-```bash
-# Reinstalar browsers
-docker compose exec scraper playwright install chromium
-```
-
-### Banco de dados não conecta
-
-```bash
-# Verificar se PostgreSQL está rodando
-docker compose ps
-
-# Ver logs do banco
-docker compose logs postgres
-
-# Testar conexão
-docker compose exec postgres psql -U steam -d steam_bundles
-```
-
-### Orange Pi fica lento
-
-```bash
-# Reduza concorrência no .env
-MAX_CONCURRENT_REQUESTS=2
-REQUEST_DELAY=3
-
-# Reduza recursos no docker-compose.yml
-cpus: '0.5'
-memory: 256M
-```
-
-### Cartão SD corrompendo
-
-- Verifique se tmpfs está configurado para logs
-- Use volume Docker para PostgreSQL (não bind mount)
-- Considere usar USB/SSD externo para dados
-
-## ☁️ Sincronização com Supabase (Vitrine Pública)
+## Sincronização com Supabase (Vitrine Pública)
 
 O Orange Pi é a "fábrica" (scraping + banco local). O Supabase é a "vitrine" (API pública).
 
@@ -365,7 +263,7 @@ import { createClient } from '@supabase/supabase-js'
 
 const supabase = createClient(
   'https://seu-projeto.supabase.co',
-  'sua_anon_key'  // Chave pública, não a service_key!
+  'sua_anon_key'  // Chave pública, não a service_key
 )
 
 // Top 10 deals
@@ -389,7 +287,278 @@ const { data } = await supabase
   .order('discount', { ascending: false })
 ```
 
-## 📚 Referências
+## Estratégia Híbrida de Scraping
+
+O scraper usa duas fases:
+
+### Fase 1: aiohttp (Rápido)
+- Scraping básico de todos os bundles
+- Detecta bundles com preços dinâmicos
+- ~90% dos bundles funcionam aqui
+
+### Fase 2: Playwright (Pesado)
+- Apenas para bundles que falharam na Fase 1
+- Executa JavaScript para preços dinâmicos
+- Bundles "Complete Your Collection"
+
+### Detecção Automática
+
+O scraper detecta automaticamente quando precisa de browser:
+- Preço None ou 0
+- Texto "Complete Your Collection"
+- Elementos de preço dinâmico
+
+## Troubleshooting
+
+### Playwright não funciona
+
+```bash
+# Reinstalar browsers
+docker compose exec scraper playwright install chromium
+```
+
+### Banco de dados não conecta
+
+```bash
+# Verificar se PostgreSQL está rodando
+docker compose ps
+
+# Ver logs do banco
+docker compose logs postgres
+
+# Testar conexão
+docker compose exec postgres psql -U steam -d steam_bundles
+```
+
+### Orange Pi fica lento
+
+```bash
+# Reduza concorrência no .env
+MAX_CONCURRENT_REQUESTS=2
+REQUEST_DELAY=3
+
+# Reduza recursos no docker-compose.yml
+cpus: '0.5'
+memory: 256M
+```
+
+### Cartão SD corrompendo
+
+- Verifique se tmpfs está configurado para logs
+- Use volume Docker para PostgreSQL (não bind mount)
+- Considere usar USB/SSD externo para dados
+
+### Supabase sync falha
+
+```bash
+# Testar conexão
+docker compose exec scraper python -c "
+from scraper.sync_supabase import SupabaseSync
+sync = SupabaseSync()
+print('Conexão:', 'OK' if sync.test_connection() else 'FALHOU')
+"
+
+# Verificar credenciais no .env
+cat .env | grep SUPABASE
+```
+
+### Logs não aparecem
+
+```bash
+# Verificar variável de ambiente
+docker compose exec scraper env | grep DISABLE_FILE_LOGS
+
+# Forçar logs para stdout
+docker compose exec scraper python -c "
+import os
+os.environ['DISABLE_FILE_LOGS'] = 'true'
+"
+```
+
+## Monitoramento
+
+### Health Check Básico
+
+```bash
+# Status dos containers
+docker compose ps
+
+# Logs em tempo real
+docker compose logs -f scraper-cron
+
+# CPU e memória
+docker stats --no-stream
+```
+
+### Monitoramento do Banco
+
+```bash
+# Quantidade de bundles
+docker compose exec postgres psql -U steam -d steam_bundles -c \
+  "SELECT COUNT(*) FROM bundles;"
+
+# Última execução
+docker compose exec postgres psql -U steam -d steam_bundles -c \
+  "SELECT * FROM scraping_logs ORDER BY started_at DESC LIMIT 1;"
+
+# Top 10 descontos
+docker compose exec postgres psql -U steam -d steam_bundles -c \
+  "SELECT name, discount, final_price, currency FROM bundles 
+   WHERE is_valid = true ORDER BY discount DESC LIMIT 10;"
+
+# Bundles adicionados hoje
+docker compose exec postgres psql -U steam -d steam_bundles -c \
+  "SELECT COUNT(*) FROM bundles 
+   WHERE DATE(first_seen) = CURRENT_DATE;"
+```
+
+### Alertas (Opcional)
+
+Crie script para alertas por email/telegram:
+
+```bash
+# scripts/check_health.sh
+#!/bin/bash
+
+# Verifica se scraper está rodando
+if ! docker compose ps scraper-cron | grep -q "Up"; then
+    echo "ALERTA: Scraper não está rodando!"
+    # Enviar email/telegram aqui
+fi
+
+# Verifica última execução
+last_run=$(docker compose exec -T postgres psql -U steam -d steam_bundles -t -c \
+  "SELECT started_at FROM scraping_logs ORDER BY started_at DESC LIMIT 1;")
+
+# Se última execução foi há mais de 24h, alerta
+# ... implementar lógica de alerta
+```
+
+## Backup e Restore
+
+### Backup Manual
+
+```bash
+# Backup completo do banco
+docker compose exec postgres pg_dump -U steam steam_bundles | gzip > backup_$(date +%Y%m%d).sql.gz
+
+# Backup apenas estrutura
+docker compose exec postgres pg_dump -U steam --schema-only steam_bundles > schema_backup.sql
+
+# Backup apenas dados
+docker compose exec postgres pg_dump -U steam --data-only steam_bundles > data_backup.sql
+```
+
+### Backup Automático
+
+Adicione no crontab do host (não do container):
+
+```bash
+# crontab -e
+0 2 * * * cd /path/to/SteamBundleAPI && docker compose exec -T postgres pg_dump -U steam steam_bundles | gzip > /backups/steam_$(date +\%Y\%m\%d).sql.gz
+```
+
+### Restore
+
+```bash
+# Restore completo
+gunzip < backup_20251120.sql.gz | docker compose exec -T postgres psql -U steam steam_bundles
+
+# Restore de arquivo SQL normal
+docker compose exec -T postgres psql -U steam steam_bundles < backup.sql
+```
+
+## Segurança
+
+### Senhas Fortes
+
+```bash
+# Gerar senha segura para PostgreSQL
+openssl rand -base64 32
+
+# Adicionar no .env
+echo "DB_PASSWORD=$(openssl rand -base64 32)" >> .env
+```
+
+### Firewall
+
+```bash
+# Permitir apenas SSH e fechar outras portas
+sudo ufw default deny incoming
+sudo ufw default allow outgoing
+sudo ufw allow ssh
+sudo ufw enable
+```
+
+### Atualizações
+
+```bash
+# Atualizar sistema
+sudo apt update && sudo apt upgrade -y
+
+# Atualizar containers
+docker compose pull
+docker compose up -d
+```
+
+### Logs de Acesso
+
+```bash
+# Ver quem acessou o servidor
+sudo last
+
+# Ver tentativas de SSH
+sudo grep "Failed password" /var/log/auth.log
+```
+
+## Performance
+
+### Otimizações Orange Pi
+
+```bash
+# Aumentar swap (se RAM baixa)
+sudo dphys-swapfile swapoff
+sudo nano /etc/dphys-swapfile  # Ajuste CONF_SWAPSIZE
+sudo dphys-swapfile setup
+sudo dphys-swapfile swapon
+
+# Desabilitar serviços desnecessários
+sudo systemctl disable bluetooth
+sudo systemctl disable avahi-daemon
+```
+
+### Otimizações Docker
+
+```bash
+# Limpar containers antigos
+docker system prune -a
+
+# Limpar volumes não usados
+docker volume prune
+
+# Ver uso de disco
+docker system df
+```
+
+## Manutenção
+
+### Checklist Semanal
+
+- [ ] Verificar logs: `docker compose logs --tail 100`
+- [ ] Verificar espaço em disco: `df -h`
+- [ ] Verificar uso de memória: `free -h`
+- [ ] Verificar últimas execuções no banco
+- [ ] Testar backup e restore
+
+### Checklist Mensal
+
+- [ ] Atualizar sistema operacional
+- [ ] Atualizar imagens Docker
+- [ ] Limpar dados antigos do banco
+- [ ] Revisar configurações de cron
+- [ ] Testar sincronização Supabase
+
+## Referências
 
 - [SQLAlchemy Async](https://docs.sqlalchemy.org/en/20/orm/extensions/asyncio.html)
 - [Playwright Python](https://playwright.dev/python/)
@@ -397,3 +566,4 @@ const { data } = await supabase
 - [Orange Pi Optimization](https://www.armbian.com/orange-pi-5/)
 - [Supabase Documentation](https://supabase.com/docs)
 - [Supabase Python Client](https://supabase.com/docs/reference/python/introduction)
+- [PostgreSQL Backup](https://www.postgresql.org/docs/current/backup.html)

@@ -2,7 +2,7 @@
 
 Scraper modular em Python para extrair informações de bundles da Steam Store.
 
-## 🎯 Características
+## Características
 
 - **Scraping em duas fases**: 
   1. Varre página principal para listar todos os bundles
@@ -15,14 +15,14 @@ Scraper modular em Python para extrair informações de bundles da Steam Store.
 - **Logging completo**: Rastreamento de todo o processo
 - **Validação de dados**: Garante qualidade dos dados extraídos
 
-## 📦 Instalação
+## Instalação
 
 ```bash
 # Instalar dependências
 pip install -r requirements.txt
 ```
 
-## 🚀 Uso Básico
+## Uso Básico
 
 ### Scraping Completo
 
@@ -64,7 +64,7 @@ async with BundleScraper() as scraper:
     print(bundle)
 ```
 
-## 🎛️ Configuração
+## Configuração
 
 Edite `config.py` para ajustar:
 
@@ -83,7 +83,7 @@ ScrapingConfig.MAX_CONCURRENT_REQUESTS = 3  # 3 requests simultâneos
 ScrapingConfig.TIMEOUT = 60  # Timeout de 60 segundos
 ```
 
-## 🔍 Filtros Disponíveis
+## Filtros Disponíveis
 
 ```python
 from filters import BundleFilter
@@ -115,7 +115,7 @@ stats = filter_service.get_statistics(bundles)
 print(stats)
 ```
 
-## 📊 Estrutura de Dados
+## Estrutura de Dados
 
 Cada bundle extraído tem a seguinte estrutura:
 
@@ -143,7 +143,7 @@ Cada bundle extraído tem a seguinte estrutura:
 }
 ```
 
-## 📁 Estrutura do Projeto
+## Estrutura do Projeto
 
 ```
 scraper/
@@ -158,7 +158,7 @@ scraper/
 └── README.md              # Este arquivo
 ```
 
-## 🔧 Arquitetura
+## Arquitetura
 
 A arquitetura replica a lógica do scraper Node.js original:
 
@@ -186,7 +186,7 @@ A arquitetura replica a lógica do scraper Node.js original:
 - Logging em arquivo e console
 - Rastreamento de operações
 
-## ⚡ Performance
+## Performance
 
 - **Assíncrono**: Processa múltiplos bundles simultaneamente
 - **Batching**: Processa em lotes configuráveis
@@ -210,38 +210,16 @@ COPY scraper/ ./scraper/
 CMD ["python", "-m", "scraper.main"]
 ```
 
-## 📝 Logs
+## Logs
 
 Os logs são salvos em:
 - `logs/scraper_YYYYMMDD.log` - Log do dia
 - Console - Output em tempo real
 
-## ⚠️ Considerações Importantes
+## Considerações Importantes
 
 1. **Rate Limiting**: A Steam pode bloquear IPs com muitos requests. Ajuste `REQUEST_DELAY`.
 2. **User-Agent**: Headers estão configurados para parecer um browser real.
 3. **Seletores CSS**: Podem mudar se a Steam atualizar o site. Monitore e ajuste em `config.py`.
 4. **Região**: Preços e disponibilidade variam por região. Configure região no Steam.
 
-## 🔄 Migração do Node.js
-
-Este scraper mantém a mesma lógica do código JavaScript original:
-
-- ✅ Duas fases de scraping (lista → detalhes)
-- ✅ Sistema de retry
-- ✅ Logging persistente
-- ✅ Filtros e validações
-- ✅ Mapeamento de dados estruturados
-- ✅ Configurações centralizadas
-
-## 📚 Exemplos Adicionais
-
-Ver `main.py` para exemplos completos de uso.
-
-## 🤝 Contribuindo
-
-Este é um projeto de refatoração. Mantenha a compatibilidade com a lógica original sempre que possível.
-
-## 📄 Licença
-
-Mesmo do projeto principal SteamBundleAPI.

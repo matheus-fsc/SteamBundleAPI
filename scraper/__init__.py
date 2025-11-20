@@ -1,9 +1,3 @@
-"""
-Steam Bundle Scraper
-Scraper modular para extrair informações de bundles da Steam
-Com suporte a banco de dados e estratégia híbrida de scraping
-"""
-
 from .scraper import BundleScraper
 from .filters import BundleFilter
 from .mapper import BundleDataMapper

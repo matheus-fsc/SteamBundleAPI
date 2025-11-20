@@ -1,23 +1,16 @@
-"""
-Configurações de scraping - equivalente ao ScrapingConfigManager.js
-"""
 import json
 from typing import Dict, Any
 from pathlib import Path
 
 
 class ScrapingConfig:
-    """Configurações centralizadas para o scraper"""
-    
     BASE_URL = "https://store.steampowered.com/bundles/"
     BUNDLE_URL_TEMPLATE = "https://store.steampowered.com/bundle/{bundle_id}/"
     
-    # Delays e timeouts
-    REQUEST_DELAY = 2  # segundos entre requests
+    REQUEST_DELAY = 2  
     TIMEOUT = 30
     MAX_RETRIES = 3
     
-    # Headers para evitar bloqueio
     HEADERS = {
         'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
@@ -27,7 +20,6 @@ class ScrapingConfig:
         'Upgrade-Insecure-Requests': '1'
     }
     
-    # Seletores CSS (ajustar conforme necessário)
     SELECTORS = {
         'bundle_links': '.search_result_row',
         'bundle_id': 'data-ds-bundleid',
@@ -41,18 +33,12 @@ class ScrapingConfig:
         'game_app_id': 'data-ds-appid',
     }
     
-    # Configurações de concorrência
     MAX_CONCURRENT_REQUESTS = 5
     BATCH_SIZE = 10
     
     @classmethod
     def load_from_json(cls, filepath: str = None):
-        """
-        Carrega configurações de um arquivo JSON
-        Compatível com scraping-config.json do projeto original
-        """
         if filepath is None:
-            # Tenta carregar do diretório padrão
             default_path = Path(__file__).parent.parent / 'services' / 'updateDetails' / 'scraping-config.json'
             if default_path.exists():
                 filepath = str(default_path)
@@ -63,7 +49,6 @@ class ScrapingConfig:
             with open(filepath, 'r', encoding='utf-8') as f:
                 config = json.load(f)
                 
-                # Atualiza atributos da classe com valores do JSON
                 for key, value in config.items():
                     if hasattr(cls, key.upper()):
                         setattr(cls, key.upper(), value)

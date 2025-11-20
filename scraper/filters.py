@@ -1,12 +1,7 @@
-"""
-Filtros e validações - equivalente ao BundleFilterService.js
-"""
 from typing import List, Dict, Set, Optional, Callable
 
 
 class BundleFilter:
-    """Serviço de filtragem e validação de bundles"""
-    
     def __init__(self):
         self.seen_ids: Set[str] = set()
     
@@ -55,20 +50,16 @@ class BundleFilter:
         Returns:
             True se válido
         """
-        # Campos obrigatórios
         required_fields = ['id', 'name', 'price']
         
-        # Verifica presença dos campos
         for field in required_fields:
             if not bundle.get(field):
                 return False
         
-        # Verifica se tem jogos
         games = bundle.get('games', [])
         if not games or len(games) == 0:
             return False
         
-        # Verifica se price é válido
         price_data = bundle.get('price')
         if isinstance(price_data, dict):
             if price_data.get('final') is None:

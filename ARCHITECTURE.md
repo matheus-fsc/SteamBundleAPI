@@ -1,6 +1,6 @@
 # Steam Bundle Scraper - Arquitetura Completa
 
-## 🏗️ Visão Geral
+## Visão Geral
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -24,10 +24,10 @@
     │  │  └──────────┘ └──────────┘ │  │
     │  └────────────────────────────┘  │
     │                                   │
-    │  ✓ Scraping completo             │
-    │  ✓ Histórico de preços           │
-    │  ✓ Detecção de promoções falsas  │
-    │  ✓ Proteção do SD Card           │
+    │  - Scraping completo              │
+    │  - Histórico de preços            │
+    │  - Detecção de promoções falsas   │
+    │  - Proteção do SD Card            │
     └──────────────┬───────────────────┘
                    │
                    │ Sync (Upsert)
@@ -40,9 +40,9 @@
     │  │  + Real-time Subscriptions │  │
     │  └────────────────────────────┘  │
     │                                   │
-    │  ✓ Apenas bundles válidos        │
-    │  ✓ Últimos 30 dias de histórico  │
-    │  ✓ API pública                   │
+    │  - Apenas bundles válidos         │
+    │  - Últimos 30 dias de histórico   │
+    │  - API pública                    │
     └──────────────┬───────────────────┘
                    │
                    │ Consumo (REST API)
@@ -54,13 +54,13 @@
     │  │  + Supabase Client         │  │
     │  └────────────────────────────┘  │
     │                                   │
-    │  ✓ Listagem de deals             │
-    │  ✓ Filtros e busca               │
-    │  ✓ Alertas de preço              │
+    │  - Listagem de deals              │
+    │  - Filtros e busca                │
+    │  - Alertas de preço               │
     └──────────────────────────────────┘
 ```
 
-## 🔄 Fluxo de Dados
+## Fluxo de Dados
 
 ### Fase 1: Scraping Rápido (aiohttp)
 ```
@@ -95,7 +95,7 @@ PostgreSQL Local → Filtro (válidos + 24h) → Supabase Cloud
                                         Dados otimizados
 ```
 
-## 📊 Modelo de Dados
+## Modelo de Dados
 
 ### Local (Orange Pi - Completo)
 ```sql
@@ -121,7 +121,7 @@ bundles (
 )
 ```
 
-## ⚙️ Componentes
+## Componentes
 
 ### Orange Pi (Auto-hospedado)
 - **PostgreSQL**: Banco completo com histórico infinito
@@ -130,15 +130,15 @@ bundles (
 - **Sync**: Envia dados filtrados para cloud
 
 **Vantagens:**
-- ✅ Controle total dos dados
-- ✅ Histórico completo ilimitado
-- ✅ Sem custos de cloud compute
-- ✅ Privacidade dos dados brutos
+- Controle total dos dados
+- Histórico completo ilimitado
+- Sem custos de cloud compute
+- Privacidade dos dados brutos
 
 **Desafios:**
-- ⚠️ Requer manutenção física
-- ⚠️ Depende de internet doméstica
-- ⚠️ Proteção do SD Card necessária
+- Requer manutenção física
+- Depende de internet doméstica
+- Proteção do SD Card necessária
 
 ### Supabase (Cloud)
 - **PostgreSQL**: Banco otimizado (vitrine)
@@ -147,16 +147,16 @@ bundles (
 - **Auth**: Sistema de autenticação integrado
 
 **Vantagens:**
-- ✅ API pronta para consumo
-- ✅ CDN global
-- ✅ Backup automático
-- ✅ Real-time subscriptions
+- API pronta para consumo
+- CDN global
+- Backup automático
+- Real-time subscriptions
 
 **Limitações:**
-- ⚠️ Plano free: 500MB storage
-- ⚠️ Mantém apenas dados essenciais
+- Plano free: 500MB storage
+- Mantém apenas dados essenciais
 
-## 🛡️ Proteção do SD Card
+## Proteção do SD Card
 
 ### Problema
 Orange Pi roda de cartão SD. Escrita constante = morte prematura.
@@ -175,9 +175,9 @@ services:
 **Resultado:**
 - Logs → stdout → Docker gerencia
 - Banco → volume Docker (melhor I/O)
-- Zero escrita no SD Card!
+- Zero escrita no SD Card
 
-## 🕐 Schedule de Execuções
+## Schedule de Execuções
 
 ```
 00:00 ─────────────────────────────────────> 24:00
@@ -193,7 +193,7 @@ Completo
 
 **Configurável via** `scripts/crontab`
 
-## 📈 Detecção de Promoções Falsas
+## Detecção de Promoções Falsas
 
 ### Algoritmo
 ```python
@@ -220,10 +220,10 @@ Média Regular: R$ 82
 Análise:
   R$ 200 > R$ 82 * 1.5
   R$ 200 > R$ 123
-  ⚠️ DESCONTO FALSO! Preço inflado 144%
+  DESCONTO FALSO: Preço inflado 144%
 ```
 
-## 🔌 Integrações
+## Integrações
 
 ### Consumir API Supabase
 
@@ -244,7 +244,7 @@ supabase
   .channel('bundles')
   .on('postgres_changes', 
     { event: 'INSERT', schema: 'public', table: 'bundles' },
-    (payload) => console.log('Novo bundle!', payload)
+    (payload) => console.log('Novo bundle:', payload)
   )
   .subscribe()
 ```
@@ -276,12 +276,12 @@ curl "https://seu-projeto.supabase.co/rest/v1/bundles?currency=eq.BRL&discount=g
   -H "apikey: SUPABASE_ANON_KEY"
 ```
 
-## 🚀 Escalabilidade
+## Escalabilidade
 
 ### Atual (Single Orange Pi)
-- ✅ ~1000 bundles/dia
-- ✅ Histórico ilimitado
-- ✅ Custo: ~R$ 5/mês (energia)
+- ~1000 bundles/dia
+- Histórico ilimitado
+- Custo: ~R$ 5/mês (energia)
 
 ### Futuro (se necessário)
 1. **Múltiplos scrapers**: Distribua carga
@@ -289,7 +289,7 @@ curl "https://seu-projeto.supabase.co/rest/v1/bundles?currency=eq.BRL&discount=g
 3. **TimescaleDB**: Para históricos imensos
 4. **Kubernetes**: Orquestração avançada
 
-## 📊 Monitoramento
+## Monitoramento
 
 ```bash
 # Health check
@@ -311,21 +311,21 @@ docker compose exec postgres psql -U steam -d steam_bundles -c \
    WHERE discount > 50 ORDER BY discount DESC LIMIT 10;"
 ```
 
-## 🔐 Segurança
+## Segurança
 
 ### Orange Pi
-- ✅ Containers isolados
-- ✅ Banco local não exposto
-- ✅ Firewall restrito
-- ✅ Service keys em .env
+- Containers isolados
+- Banco local não exposto
+- Firewall restrito
+- Service keys em .env
 
 ### Supabase
-- ✅ Row Level Security (RLS)
-- ✅ Leitura pública (anônima)
-- ✅ Escrita apenas via service_role
-- ✅ Rate limiting automático
+- Row Level Security (RLS)
+- Leitura pública (anônima)
+- Escrita apenas via service_role
+- Rate limiting automático
 
-## 💡 Boas Práticas
+## Boas Práticas
 
 1. **Backup regular**: `pg_dump` do PostgreSQL local
 2. **Monitorar logs**: Detectar bloqueios da Steam
@@ -333,10 +333,118 @@ docker compose exec postgres psql -U steam -d steam_bundles -c \
 4. **Manter Playwright atualizado**: Compatibilidade com sites
 5. **Testar sync Supabase**: Antes de produção
 
-## 🎯 Próximos Passos
+## Próximos Passos
 
-1. ✅ Frontend para visualizar deals
-2. ✅ Sistema de alertas (email/push)
-3. ✅ Comparação entre stores (Epic, GOG, etc)
-4. ✅ Machine Learning para prever promoções
-5. ✅ App mobile nativo
+1. Frontend para visualizar deals
+2. Sistema de alertas (email/push)
+3. Comparação entre stores (Epic, GOG, etc)
+4. Machine Learning para prever promoções
+5. App mobile nativo
+
+## Performance
+
+### Métricas
+
+| Operação | Tempo | Recursos |
+|----------|-------|----------|
+| Scrape 1 bundle | ~2s | Baixo |
+| Scrape 100 bundles | ~5min | Médio |
+| Save no banco | <0.1s | Mínimo |
+| Análise de desconto | <0.01s | Mínimo |
+| Sync Supabase (100) | ~10s | Baixo |
+
+### Otimizações
+
+- Scraping assíncrono (aiohttp)
+- Connection pooling (SQLAlchemy)
+- Batch upsert (Supabase)
+- Semaphore para rate limiting
+- Tmpfs para I/O rápido
+
+## Stack Tecnológica
+
+### Backend
+- Python 3.13
+- SQLAlchemy (Async ORM)
+- aiohttp (HTTP async)
+- Playwright (Browser automation)
+- PostgreSQL 15
+
+### Deploy
+- Docker + Docker Compose
+- Orange Pi (ARM64)
+- Supabase (PaaS)
+- Cron (Scheduling)
+
+### Monitoramento
+- Docker logs
+- PostgreSQL queries
+- Scraping logs
+- System metrics
+
+## Diagramas Adicionais
+
+### Fluxo de Scraping Detalhado
+
+```
+Início
+  ↓
+Buscar lista de bundles (aiohttp)
+  ↓
+Para cada bundle:
+  ↓
+  Scrape com aiohttp
+  ↓
+  Preço obtido? ──Não──> Marcar para Playwright
+  │                            ↓
+  Sim                    Scrape com Playwright
+  ↓                            ↓
+  Validar dados ←──────────────┘
+  ↓
+  Salvar no PostgreSQL
+  ↓
+  Adicionar ao histórico
+  ↓
+  Analisar desconto real
+  ↓
+Fim do loop
+  ↓
+Sincronizar com Supabase (se habilitado)
+  ↓
+Fim
+```
+
+### Estrutura de Módulos
+
+```
+scraper/
+├── __init__.py           # Exports
+├── config.py            # Configurações centralizadas
+├── logger.py            # Logging (stdout/file)
+├── scraper.py           # Scraping principal (aiohttp)
+│   └── BundleScraper
+├── browser_scraper.py   # Scraping pesado (Playwright)
+│   └── BrowserScraper
+├── mapper.py            # HTML → Objetos
+│   └── BundleDataMapper
+├── filters.py           # Validações e filtros
+│   └── BundleFilter
+├── database.py          # ORM e modelos
+│   ├── Database
+│   ├── BundleModel
+│   ├── GameModel
+│   └── ScrapingLogModel
+├── sync_supabase.py     # Sincronização cloud
+│   └── SupabaseSync
+├── main.py              # Script básico
+└── main_with_db.py      # Script completo
+```
+
+## Referências
+
+- [SQLAlchemy Async](https://docs.sqlalchemy.org/en/20/orm/extensions/asyncio.html)
+- [Playwright Python](https://playwright.dev/python/)
+- [Docker Best Practices](https://docs.docker.com/develop/dev-best-practices/)
+- [Orange Pi Optimization](https://www.armbian.com/orange-pi-5/)
+- [Supabase Documentation](https://supabase.com/docs)
+- [aiohttp Documentation](https://docs.aiohttp.org/)

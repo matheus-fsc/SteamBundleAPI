@@ -1,6 +1,3 @@
-"""
-Script principal de exemplo - Uso do scraper
-"""
 import asyncio
 import json
 from pathlib import Path
