@@ -1,6 +1,11 @@
 # Crontab para execução periódica do scraper no Docker
 # Formato: minuto hora dia mês dia-da-semana comando
 
+# === ROTINA 0: PRIMEIRA EXECUÇÃO (Automático) ===
+# Executa a cada minuto até detectar dados no banco
+# Automaticamente para de executar após criar flag de conclusão
+*/1 * * * * /bin/bash /app/scripts/cron_first_run_check.sh >> /proc/1/fd/1 2>&1
+
 # === ROTINA 1: DESCOBERTA COMPLETA (Semanal) ===
 # Executa toda Segunda-feira às 2:00 AM
 # Descobre TODOS os bundle IDs (1-35000) e detecta mudanças

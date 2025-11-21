@@ -7,6 +7,7 @@ import asyncio
 import os
 import sys
 import subprocess
+from pathlib import Path
 
 # Adiciona path do projeto
 sys.path.insert(0, '/app')
@@ -14,6 +15,9 @@ sys.path.insert(0, '/app')
 from scraper.database import Database
 from scraper.logger import Logger
 from sqlalchemy import select, func
+
+# Flag para indicar que primeira execução já foi feita
+FIRST_RUN_FLAG = Path('/app/data/.first_run_completed')
 
 
 async def check_and_run():
@@ -50,6 +54,10 @@ async def check_and_run():
                 return 1
             
             logger.success("✅ Discovery completo!")
+            
+            # Marca que primeira execução foi concluída
+            FIRST_RUN_FLAG.touch()
+            logger.info("✅ Flag de primeira execução criada")
         else:
             logger.info(f"ℹ️  Banco já possui {total_bundles} bundles")
         
