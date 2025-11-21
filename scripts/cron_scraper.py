@@ -8,6 +8,8 @@ import os
 import sys
 import subprocess
 from pathlib import Path
+import fcntl
+import time
 
 # Adiciona path do projeto
 sys.path.insert(0, '/app')
@@ -18,19 +20,30 @@ from sqlalchemy import select, func
 
 # Flag para indicar que primeira execução já foi feita
 FIRST_RUN_FLAG = Path('/app/data/.first_run_completed')
+LOCK_FILE = Path('/app/data/.cron_lock')
 
 
 async def check_and_run():
     """Verifica estado do banco e executa rotina apropriada"""
     logger = Logger('cron_wrapper')
     
-    logger.info("🤖 Iniciando rotina automática do cron")
-    
-    # Verifica se banco está vazio
-    db = Database()
-    await db.init_db()
+    # Tenta adquirir lock para evitar execuções concorrentes
+    lock_fd = None
+    try:
+        lock_fd = open(LOCK_FILE, 'w')
+        fcntl.flock(lock_fd.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except IOError:
+        # Já existe outra instância rodando
+        logger.info("⏭️  Outra instância já está rodando, pulando...")
+        return 0
     
     try:
+        logger.info("🤖 Iniciando rotina automática do cron")
+        
+        # Verifica se banco está vazio
+        db = Database()
+        await db.init_db()
+        
         from scraper.database import BundleModel
         async with db.async_session() as session:
             result = await session.execute(select(func.count(BundleModel.id)))
@@ -42,11 +55,12 @@ async def check_and_run():
             logger.info("🎯 PRIMEIRA EXECUÇÃO DETECTADA!")
             logger.info("📋 Executando discovery completo...")
             
-            # Executa discovery
+            # Executa discovery E AGUARDA terminar
             discovery_result = subprocess.run(
                 [sys.executable, '/app/scripts/discover_with_diff.py'],
                 capture_output=True,
-                text=True
+                text=True,
+                timeout=1800  # 30 minutos de timeout
             )
             
             if discovery_result.returncode != 0:
@@ -75,13 +89,22 @@ async def check_and_run():
             return 1
         
         logger.success("✅ Rotina completa!")
+        
+        await db.close()
         return 0
         
     except Exception as e:
         logger.error(f"❌ Erro fatal: {e}")
         return 1
     finally:
-        await db.close()
+        # Libera o lock
+        if lock_fd:
+            fcntl.flock(lock_fd.fileno(), fcntl.LOCK_UN)
+            lock_fd.close()
+            try:
+                LOCK_FILE.unlink()
+            except:
+                pass
 
 
 if __name__ == '__main__':
