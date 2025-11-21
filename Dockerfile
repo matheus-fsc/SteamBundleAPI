@@ -11,7 +11,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
 # Diretório de trabalho
 WORKDIR /app
 
-# Instala dependências do sistema necessárias para Playwright
+# Instala dependências do sistema necessárias para Playwright + cron
 RUN apt-get update && apt-get install -y \
     wget \
     gnupg \
@@ -35,6 +35,7 @@ RUN apt-get update && apt-get install -y \
     libxkbcommon0 \
     libxrandr2 \
     xdg-utils \
+    cron \
     && rm -rf /var/lib/apt/lists/*
 
 # Copia requirements primeiro (cache de layer)

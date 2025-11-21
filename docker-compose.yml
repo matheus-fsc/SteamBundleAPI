@@ -24,54 +24,12 @@ services:
       timeout: 5s
       retries: 5
 
-  # Scraper Python
+  # Scraper com CRON - Sistema Autônomo
   scraper:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: steam_scraper
-    restart: unless-stopped
-    depends_on:
-      postgres:
-        condition: service_healthy
-    environment:
-      # Configurações de ambiente
-      DATABASE_URL: postgresql+asyncpg://steam:${DB_PASSWORD:-changeme}@postgres/steam_bundles
-      DOCKER_ENV: "true"              # Ativa modo Docker
-      DISABLE_FILE_LOGS: "true"        # Desabilita logs em arquivo
-      PYTHONUNBUFFERED: "1"            # Output imediato
-      
-      # Configurações do scraper (opcional)
-      REQUEST_DELAY: ${REQUEST_DELAY:-2}
-      MAX_CONCURRENT_REQUESTS: ${MAX_CONCURRENT_REQUESTS:-5}
-    
-    # IMPORTANTE: Logs em tmpfs (RAM) para proteger o SD Card
-    tmpfs:
-      - /app/logs:size=50M
-    
-    # Volume apenas para o código (read-only em produção)
-    volumes:
-      - ./scraper:/app/scraper:ro
-    
-    # Comando para executar
-    # Pode ser ajustado para usar cron ou schedule
-    command: python -m scraper.main_with_db
-    
-    # Limites de recursos (importante para Orange Pi)
-    deploy:
-      resources:
-        limits:
-          cpus: '2.0'      # Limita CPU
-          memory: 1G       # Limita memória
-        reservations:
-          memory: 512M
-
-  # Cron para execução periódica (RECOMENDADO para produção)
-  scraper-cron:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: steam_scraper_cron
     restart: unless-stopped
     depends_on:
       postgres:
@@ -93,11 +51,12 @@ services:
     
     volumes:
       - ./scraper:/app/scraper:ro
-      - ./scripts/crontab:/etc/crontabs/root:ro
-      - ./scripts/entrypoint-cron.sh:/entrypoint.sh:ro
+      - ./scripts:/app/scripts:ro
+      - ./scripts/crontab:/etc/cron.d/steam-scraper:ro
+      - data_volume:/app/data
     
     # Usa script de entrypoint personalizado
-    entrypoint: ["/bin/sh", "/entrypoint.sh"]
+    command: ["/bin/sh", "-c", "crontab /etc/cron.d/steam-scraper && cron -f -l 2"]
     
     deploy:
       resources:
@@ -107,9 +66,20 @@ services:
         reservations:
           memory: 256M
 
+  # Cloudflare Tunnel para acesso externo
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN}
+
 volumes:
   # Volume Docker gerenciado (melhor performance que bind mount no SD)
   postgres_data:
+    driver: local
+  data_volume:
     driver: local
 
 networks:
