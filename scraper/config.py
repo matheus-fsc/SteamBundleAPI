@@ -1,9 +1,13 @@
 import json
+import os
 from typing import Dict, Any
 from pathlib import Path
 
 
 class ScrapingConfig:
+    # Steam Partner API Key
+    API_KEY = os.getenv('STEAM_API_KEY', '516C1E2D6FA9FECFB0DE14393F3FDCF0')
+    
     # URLs da Steam
     BUNDLE_URL_TEMPLATE = "https://store.steampowered.com/bundle/{bundle_id}/"
     
