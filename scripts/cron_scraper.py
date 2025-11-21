@@ -41,8 +41,11 @@ async def check_and_run():
         logger.info("🤖 Iniciando rotina automática do cron")
         
         # Verifica se banco está vazio
+        logger.info(f"🔗 DATABASE_URL: {os.getenv('DATABASE_URL', 'NOT SET')}")
         db = Database()
+        logger.info("🔧 Inicializando banco de dados...")
         await db.init_db()
+        logger.success("✅ Banco de dados inicializado!")
         
         from scraper.database import BundleModel
         async with db.async_session() as session:
@@ -94,7 +97,9 @@ async def check_and_run():
         return 0
         
     except Exception as e:
+        import traceback
         logger.error(f"❌ Erro fatal: {e}")
+        logger.error(f"Traceback completo:\n{traceback.format_exc()}")
         return 1
     finally:
         # Libera o lock
