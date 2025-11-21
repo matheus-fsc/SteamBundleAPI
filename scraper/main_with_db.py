@@ -159,30 +159,36 @@ async def main():
         raise
     
     finally:
-        # === FASE 3: Sincronização com Supabase (opcional) ===
+        # === FASE 3: Sincronização com Supabase (DIRECT PostgreSQL) ===
         if os.getenv('ENABLE_SUPABASE_SYNC', 'false').lower() == 'true':
             logger.info("\n☁️  FASE 3: Sincronizando com Supabase...")
             
             try:
-                from .sync_supabase import SupabaseSync
+                # Usa sync direto via PostgreSQL (mais confiável que SDK)
+                import subprocess
+                import sys
                 
-                sync = SupabaseSync(local_db=db)
+                # Executa o script de sync direto
+                result = subprocess.run(
+                    [sys.executable, '/app/scripts/sync_supabase_direct.py'],
+                    capture_output=True,
+                    text=True,
+                    timeout=1800  # 30 minutos timeout
+                )
                 
-                if sync.test_connection():
-                    # Sincroniza bundles das últimas 24h com desconto
-                    sync_stats = await sync.full_sync(
-                        hours_ago=24,
-                        only_with_discount=True
-                    )
-                    
-                    logger.success(
-                        f"Supabase sync: {sync_stats['success']} bundles enviados"
-                    )
+                if result.returncode == 0:
+                    logger.success("✅ Sync com Supabase concluído com sucesso!")
+                    # Mostra últimas linhas do output
+                    for line in result.stdout.strip().split('\n')[-10:]:
+                        if line.strip():
+                            logger.info(f"   {line}")
                 else:
-                    logger.warning("Supabase não disponível, pulando sincronização")
+                    logger.error(f"❌ Erro no sync: {result.stderr}")
             
-            except ImportError:
-                logger.warning("Módulo supabase não instalado, pulando sincronização")
+            except subprocess.TimeoutExpired:
+                logger.error("❌ Sync timeout (>30min)")
+            except FileNotFoundError:
+                logger.warning("⚠️  Script sync_supabase_direct.py não encontrado")
             except Exception as e:
                 logger.error(f"Erro na sincronização Supabase: {e}")
                 logger.info("Continuando mesmo sem sync...")
