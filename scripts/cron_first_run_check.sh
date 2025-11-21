@@ -10,4 +10,4 @@ if [ -f "$FLAG_FILE" ]; then
 fi
 
 # Flag não existe = ainda é primeira execução
-cd /app && python3 scripts/cron_scraper.py
+cd /app && /usr/local/bin/python3 scripts/cron_scraper.py
