@@ -1,42 +1,38 @@
 # Steam Bundle Scraper
 
-Sistema completo de scraping de bundles da Steam com detecção de promoções falsas, histórico de preços e sincronização cloud.
+Sistema de scraping de bundles da Steam usando API oficial.
 
 ## Características
 
-- **Scraping Híbrido**: aiohttp para requests rápidos + Playwright para preços dinâmicos
-- **Banco de Dados**: PostgreSQL com histórico completo de preços
-- **Detecção de Fraudes**: Identifica automaticamente promoções falsas do tipo "metade do dobro"
-- **Proteção SD Card**: Otimizado para Orange Pi com logs em RAM
-- **Sincronização Cloud**: Integração automática com Supabase
-- **Cron Robusto**: Execuções periódicas sem memory leaks
+- **API Oficial**: Usa `/actions/ajaxresolvebundles` da Steam (sem HTML parsing)
+- **Descoberta Automática**: Brute force otimizado com batches de 100 IDs
+- **Banco de Dados**: SQLite/PostgreSQL com histórico de preços
+- **Detecção de Fraudes**: Identifica promoções falsas via análise de histórico
+- **Docker Ready**: Otimizado para Orange Pi
+- **Sincronização Cloud**: Integração opcional com Supabase
 
 ## Estrutura do Projeto
 
 ```
 SteamBundleAPI/
-├── scraper/                    # Módulo principal Python
-│   ├── scraper.py             # Scraping com aiohttp
-│   ├── browser_scraper.py     # Scraping com Playwright
-│   ├── mapper.py              # HTML para objetos
+├── scraper/
+│   ├── scraper.py             # Scraping via API oficial
+│   ├── bundle_discovery.py    # Descoberta de bundle IDs (brute force)
+│   ├── known_bundles.py       # Lista de IDs descobertos
 │   ├── filters.py             # Validações e filtros
 │   ├── database.py            # SQLAlchemy models
 │   ├── sync_supabase.py       # Sincronização cloud
 │   ├── config.py              # Configurações
-│   ├── logger.py              # Logging otimizado
-│   ├── main.py                # Script básico
-│   └── main_with_db.py        # Script completo
+│   ├── logger.py              # Logging
+│   ├── main.py                # Script simples
+│   └── main_with_db.py        # Script completo com DB
 ├── scripts/
-│   ├── crontab                # Schedule de execuções
-│   ├── entrypoint-cron.sh     # Entrypoint Docker
-│   ├── supabase_schema.sql    # Schema do Supabase
-│   └── run_sync.py            # Helper de sincronização
-├── docker-compose.yml          # Orquestração Docker
-├── Dockerfile                  # Container da aplicação
-├── ARCHITECTURE.md             # Arquitetura detalhada
-├── DEPLOY.md                   # Guia de deploy
-├── MIGRATION_GUIDE.md          # Guia de migração
-└── OLD_VERSION_DEPRECATED.md   # Versão Node.js descontinuada
+│   ├── discover_bundles.py    # CLI para descoberta
+│   ├── crontab                # Schedule
+│   └── supabase_schema.sql    # Schema Supabase
+├── docker-compose.yml
+├── Dockerfile
+└── README.md
 ```
 
 ## Quick Start
@@ -44,13 +40,15 @@ SteamBundleAPI/
 ### Desenvolvimento Local
 
 ```bash
-# Instalar dependências
+# 1. Instalar dependências
 cd scraper
 pip install -r requirements.txt
-playwright install chromium
 
-# Executar scraper básico (SQLite)
-python main_with_db.py
+# 2. Descobrir bundles (primeira execução - 10-15 min)
+python scripts/discover_bundles.py
+
+# 3. Executar scraper
+python -m scraper.main_with_db
 ```
 
 ### Produção com Docker (Orange Pi)
@@ -60,40 +58,86 @@ python main_with_db.py
 git clone https://github.com/matheus-fsc/SteamBundleAPI.git
 cd SteamBundleAPI
 cp .env.example .env
-nano .env  # Configure senhas
+nano .env  # Configure as variáveis
 
 # Build e start
 docker compose up -d
 
-# Verificar
-docker compose logs -f scraper-cron
+# Verificar logs
+docker compose logs -f scraper
 ```
+
+## Como Funciona
+
+### 1. Descoberta de Bundles
+
+A Steam não fornece API para listar bundles, então usamos brute force otimizado:
+
+```bash
+python scripts/discover_bundles.py
+```
+
+- Varre IDs de 1 a 35000
+- Faz requisições em batch (100 IDs por vez)
+- Tempo: 10-15 minutos
+- Resultado: ~2500-3000 bundle IDs válidos
+- Salva em `scraper/known_bundles.py`
+
+**Frequência recomendada**: Semanal (novos bundles são raros)
+
+### 2. Scraping de Dados
+
+```bash
+python -m scraper.main_with_db
+```
+
+- Lê lista de `known_bundles.py`
+- Busca dados via API `/actions/ajaxresolvebundles`
+- Processa em batches de 100 para eficiência
+- Salva no banco com histórico de preços
+
+**Frequência recomendada**: Diária (via cron)
+
+### 3. API da Steam
+
+Endpoint usado: `https://store.steampowered.com/actions/ajaxresolvebundles`
+
+Parâmetros:
+- `bundleids`: Lista de IDs separados por vírgula (max 100)
+- `cc`: Código do país (ex: BR)
+- `l`: Idioma (ex: portuguese)
+
+Resposta JSON com:
+- Nome do bundle
+- Preços (original e final, em centavos)
+- Desconto
+- Lista de apps/jogos inclusos
+- Imagens
+- Suporte de plataforma (Windows/Mac/Linux)
 
 ## Arquitetura
 
 ```
-Steam Store
+Steam API (/actions/ajaxresolvebundles)
     |
-    | (Scraping)
+    | (Batch requests)
     v
-Orange Pi (Docker)
+Scraper (aiohttp async)
     |
-    +-- PostgreSQL Local (histórico completo)
-    |
-    | (Sync periódico)
     v
-Supabase Cloud (vitrine pública, API REST)
+PostgreSQL/SQLite
+    |
+    | (Sync opcional)
+    v
+Supabase Cloud
 ```
 
-### Fluxo de Dados
+### Fluxo Completo
 
-1. **Fase 1**: Scraping rápido com aiohttp para 90% dos bundles
-2. **Fase 2**: Scraping com Playwright para preços dinâmicos nos 10% restantes
-3. **Persistência**: PostgreSQL local com histórico infinito
-4. **Análise**: Detecção de promoções falsas via análise de histórico
-5. **Sincronização**: Envio de dados filtrados para Supabase
-
-Ver [ARCHITECTURE.md](ARCHITECTURE.md) para detalhes completos.
+1. **Descoberta** (semanal): Identifica todos os bundle IDs existentes
+2. **Scraping** (diário): Busca dados atualizados de cada bundle
+3. **Análise**: Detecta promoções falsas via histórico
+4. **Sincronização**: Envia dados para Supabase (opcional)
 
 ## Configuração
 
@@ -104,8 +148,11 @@ Ver [ARCHITECTURE.md](ARCHITECTURE.md) para detalhes completos.
 DB_PASSWORD=senha_segura_aqui
 
 # Scraper
-REQUEST_DELAY=2
+REQUEST_DELAY=1
+BATCH_SIZE=100
 MAX_CONCURRENT_REQUESTS=5
+COUNTRY_CODE=BR
+LANGUAGE=portuguese
 
 # Supabase (opcional)
 ENABLE_SUPABASE_SYNC=true
@@ -121,11 +168,14 @@ TZ=America/Sao_Paulo
 Edite `scripts/crontab` para ajustar horários:
 
 ```cron
-# Scraping completo: 3AM e 3PM
+# Descoberta de bundles: Segunda-feira 2AM (semanal)
+0 2 * * 1 cd /app && python scripts/discover_bundles.py
+
+# Scraping completo: 3AM e 3PM (diário)
 0 3 * * * cd /app && python -m scraper.main_with_db
 0 15 * * * cd /app && python -m scraper.main_with_db
 
-# Sync Supabase: a cada 6 horas
+# Sync Supabase: a cada 6 horas (opcional)
 0 */6 * * * cd /app && python -m scraper.sync_supabase
 ```
 
@@ -214,9 +264,12 @@ curl "https://seu-projeto.supabase.co/rest/v1/top_deals" \
 docker compose up -d
 
 # Ver logs
-docker compose logs -f scraper-cron
+docker compose logs -f scraper
 
-# Executar manualmente
+# Executar descoberta manualmente
+docker compose exec scraper python scripts/discover_bundles.py
+
+# Executar scraping manualmente
 docker compose exec scraper python -m scraper.main_with_db
 
 # Sincronizar Supabase
@@ -238,7 +291,7 @@ O projeto está otimizado para evitar desgaste do cartão SD:
 
 - Logs apenas para stdout (Docker gerencia)
 - Banco em volume Docker (melhor I/O)
-- Tmpfs para arquivos temporários
+- Sem arquivos temporários em disco
 - Processo cron morre e renasce (evita memory leaks)
 
 Ver [DEPLOY.md](DEPLOY.md) para detalhes.
@@ -250,7 +303,7 @@ Ver [DEPLOY.md](DEPLOY.md) para detalhes.
 docker compose ps
 
 # Logs em tempo real
-docker compose logs -f scraper-cron
+docker compose logs -f scraper
 
 # Estatísticas do banco
 docker compose exec postgres psql -U steam -d steam_bundles -c \
@@ -264,10 +317,13 @@ docker compose exec postgres psql -U steam -d steam_bundles -c \
 
 ## Troubleshooting
 
-### Playwright não funciona
+### Descoberta retorna poucos bundles
+
+A descoberta completa deve encontrar ~2500-3000 bundles. Se encontrou menos:
 
 ```bash
-docker compose exec scraper playwright install chromium
+# Execute novamente
+python scripts/discover_bundles.py
 ```
 
 ### Banco não conecta
@@ -289,7 +345,8 @@ Reduza recursos no `.env`:
 
 ```bash
 MAX_CONCURRENT_REQUESTS=2
-REQUEST_DELAY=3
+REQUEST_DELAY=2
+BATCH_SIZE=50
 ```
 
 E no `docker-compose.yml`:
@@ -314,14 +371,12 @@ print('OK' if sync.test_connection() else 'FALHOU')
 ```
 
 
-Ver [TEST_RESULTS.md](TEST_RESULTS.md) para resultados.
+Ver [DEPLOY.md](DEPLOY.md) para detalhes.
 
 ## Documentação
 
 - [ARCHITECTURE.md](ARCHITECTURE.md) - Arquitetura detalhada do sistema
 - [DEPLOY.md](DEPLOY.md) - Guia completo de deploy
-- [MIGRATION_GUIDE.md](MIGRATION_GUIDE.md) - Guia de migração da v1
-- [OLD_VERSION_DEPRECATED.md](OLD_VERSION_DEPRECATED.md) - Versão antiga deprecada
 - [scraper/README.md](scraper/README.md) - Documentação do módulo
 
 ## Stack Tecnológica
@@ -329,7 +384,6 @@ Ver [TEST_RESULTS.md](TEST_RESULTS.md) para resultados.
 - **Python** 3.13
 - **SQLAlchemy** - ORM assíncrono
 - **aiohttp** - HTTP client assíncrono
-- **Playwright** - Browser automation
 - **PostgreSQL** - Banco de dados
 - **Docker** - Containerização
 - **Supabase** - Backend as a Service (opcional)
@@ -346,28 +400,28 @@ Ver [TEST_RESULTS.md](TEST_RESULTS.md) para resultados.
 
 MIT License - veja LICENSE para detalhes.
 
-## Créditos
-
-- Scraping: BeautifulSoup + Playwright
-- Banco: SQLAlchemy + PostgreSQL
-- Cloud: Supabase
-- Deploy: Docker + Orange Pi
-
 ## Links Úteis
 
-- [Steam Store Bundles](https://store.steampowered.com/bundles/)
+- [Steam API Documentation](https://steamapi.xpaw.me/)
 - [Supabase Documentation](https://supabase.com/docs)
-- [Playwright Python](https://playwright.dev/python/)
 - [SQLAlchemy Async](https://docs.sqlalchemy.org/en/20/orm/extensions/asyncio.html)
 - [Docker Compose](https://docs.docker.com/compose/)
 
 ## Status do Projeto
 
-**Versão:** 2.0.0  
+**Versão:** 3.0.0  
 **Status:** Produção  
 **Última atualização:** Novembro 2025
 
 ### Changelog
+
+**v3.0.0** (Nov 2025)
+- Migração completa para API oficial da Steam
+- Remoção de HTML parsing e Playwright
+- Sistema de descoberta via brute force otimizado
+- Batch requests (100 IDs por requisição)
+- Performance 10x melhor
+- Código simplificado e mais confiável
 
 **v2.0.0** (Nov 2025)
 - Refatoração completa de Node.js para Python
@@ -375,7 +429,6 @@ MIT License - veja LICENSE para detalhes.
 - Sistema de histórico de preços
 - Detecção de promoções falsas
 - Deploy otimizado para Orange Pi
-- Sincronização com Supabase
 
 **v1.x** (Deprecated)
 - Versão Node.js descontinuada

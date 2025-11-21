@@ -1,6 +1,6 @@
 """
-Script principal COMPLETO com banco de dados e estratégia híbrida
-Otimizado para Orange Pi com Docker
+Script principal COMPLETO com banco de dados
+Otimizado para Orange Pi com Docker - usa API oficial da Steam
 """
 import asyncio
 import json
@@ -11,7 +11,6 @@ from .scraper import BundleScraper
 from .filters import BundleFilter
 from .logger import Logger
 from .database import Database, BundleModel, ScrapingLogModel
-from .browser_scraper import BrowserScraper
 import datetime
 
 
@@ -31,11 +30,10 @@ async def main():
         started_at=datetime.datetime.utcnow()
     )
     
-    bundles_with_browser_needed = []
     
     try:
-        # === FASE 1: Scraping rápido com aiohttp ===
-        logger.info("📡 FASE 1: Scraping com aiohttp (rápido)")
+        # === FASE 1: Scraping com API oficial ===
+        logger.info("📡 Scraping via API oficial da Steam")
         
         async with BundleScraper() as scraper:
             bundles = await scraper.scrape_all_bundles()
@@ -54,7 +52,7 @@ async def main():
             bundles = filter_service.filter_duplicates(bundles)
             logger.info(f"Após remover duplicatas: {len(bundles)} bundles")
             
-            # Salva no banco e identifica bundles que precisam de browser
+            # Salva no banco
             logger.info("💾 Salvando bundles no banco de dados...")
             
             saved_count = 0
@@ -62,14 +60,6 @@ async def main():
                 try:
                     bundle_model = await db.save_bundle(bundle_data)
                     saved_count += 1
-                    
-                    # Coleta bundles que precisam de retry com browser
-                    if bundle_data.get('needs_browser_scraping', False):
-                        bundles_with_browser_needed.append(bundle_data['id'])
-                        logger.info(
-                            f"⚠️  Bundle {bundle_data['id']} marcado para retry com browser "
-                            f"(preço dinâmico detectado)"
-                        )
                 
                 except Exception as e:
                     logger.error(f"Erro ao salvar bundle {bundle_data.get('id')}: {e}")
@@ -82,40 +72,6 @@ async def main():
             stats = filter_service.get_statistics(bundles)
             logger.info(f"📊 Estatísticas: {json.dumps(stats, indent=2)}")
             scraping_log.stats = stats
-        
-        # === FASE 2: Retry com browser para bundles problemáticos ===
-        if bundles_with_browser_needed:
-            logger.info(
-                f"\n🌐 FASE 2: Retry com browser para {len(bundles_with_browser_needed)} bundles"
-            )
-            logger.info("⚡ Isso é mais lento mas necessário para preços dinâmicos")
-            
-            try:
-                async with BrowserScraper() as browser_scraper:
-                    browser_bundles = await browser_scraper.scrape_multiple_bundles(
-                        bundles_with_browser_needed
-                    )
-                    
-                    # Salva bundles extraídos com browser
-                    logger.info(f"💾 Salvando {len(browser_bundles)} bundles do browser...")
-                    
-                    for bundle_data in browser_bundles:
-                        try:
-                            await db.save_bundle(bundle_data)
-                            scraping_log.bundles_scraped += 1
-                        except Exception as e:
-                            logger.error(f"Erro ao salvar bundle (browser): {e}")
-                    
-                    logger.success(
-                        f"Browser scraping concluído: {len(browser_bundles)} bundles extraídos"
-                    )
-            
-            except Exception as e:
-                logger.error(f"Erro durante browser scraping: {e}")
-                logger.warning("Continuando sem os bundles com preços dinâmicos")
-        
-        else:
-            logger.info("✓ Nenhum bundle precisa de retry com browser")
         
         # === Análise de promoções reais ===
         logger.info("\n🔍 Analisando autenticidade dos descontos...")
