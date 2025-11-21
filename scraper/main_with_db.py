@@ -36,37 +36,51 @@ async def main():
         logger.info("📡 Scraping via API oficial da Steam")
         
         async with BundleScraper() as scraper:
-            bundles = await scraper.scrape_all_bundles()
+            # Busca lista de IDs
+            bundle_ids = await scraper.scrape_bundle_list()
+            scraping_log.bundles_found = len(bundle_ids)
+            logger.info(f"Total de bundle IDs encontrados: {len(bundle_ids)}")
             
-            scraping_log.bundles_found = len(bundles)
-            
-            logger.info(f"Total de bundles extraídos: {len(bundles)}")
-            
-            # Aplica filtros
+            # Processa e salva em batches (para não sobrecarregar memória)
             filter_service = BundleFilter()
-            
-            logger.info("Aplicando filtros...")
-            bundles = filter_service.filter_valid(bundles)
-            logger.info(f"Após validação: {len(bundles)} bundles")
-            
-            bundles = filter_service.filter_duplicates(bundles)
-            logger.info(f"Após remover duplicatas: {len(bundles)} bundles")
-            
-            # Salva no banco
-            logger.info("💾 Salvando bundles no banco de dados...")
-            
             saved_count = 0
-            for bundle_data in bundles:
-                try:
-                    bundle_model = await db.save_bundle(bundle_data)
-                    saved_count += 1
+            all_bundles_for_stats = []
+            batch_size = 100
+            
+            for i in range(0, len(bundle_ids), batch_size):
+                batch_ids = bundle_ids[i:i + batch_size]
+                batch_num = i//batch_size + 1
                 
-                except Exception as e:
-                    logger.error(f"Erro ao salvar bundle {bundle_data.get('id')}: {e}")
-                    scraping_log.bundles_failed += 1
+                logger.info(f"📦 Processando batch {batch_num} ({len(batch_ids)} bundles)...")
+                
+                # Scrape do batch
+                batch_bundles = await scraper.scrape_bundles_batch(batch_ids)
+                
+                # Aplica filtros
+                batch_bundles = filter_service.filter_valid(batch_bundles)
+                
+                # Salva no banco IMEDIATAMENTE
+                logger.info(f"💾 Salvando batch {batch_num} no banco...")
+                for bundle_data in batch_bundles:
+                    try:
+                        bundle_model = await db.save_bundle(bundle_data)
+                        saved_count += 1
+                        all_bundles_for_stats.append(bundle_data)
+                    except Exception as e:
+                        logger.error(f"Erro ao salvar bundle {bundle_data.get('id')}: {e}")
+                        scraping_log.bundles_failed += 1
+                
+                logger.success(f"✅ Batch {batch_num}: {len(batch_bundles)} bundles salvos (Total: {saved_count})")
+                
+                # Pequena pausa entre batches
+                if i + batch_size < len(bundle_ids):
+                    await asyncio.sleep(2)
             
             scraping_log.bundles_scraped = saved_count
-            logger.success(f"Salvos {saved_count} bundles no banco")
+            logger.success(f"✅ TOTAL FINAL: {saved_count} bundles salvos no banco")
+            
+            # Remove duplicatas para estatísticas
+            bundles = filter_service.filter_duplicates(all_bundles_for_stats)
             
             # Estatísticas
             stats = filter_service.get_statistics(bundles)

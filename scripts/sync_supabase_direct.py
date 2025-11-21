@@ -65,12 +65,13 @@ async def sync_to_supabase():
                 logger.info("✅ Nenhum bundle novo para sincronizar")
                 return
         
-        # Envia para Supabase com UPSERT
-        async with SupabaseSession() as supabase_session:
-            synced = 0
-            errors = 0
-            
-            for bundle in bundles:
+        # Envia para Supabase com UPSERT (batch com commits intermediários)
+        synced = 0
+        errors = 0
+        batch_size = 50  # Commit a cada 50 bundles
+        
+        for i, bundle in enumerate(bundles):
+            async with SupabaseSession() as supabase_session:
                 try:
                     # Prepara dados
                     discount_analysis = bundle.get_real_discount()
@@ -128,6 +129,8 @@ async def sync_to_supabase():
                         'synced_at': datetime.utcnow()
                     })
                     
+                    # Commit imediato para cada bundle (isolamento de transações)
+                    await supabase_session.commit()
                     synced += 1
                     
                     if synced % 100 == 0:
@@ -136,15 +139,13 @@ async def sync_to_supabase():
                 except Exception as e:
                     logger.error(f"❌ Erro ao sync bundle {bundle.id}: {e}")
                     errors += 1
+                    # Rollback automático ao sair do context manager
                     continue
-            
-            # Commit final
-            await supabase_session.commit()
-            
-            logger.info(f"✅ Sync completo!")
-            logger.info(f"   → Sincronizados: {synced}")
-            logger.info(f"   → Erros: {errors}")
-            logger.info(f"   → Taxa de sucesso: {(synced/len(bundles)*100):.1f}%")
+        
+        logger.info(f"✅ Sync completo!")
+        logger.info(f"   → Sincronizados: {synced}")
+        logger.info(f"   → Erros: {errors}")
+        logger.info(f"   → Taxa de sucesso: {(synced/len(bundles)*100):.1f}%")
     
     except Exception as e:
         logger.error(f"❌ Erro fatal no sync: {e}")
