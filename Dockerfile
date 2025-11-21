@@ -54,11 +54,12 @@ COPY scraper/ ./scraper/
 # Cria diretórios necessários
 RUN mkdir -p /app/logs /app/data
 
-# Usuário não-root para segurança
+# Usuário não-root para segurança (mas root para cron)
 RUN useradd -m -u 1000 scraper && \
     chown -R scraper:scraper /app
 
-USER scraper
+# Cron precisa rodar como root
+USER root
 
 # Comando padrão
 CMD ["python", "-m", "scraper.main_with_db"]
