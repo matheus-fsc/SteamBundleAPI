@@ -11,14 +11,14 @@
 # Busca detalhes APENAS dos bundles novos detectados
 0 3 * * 1 cd /app && python3 scripts/scrape_incremental.py >> /proc/1/fd/1 2>&1
 
-# === ROTINA 3: SCRAPING COMPLETO (Diário) ===
+# === ROTINA 3: SCRAPING COMPLETO COM AUTO-DISCOVERY (Diário) ===
 # Todo dia às 6:00 AM - atualiza TODOS os bundles
-# Garante que preços e descontos estejam atualizados
-0 6 * * * cd /app && python3 -m scraper.main_with_db >> /proc/1/fd/1 2>&1
+# Verifica se é primeira execução e roda discovery automaticamente
+0 6 * * * cd /app && python3 scripts/cron_scraper.py >> /proc/1/fd/1 2>&1
 
-# === ROTINA 4: SCRAPING RÁPIDO (Meio-dia) ===
+# === ROTINA 4: SCRAPING RÁPIDO COM AUTO-DISCOVERY (Meio-dia) ===
 # Todo dia às 12:00 PM - segunda atualização do dia
-0 12 * * * cd /app && python3 -m scraper.main_with_db >> /proc/1/fd/1 2>&1
+0 12 * * * cd /app && python3 scripts/cron_scraper.py >> /proc/1/fd/1 2>&1
 
 # === ROTINA 5: SINCRONIZAÇÃO SUPABASE (A cada 6 horas) ===
 # Envia dados para Supabase (se habilitado)

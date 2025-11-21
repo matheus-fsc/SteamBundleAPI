@@ -1,0 +1,81 @@
+#!/usr/bin/env python3
+"""
+Script wrapper para execução do cron
+Verifica se é primeira execução e executa discovery automaticamente
+"""
+import asyncio
+import os
+import sys
+import subprocess
+
+# Adiciona path do projeto
+sys.path.insert(0, '/app')
+
+from scraper.database import Database
+from scraper.logger import Logger
+from sqlalchemy import select, func
+
+
+async def check_and_run():
+    """Verifica estado do banco e executa rotina apropriada"""
+    logger = Logger('cron_wrapper')
+    
+    logger.info("🤖 Iniciando rotina automática do cron")
+    
+    # Verifica se banco está vazio
+    db = Database()
+    await db.init_db()
+    
+    try:
+        from scraper.database import BundleModel
+        async with db.async_session() as session:
+            result = await session.execute(select(func.count(BundleModel.id)))
+            total_bundles = result.scalar()
+        
+        is_first_run = (total_bundles == 0)
+        
+        if is_first_run:
+            logger.info("🎯 PRIMEIRA EXECUÇÃO DETECTADA!")
+            logger.info("📋 Executando discovery completo...")
+            
+            # Executa discovery
+            discovery_result = subprocess.run(
+                [sys.executable, '/app/scripts/discover_with_diff.py'],
+                capture_output=True,
+                text=True
+            )
+            
+            if discovery_result.returncode != 0:
+                logger.error(f"❌ Erro no discovery: {discovery_result.stderr}")
+                return 1
+            
+            logger.success("✅ Discovery completo!")
+        else:
+            logger.info(f"ℹ️  Banco já possui {total_bundles} bundles")
+        
+        # Agora executa o scraping normal
+        logger.info("🚀 Iniciando scraping completo...")
+        
+        scraping_result = subprocess.run(
+            [sys.executable, '-m', 'scraper.main_with_db'],
+            cwd='/app',
+            capture_output=False  # Output vai direto para stdout (logs do docker)
+        )
+        
+        if scraping_result.returncode != 0:
+            logger.error("❌ Erro no scraping")
+            return 1
+        
+        logger.success("✅ Rotina completa!")
+        return 0
+        
+    except Exception as e:
+        logger.error(f"❌ Erro fatal: {e}")
+        return 1
+    finally:
+        await db.close()
+
+
+if __name__ == '__main__':
+    exit_code = asyncio.run(check_and_run())
+    sys.exit(exit_code)
