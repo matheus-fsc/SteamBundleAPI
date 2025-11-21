@@ -1,14 +1,35 @@
 # Crontab para execução periódica do scraper no Docker
 # Formato: minuto hora dia mês dia-da-semana comando
 
-# Scraping completo: Todo dia às 3:00 AM (horário de menos carga)
-0 3 * * * cd /app && python -m scraper.main_with_db >> /proc/1/fd/1 2>&1
+# === ROTINA 1: DESCOBERTA COMPLETA (Semanal) ===
+# Executa toda Segunda-feira às 2:00 AM
+# Descobre TODOS os bundle IDs (1-35000) e detecta mudanças
+0 2 * * 1 cd /app && python scripts/discover_with_diff.py >> /proc/1/fd/1 2>&1
 
-# Scraping rápido: Todo dia às 15:00 PM (meio do dia)
-0 15 * * * cd /app && python -m scraper.main_with_db >> /proc/1/fd/1 2>&1
+# === ROTINA 2: SCRAPING INCREMENTAL (Diário após descoberta) ===
+# Executa toda Segunda-feira às 3:00 AM (1h após descoberta)
+# Busca detalhes APENAS dos bundles novos detectados
+0 3 * * 1 cd /app && python scripts/scrape_incremental.py >> /proc/1/fd/1 2>&1
 
-# Sincronização Supabase: A cada 6 horas (apenas bundles recentes)
+# === ROTINA 3: SCRAPING COMPLETO (Diário) ===
+# Todo dia às 6:00 AM - atualiza TODOS os bundles
+# Garante que preços e descontos estejam atualizados
+0 6 * * * cd /app && python -m scraper.main_with_db >> /proc/1/fd/1 2>&1
+
+# === ROTINA 4: SCRAPING RÁPIDO (Meio-dia) ===
+# Todo dia às 12:00 PM - segunda atualização do dia
+0 12 * * * cd /app && python -m scraper.main_with_db >> /proc/1/fd/1 2>&1
+
+# === ROTINA 5: SINCRONIZAÇÃO SUPABASE (A cada 6 horas) ===
+# Envia dados para Supabase (se habilitado)
 0 */6 * * * cd /app && python -m scraper.sync_supabase >> /proc/1/fd/1 2>&1
 
 # Nota: >> /proc/1/fd/1 redireciona output para stdout do Docker
 # Isso permite ver logs com 'docker compose logs -f'
+
+# FLUXO SEMANAL:
+# Segunda 02:00 - Descobre todos os IDs + detecta novos/removidos
+# Segunda 03:00 - Scraping apenas dos novos
+# Diário 06:00  - Scraping completo (atualiza preços/descontos)
+# Diário 12:00  - Scraping rápido (segunda atualização)
+# A cada 6h     - Sync Supabase (opcional)

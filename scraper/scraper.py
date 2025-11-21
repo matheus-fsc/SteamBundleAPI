@@ -39,23 +39,39 @@ class BundleScraper:
     
     async def scrape_bundle_list(self) -> List[str]:
         """
-        Retorna lista de IDs de bundles conhecidos
+        Retorna lista de IDs de bundles conhecidos do JSON
         
         Returns:
             Lista de IDs de bundles
         """
         self.logger.start_operation("Carregando lista de bundles")
         
-        # Carrega lista de IDs conhecidos
+        # Carrega lista de IDs do JSON
+        import json
+        from pathlib import Path
+        
+        json_file = Path("data/known_bundles.json")
+        
         try:
-            from .known_bundles import ALL_BUNDLE_IDS
-            bundle_ids = [str(id) for id in ALL_BUNDLE_IDS]
-            self.logger.success(f"Carregados {len(bundle_ids)} bundle IDs")
-        except ImportError:
-            self.logger.warning("known_bundles.py não encontrado, usando lista padrão")
-            # Fallback para lista básica
-            bundle_ids = ["232", "5699", "6684", "14343", "19975", "20187", "21200", "21661", "25657", "28631"]
-            self.logger.info(f"Usando {len(bundle_ids)} IDs padrão")
+            if json_file.exists():
+                with open(json_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    bundle_ids = [str(id) for id in data.get('bundle_ids', [])]
+                    self.logger.success(f"Carregados {len(bundle_ids)} bundle IDs do JSON")
+                    self.logger.info(f"Última atualização: {data.get('last_updated', 'desconhecido')}")
+            else:
+                # Fallback: tenta importar do Python
+                try:
+                    from .known_bundles import ALL_BUNDLE_IDS
+                    bundle_ids = [str(id) for id in ALL_BUNDLE_IDS]
+                    self.logger.warning(f"JSON não encontrado, usando known_bundles.py ({len(bundle_ids)} IDs)")
+                except ImportError:
+                    self.logger.warning("Nenhuma fonte de IDs encontrada, usando lista padrão")
+                    bundle_ids = ["232", "5699", "6684", "14343", "19975", "20187", "21200", "21661", "25657", "28631"]
+                    self.logger.info(f"Usando {len(bundle_ids)} IDs padrão")
+        except Exception as e:
+            self.logger.error(f"Erro ao carregar IDs: {e}")
+            bundle_ids = []
         
         self.logger.end_operation("Carregando lista de bundles")
         return bundle_ids

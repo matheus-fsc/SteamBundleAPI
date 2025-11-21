@@ -104,36 +104,29 @@ class BundleDiscovery:
         return all_ids
     
     async def update_known_bundles_file(self):
-        """Atualiza arquivo known_bundles.py com todos os IDs descobertos"""
+        """Atualiza arquivo JSON com todos os IDs descobertos"""
         all_ids = await self.discover_all()
         
-        content = '''"""
-Lista completa de Bundle IDs da Steam
-Gerado automaticamente via BundleDiscovery
-
-Última atualização: {timestamp}
-Total de bundles: {total}
-"""
-
-ALL_BUNDLE_IDS = [
-{ids}
-]
-'''
         from datetime import datetime
+        import json
+        from pathlib import Path
         
-        ids_formatted = ',\n'.join(f'    {id}' for id in all_ids)
+        # Salva em JSON
+        output_data = {
+            'last_updated': datetime.utcnow().isoformat() + 'Z',
+            'total': len(all_ids),
+            'bundle_ids': all_ids
+        }
         
-        final_content = content.format(
-            timestamp=datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC'),
-            total=len(all_ids),
-            ids=ids_formatted
-        )
+        output_file = Path("data/known_bundles.json")
+        output_file.parent.mkdir(exist_ok=True)
         
-        output_file = "scraper/known_bundles.py"
         with open(output_file, 'w', encoding='utf-8') as f:
-            f.write(final_content)
+            json.dump(output_data, f, indent=2)
         
         self.logger.success(f"Arquivo atualizado: {output_file}")
+        self.logger.info(f"Total de bundles: {len(all_ids)}")
+        
         return all_ids
 
 
