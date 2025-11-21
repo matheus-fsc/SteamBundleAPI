@@ -5,6 +5,7 @@ Usa conexão PostgreSQL nativa (mais confiável que SDK)
 """
 import asyncio
 import os
+import json
 from datetime import datetime, timedelta
 from sqlalchemy import select, create_engine, text
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
@@ -114,12 +115,12 @@ async def sync_to_supabase():
                         'original_price': bundle.original_price,
                         'discount': bundle.discount,
                         'currency': bundle.currency,
-                        'games': bundle.games,
+                        'games': json.dumps(bundle.games) if bundle.games else '[]',
                         'games_count': bundle.games_count,
                         'is_valid': bundle.is_valid,
                         'is_discount_real': discount_analysis.get('is_real', True),
                         'discount_analysis': discount_analysis.get('reason', ''),
-                        'price_history': bundle.price_history[:30] if bundle.price_history else [],
+                        'price_history': json.dumps(bundle.price_history[:30] if bundle.price_history else []),
                         'first_seen': bundle.first_seen,
                         'last_updated': bundle.last_updated,
                         'synced_at': datetime.utcnow()
