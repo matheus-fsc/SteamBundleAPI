@@ -76,7 +76,7 @@ async def sync_to_supabase():
                     
                     # SQL UPSERT nativo (PostgreSQL)
                     upsert_sql = text("""
-                        INSERT INTO steam_bundles (
+                        INSERT INTO bundles (
                             id, name, url, 
                             final_price, original_price, discount, currency,
                             games, games_count,
