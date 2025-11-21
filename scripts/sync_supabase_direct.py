@@ -78,13 +78,13 @@ async def sync_to_supabase():
                     # SQL UPSERT nativo (PostgreSQL)
                     upsert_sql = text("""
                         INSERT INTO bundles (
-                            id, name, url, 
+                            id, name, url, image_url,
                             final_price, original_price, discount, currency,
                             games, games_count,
                             is_valid, is_discount_real, discount_analysis,
                             price_history, first_seen, last_updated, synced_at
                         ) VALUES (
-                            :id, :name, :url,
+                            :id, :name, :url, :image_url,
                             :final_price, :original_price, :discount, :currency,
                             :games, :games_count,
                             :is_valid, :is_discount_real, :discount_analysis,
@@ -93,6 +93,7 @@ async def sync_to_supabase():
                         ON CONFLICT (id) DO UPDATE SET
                             name = EXCLUDED.name,
                             url = EXCLUDED.url,
+                            image_url = EXCLUDED.image_url,
                             final_price = EXCLUDED.final_price,
                             original_price = EXCLUDED.original_price,
                             discount = EXCLUDED.discount,
@@ -111,6 +112,7 @@ async def sync_to_supabase():
                         'id': bundle.id,
                         'name': bundle.name,
                         'url': bundle.url,
+                        'image_url': bundle.image_url,
                         'final_price': bundle.final_price,
                         'original_price': bundle.original_price,
                         'discount': bundle.discount,

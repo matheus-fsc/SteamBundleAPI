@@ -18,6 +18,7 @@ class BundleModel(Base):
     id = Column(String, primary_key=True)
     name = Column(String, nullable=False)
     url = Column(String)
+    image_url = Column(String)  # Header image do bundle
     
     # Preços atuais
     final_price = Column(Float)
@@ -217,6 +218,7 @@ class Database:
                         id=bundle_data['id'],
                         name=bundle_data.get('name'),
                         url=bundle_data.get('url'),
+                        image_url=bundle_data.get('images', {}).get('header') if isinstance(bundle_data.get('images'), dict) else None,
                         games=bundle_data.get('games', []),
                         games_count=len(bundle_data.get('games', [])),
                         is_valid=bundle_data.get('is_valid', True),
@@ -226,6 +228,13 @@ class Database:
                     # Atualiza dados
                     bundle.name = bundle_data.get('name', bundle.name)
                     bundle.url = bundle_data.get('url', bundle.url)
+                    
+                    # Atualiza image_url se disponível
+                    if isinstance(bundle_data.get('images'), dict):
+                        image_url = bundle_data['images'].get('header')
+                        if image_url:
+                            bundle.image_url = image_url
+                    
                     bundle.games = bundle_data.get('games', bundle.games)
                     bundle.games_count = len(bundle_data.get('games', []))
                     bundle.is_valid = bundle_data.get('is_valid', bundle.is_valid)

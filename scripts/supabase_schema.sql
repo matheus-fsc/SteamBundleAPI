@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS bundles (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     url TEXT,
+    image_url TEXT,  -- Header image do bundle
     
     -- Preços
     final_price NUMERIC,
