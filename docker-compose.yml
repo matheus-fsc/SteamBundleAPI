@@ -31,6 +31,8 @@ services:
       dockerfile: Dockerfile
     container_name: steam_scraper
     restart: unless-stopped
+    env_file:
+      - .env
     depends_on:
       postgres:
         condition: service_healthy
@@ -41,10 +43,10 @@ services:
       PYTHONUNBUFFERED: "1"
       TZ: America/Sao_Paulo
       
-      # Supabase (opcional - descomente se usar)
-      # ENABLE_SUPABASE_SYNC: "true"
-      # SUPABASE_URL: ${SUPABASE_URL}
-      # SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY}
+      # Supabase
+      ENABLE_SUPABASE_SYNC: ${ENABLE_SUPABASE_SYNC:-false}
+      SUPABASE_URL: ${SUPABASE_URL:-}
+      SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY:-}
     
     tmpfs:
       - /app/logs:size=50M
