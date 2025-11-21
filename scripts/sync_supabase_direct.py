@@ -65,10 +65,12 @@ async def sync_to_supabase():
                 logger.info("✅ Nenhum bundle novo para sincronizar")
                 return
         
-        # Envia para Supabase com BULK UPSERT (muito mais rápido!)
+        # Envia para Supabase com BULK UPSERT (muito mais rápido!) + RETRY
         synced = 0
         errors = 0
         batch_size = 500  # Insere 500 bundles por vez
+        max_retries = 3
+        retry_delay = 5  # segundos
         
         for i in range(0, len(bundles), batch_size):
             batch = bundles[i:i + batch_size]
@@ -76,89 +78,97 @@ async def sync_to_supabase():
             
             logger.info(f"📦 Sincronizando batch {batch_num} ({len(batch)} bundles)...")
             
-            async with SupabaseSession() as supabase_session:
+            # Retry loop
+            for attempt in range(1, max_retries + 1):
                 try:
-                    # Prepara todos os valores do batch
-                    values_list = []
-                    for bundle in batch:
-                        discount_analysis = bundle.get_real_discount()
-                        values_list.append({
-                            'id': bundle.id,
-                            'name': bundle.name,
-                            'url': bundle.url,
-                            'image_url': bundle.image_url,
-                            'final_price': bundle.final_price,
-                            'original_price': bundle.original_price,
-                            'discount': bundle.discount,
-                            'currency': bundle.currency,
-                            'games': json.dumps(bundle.games) if bundle.games else '[]',
-                            'games_count': bundle.games_count,
-                            'is_valid': bundle.is_valid,
-                            'is_discount_real': discount_analysis.get('is_real', True),
-                            'discount_analysis': discount_analysis.get('reason', ''),
-                            'price_history': json.dumps(bundle.price_history[:30] if bundle.price_history else []),
-                            'first_seen': bundle.first_seen,
-                            'last_updated': bundle.last_updated,
-                            'synced_at': datetime.utcnow()
-                        })
-                    
-                    # Cria placeholders para bulk insert
-                    placeholders = []
-                    for idx in range(len(values_list)):
-                        base = idx * 17  # 17 campos por bundle
-                        placeholders.append(f"(${base+1}, ${base+2}, ${base+3}, ${base+4}, ${base+5}, ${base+6}, ${base+7}, ${base+8}, ${base+9}, ${base+10}, ${base+11}, ${base+12}, ${base+13}, ${base+14}, ${base+15}, ${base+16}, ${base+17})")
-                    
-                    # SQL BULK UPSERT
-                    bulk_upsert_sql = f"""
-                        INSERT INTO bundles (
-                            id, name, url, image_url,
-                            final_price, original_price, discount, currency,
-                            games, games_count,
-                            is_valid, is_discount_real, discount_analysis,
-                            price_history, first_seen, last_updated, synced_at
-                        ) VALUES {', '.join(placeholders)}
-                        ON CONFLICT (id) DO UPDATE SET
-                            name = EXCLUDED.name,
-                            url = EXCLUDED.url,
-                            image_url = EXCLUDED.image_url,
-                            final_price = EXCLUDED.final_price,
-                            original_price = EXCLUDED.original_price,
-                            discount = EXCLUDED.discount,
-                            currency = EXCLUDED.currency,
-                            games = EXCLUDED.games,
-                            games_count = EXCLUDED.games_count,
-                            is_valid = EXCLUDED.is_valid,
-                            is_discount_real = EXCLUDED.is_discount_real,
-                            discount_analysis = EXCLUDED.discount_analysis,
-                            price_history = EXCLUDED.price_history,
-                            last_updated = EXCLUDED.last_updated,
-                            synced_at = EXCLUDED.synced_at
-                    """
-                    
-                    # Flatten values para executar
-                    flat_values = []
-                    for bundle_values in values_list:
-                        flat_values.extend([
-                            bundle_values['id'], bundle_values['name'], bundle_values['url'], 
-                            bundle_values['image_url'], bundle_values['final_price'], 
-                            bundle_values['original_price'], bundle_values['discount'], 
-                            bundle_values['currency'], bundle_values['games'], 
-                            bundle_values['games_count'], bundle_values['is_valid'], 
-                            bundle_values['is_discount_real'], bundle_values['discount_analysis'],
-                            bundle_values['price_history'], bundle_values['first_seen'],
-                            bundle_values['last_updated'], bundle_values['synced_at']
-                        ])
-                    
-                    await supabase_session.execute(text(bulk_upsert_sql), flat_values)
-                    await supabase_session.commit()
-                    
-                    synced += len(batch)
-                    logger.success(f"✅ Batch {batch_num}: {len(batch)} bundles sincronizados (Total: {synced}/{len(bundles)})")
-                    
+                    async with SupabaseSession() as supabase_session:
+                        # Prepara todos os valores do batch
+                        values_list = []
+                        for bundle in batch:
+                            discount_analysis = bundle.get_real_discount()
+                            values_list.append({
+                                'id': bundle.id,
+                                'name': bundle.name,
+                                'url': bundle.url,
+                                'image_url': bundle.image_url,
+                                'final_price': bundle.final_price,
+                                'original_price': bundle.original_price,
+                                'discount': bundle.discount,
+                                'currency': bundle.currency,
+                                'games': json.dumps(bundle.games) if bundle.games else '[]',
+                                'games_count': bundle.games_count,
+                                'is_valid': bundle.is_valid,
+                                'is_discount_real': discount_analysis.get('is_real', True),
+                                'discount_analysis': discount_analysis.get('reason', ''),
+                                'price_history': json.dumps(bundle.price_history[:30] if bundle.price_history else []),
+                                'first_seen': bundle.first_seen,
+                                'last_updated': bundle.last_updated,
+                                'synced_at': datetime.utcnow()
+                            })
+                        
+                        # Cria placeholders para bulk insert
+                        placeholders = []
+                        for idx in range(len(values_list)):
+                            base = idx * 17  # 17 campos por bundle
+                            placeholders.append(f"(${base+1}, ${base+2}, ${base+3}, ${base+4}, ${base+5}, ${base+6}, ${base+7}, ${base+8}, ${base+9}, ${base+10}, ${base+11}, ${base+12}, ${base+13}, ${base+14}, ${base+15}, ${base+16}, ${base+17})")
+                        
+                        # SQL BULK UPSERT
+                        bulk_upsert_sql = f"""
+                            INSERT INTO bundles (
+                                id, name, url, image_url,
+                                final_price, original_price, discount, currency,
+                                games, games_count,
+                                is_valid, is_discount_real, discount_analysis,
+                                price_history, first_seen, last_updated, synced_at
+                            ) VALUES {', '.join(placeholders)}
+                            ON CONFLICT (id) DO UPDATE SET
+                                name = EXCLUDED.name,
+                                url = EXCLUDED.url,
+                                image_url = EXCLUDED.image_url,
+                                final_price = EXCLUDED.final_price,
+                                original_price = EXCLUDED.original_price,
+                                discount = EXCLUDED.discount,
+                                currency = EXCLUDED.currency,
+                                games = EXCLUDED.games,
+                                games_count = EXCLUDED.games_count,
+                                is_valid = EXCLUDED.is_valid,
+                                is_discount_real = EXCLUDED.is_discount_real,
+                                discount_analysis = EXCLUDED.discount_analysis,
+                                price_history = EXCLUDED.price_history,
+                                last_updated = EXCLUDED.last_updated,
+                                synced_at = EXCLUDED.synced_at
+                        """
+                        
+                        # Flatten values para executar
+                        flat_values = []
+                        for bundle_values in values_list:
+                            flat_values.extend([
+                                bundle_values['id'], bundle_values['name'], bundle_values['url'], 
+                                bundle_values['image_url'], bundle_values['final_price'], 
+                                bundle_values['original_price'], bundle_values['discount'], 
+                                bundle_values['currency'], bundle_values['games'], 
+                                bundle_values['games_count'], bundle_values['is_valid'], 
+                                bundle_values['is_discount_real'], bundle_values['discount_analysis'],
+                                bundle_values['price_history'], bundle_values['first_seen'],
+                                bundle_values['last_updated'], bundle_values['synced_at']
+                            ])
+                        
+                        await supabase_session.execute(text(bulk_upsert_sql), flat_values)
+                        await supabase_session.commit()
+                        
+                        synced += len(batch)
+                        logger.success(f"✅ Batch {batch_num}: {len(batch)} bundles sincronizados (Total: {synced}/{len(bundles)})")
+                        break  # Sucesso, sai do loop de retry
+                        
                 except Exception as e:
-                    logger.error(f"❌ Erro no batch {batch_num}: {e}")
-                    errors += len(batch)
-                    continue
+                    if attempt < max_retries:
+                        wait_time = retry_delay * attempt  # Backoff exponencial
+                        logger.warning(f"⚠️  Tentativa {attempt}/{max_retries} falhou para batch {batch_num}: {e}")
+                        logger.info(f"🔄 Aguardando {wait_time}s antes de tentar novamente...")
+                        await asyncio.sleep(wait_time)
+                    else:
+                        logger.error(f"❌ Batch {batch_num} falhou após {max_retries} tentativas: {e}")
+                        errors += len(batch)
         
         logger.info(f"✅ Sync completo!")
         logger.info(f"   → Sincronizados: {synced}")

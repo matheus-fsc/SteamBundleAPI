@@ -25,6 +25,34 @@ async def main():
     await db.init_db()
     logger.success("Banco de dados inicializado")
     
+    # Verifica se é primeira execução (banco vazio)
+    from sqlalchemy import select, func
+    from .database import BundleModel
+    async with db.async_session() as session:
+        result = await session.execute(select(func.count(BundleModel.id)))
+        total_bundles = result.scalar()
+    
+    is_first_run = (total_bundles == 0)
+    
+    if is_first_run:
+        logger.info("🎯 PRIMEIRA EXECUÇÃO DETECTADA! Banco de dados vazio.")
+        logger.info("📋 Executando discovery completo antes do scraping...")
+        
+        # Executa discovery na primeira vez
+        import subprocess
+        import sys
+        discovery_result = subprocess.run(
+            [sys.executable, '/app/scripts/discover_with_diff.py'],
+            capture_output=True,
+            text=True
+        )
+        
+        if discovery_result.returncode != 0:
+            logger.error(f"❌ Erro no discovery: {discovery_result.stderr}")
+            raise Exception("Discovery falhou na primeira execução")
+        
+        logger.success("✅ Discovery completo! Iniciando scraping...")
+    
     # Log de execução
     scraping_log = ScrapingLogModel(
         started_at=datetime.datetime.utcnow()

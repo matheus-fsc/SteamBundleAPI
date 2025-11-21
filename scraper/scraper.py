@@ -4,6 +4,7 @@ Versão 2.0 - Apenas API, sem parsing de HTML
 """
 import asyncio
 import aiohttp
+import json
 from typing import List, Dict, Optional
 from .config import ScrapingConfig
 from .logger import Logger
@@ -101,46 +102,61 @@ class BundleScraper:
                     if response.status == 200:
                         data = await response.json()
                         
-                        if not data or len(data) == 0:
+                        # Nova estrutura da API v1
+                        response_data = data.get('response', {})
+                        store_items = response_data.get('store_items', [])
+                        
+                        if not store_items or len(store_items) == 0:
                             self.logger.warning(f"Bundle {bundle_id}: API retornou vazio")
                             return None
                         
-                        bundle_data = data[0]
+                        bundle_data = store_items[0]
                         
                         # Verifica se bundle tem nome (válido)
                         if not bundle_data.get('name'):
                             return None
                         
+                        # Extrai dados de preço do best_purchase_option
+                        purchase_option = bundle_data.get('best_purchase_option', {})
+                        final_price_cents = int(purchase_option.get('final_price_in_cents', 0))
+                        original_price_cents = int(purchase_option.get('price_before_bundle_discount', final_price_cents))
+                        
+                        # Calcula desconto percentual
+                        if original_price_cents > 0:
+                            discount_pct = round(((original_price_cents - final_price_cents) / original_price_cents) * 100)
+                        else:
+                            discount_pct = 0
+                        
                         # Converte para formato do scraper
                         result = {
-                            'id': str(bundle_data.get('bundleid')),
+                            'id': str(bundle_data.get('id')),
                             'name': bundle_data.get('name'),
-                            'url': self.config.BUNDLE_URL_TEMPLATE.format(bundle_id=bundle_id),
+                            'url': f"https://store.steampowered.com/{bundle_data.get('store_url_path', f'bundle/{bundle_id}/')}",
                             'price': {
-                                'final': bundle_data.get('final_price', 0) / 100,  # Centavos → Reais
-                                'original': bundle_data.get('initial_price', 0) / 100,
-                                'discount': bundle_data.get('discount_percent', 0),
-                                'formatted_final': bundle_data.get('formatted_final_price'),
-                                'formatted_original': bundle_data.get('formatted_orig_price'),
+                                'final': final_price_cents / 100,  # Centavos → Reais
+                                'original': original_price_cents / 100,
+                                'discount': discount_pct,
+                                'formatted_final': purchase_option.get('formatted_final_price', ''),
+                                'formatted_original': purchase_option.get('formatted_price_before_bundle_discount', ''),
                                 'currency': 'BRL'
                             },
                             'images': {
-                                'header': bundle_data.get('header_image_url'),
-                                'capsule': bundle_data.get('main_capsule'),
-                                'library': bundle_data.get('library_asset')
+                                'header': bundle_data.get('assets', {}).get('header', ''),
+                                'capsule': bundle_data.get('assets', {}).get('main_capsule', ''),
+                                'library': bundle_data.get('assets', {}).get('library_capsule', '')
                             },
                             'platforms': {
-                                'windows': bundle_data.get('available_windows', False),
-                                'mac': bundle_data.get('available_mac', False),
-                                'linux': bundle_data.get('available_linux', False)
+                                'windows': bundle_data.get('platforms', {}).get('windows', False),
+                                'mac': bundle_data.get('platforms', {}).get('mac', False),
+                                'linux': bundle_data.get('platforms', {}).get('linux', False)
                             },
                             'vr': {
-                                'supported': bundle_data.get('support_vrhmd', False),
-                                'only': bundle_data.get('support_vrhmd_only', False)
+                                'supported': bundle_data.get('vr_support', {}).get('vrhmd', False),
+                                'only': bundle_data.get('vr_support', {}).get('vrhmd_only', False)
                             },
-                            'app_ids': bundle_data.get('appids', []),
-                            'package_ids': bundle_data.get('packageids', []),
-                            'coming_soon': bundle_data.get('coming_soon', False),
+                            'app_ids': [item['id'] for item in bundle_data.get('included_items', []) if item.get('item_type') == 0],  # 0 = app
+                            'package_ids': [item['id'] for item in bundle_data.get('included_items', []) if item.get('item_type') == 1],  # 1 = package
+                            'coming_soon': not bundle_data.get('visible', True),
                             'games': [],
                             'needs_browser_scraping': False  # API retorna tudo
                         }
@@ -149,7 +165,7 @@ class BundleScraper:
                         if result['app_ids']:
                             result['games'] = [{'app_id': app_id} for app_id in result['app_ids']]
                         
-                        self.logger.success(f"Bundle {bundle_id} extraído via API: {result['name']}")
+                        self.logger.success(f"Bundle {bundle_id} extraído via API: {result['name']} (desconto: {discount_pct}%)")
                         return result
                     
                     else:
@@ -162,7 +178,7 @@ class BundleScraper:
     
     async def scrape_bundles_batch(self, bundle_ids: List[str]) -> List[Dict]:
         """
-        Busca múltiplos bundles em um único request (API aceita batch)
+        Busca múltiplos bundles em um único request (API v1 aceita batch)
         
         Args:
             bundle_ids: Lista de IDs (até 100)
@@ -173,13 +189,14 @@ class BundleScraper:
         if not bundle_ids:
             return []
         
-        # API aceita até 100 IDs
-        ids_str = ','.join(str(id) for id in bundle_ids[:100])
+        # API v1 usa formato JSON com lista de IDs
+        ids_list = [{"bundleid": int(bid)} for bid in bundle_ids[:100]]
+        context = {"language": "brazilian", "country_code": "BR"}
+        input_json = json.dumps({"ids": ids_list, "context": context})
         
         params = {
-            'bundleids': ids_str,
-            'cc': self.config.COUNTRY_CODE,
-            'l': self.config.LANGUAGE
+            'key': self.config.API_KEY,
+            'input_json': input_json
         }
         
         try:
@@ -188,43 +205,57 @@ class BundleScraper:
                     if response.status == 200:
                         data = await response.json()
                         
+                        response_data = data.get('response', {})
+                        store_items = response_data.get('store_items', [])
+                        
                         bundles = []
-                        for bundle_data in data:
+                        for bundle_data in store_items:
                             if not bundle_data.get('name'):
                                 continue
                             
-                            bundle_id = bundle_data.get('bundleid')
+                            bundle_id = bundle_data.get('id')
+                            
+                            # Extrai dados de preço
+                            purchase_option = bundle_data.get('best_purchase_option', {})
+                            final_price_cents = int(purchase_option.get('final_price_in_cents', 0))
+                            original_price_cents = int(purchase_option.get('price_before_bundle_discount', final_price_cents))
+                            
+                            # Calcula desconto
+                            if original_price_cents > 0:
+                                discount_pct = round(((original_price_cents - final_price_cents) / original_price_cents) * 100)
+                            else:
+                                discount_pct = 0
                             
                             result = {
                                 'id': str(bundle_id),
                                 'name': bundle_data.get('name'),
-                                'url': self.config.BUNDLE_URL_TEMPLATE.format(bundle_id=bundle_id),
+                                'url': f"https://store.steampowered.com/{bundle_data.get('store_url_path', f'bundle/{bundle_id}/')}",
                                 'price': {
-                                    'final': bundle_data.get('final_price', 0) / 100,
-                                    'original': bundle_data.get('initial_price', 0) / 100,
-                                    'discount': bundle_data.get('discount_percent', 0),
-                                    'formatted_final': bundle_data.get('formatted_final_price'),
-                                    'formatted_original': bundle_data.get('formatted_orig_price'),
+                                    'final': final_price_cents / 100,
+                                    'original': original_price_cents / 100,
+                                    'discount': discount_pct,
+                                    'formatted_final': purchase_option.get('formatted_final_price', ''),
+                                    'formatted_original': purchase_option.get('formatted_price_before_bundle_discount', ''),
                                     'currency': 'BRL'
                                 },
                                 'images': {
-                                    'header': bundle_data.get('header_image_url'),
-                                    'capsule': bundle_data.get('main_capsule'),
-                                    'library': bundle_data.get('library_asset')
+                                    'header': bundle_data.get('assets', {}).get('header', ''),
+                                    'capsule': bundle_data.get('assets', {}).get('main_capsule', ''),
+                                    'library': bundle_data.get('assets', {}).get('library_capsule', '')
                                 },
                                 'platforms': {
-                                    'windows': bundle_data.get('available_windows', False),
-                                    'mac': bundle_data.get('available_mac', False),
-                                    'linux': bundle_data.get('available_linux', False)
+                                    'windows': bundle_data.get('platforms', {}).get('windows', False),
+                                    'mac': bundle_data.get('platforms', {}).get('mac', False),
+                                    'linux': bundle_data.get('platforms', {}).get('linux', False)
                                 },
                                 'vr': {
-                                    'supported': bundle_data.get('support_vrhmd', False),
-                                    'only': bundle_data.get('support_vrhmd_only', False)
+                                    'supported': bundle_data.get('vr_support', {}).get('vrhmd', False),
+                                    'only': bundle_data.get('vr_support', {}).get('vrhmd_only', False)
                                 },
-                                'app_ids': bundle_data.get('appids', []),
-                                'package_ids': bundle_data.get('packageids', []),
-                                'coming_soon': bundle_data.get('coming_soon', False),
-                                'games': [{'app_id': app_id} for app_id in bundle_data.get('appids', [])],
+                                'app_ids': [item['id'] for item in bundle_data.get('included_items', []) if item.get('item_type') == 0],
+                                'package_ids': [item['id'] for item in bundle_data.get('included_items', []) if item.get('item_type') == 1],
+                                'coming_soon': not bundle_data.get('visible', True),
+                                'games': [{'app_id': item['id']} for item in bundle_data.get('included_items', []) if item.get('item_type') == 0],
                                 'needs_browser_scraping': False
                             }
                             
