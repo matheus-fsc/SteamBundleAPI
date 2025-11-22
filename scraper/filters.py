@@ -56,9 +56,10 @@ class BundleFilter:
             if not bundle.get(field):
                 return False
         
-        games = bundle.get('games', [])
-        if not games or len(games) == 0:
-            return False
+        # Não rejeitar bundles sem jogos - podem ser DLC bundles válidos
+        # games = bundle.get('games', [])
+        # if not games or len(games) == 0:
+        #     return False
         
         price_data = bundle.get('price')
         if isinstance(price_data, dict):
