@@ -32,7 +32,7 @@ class BundleDiscovery:
     async def brute_force_scan(self, start: int = 1, end: int = 35000, batch_size: int = 100) -> List[int]:
         """
         Estratégia 3: Força bruta otimizada
-        API: /actions/ajaxresolvebundles (aceita múltiplos IDs)
+        API Partner v1: /IStoreBrowseService/GetItems/v1/
         
         A Steam tem ~2000-3000 bundles ativos.
         Varremos até 35000 para cobrir todos.
@@ -46,13 +46,14 @@ class BundleDiscovery:
             batch_end = min(i + batch_size, end)
             batch_ids = list(range(i, batch_end))
             
-            # Monta query com múltiplos IDs
-            ids_str = ','.join(str(x) for x in batch_ids)
+            # API v1 usa formato JSON
+            ids_list = [{"bundleid": int(bid)} for bid in batch_ids]
+            context = {"language": "brazilian", "country_code": "BR"}
+            input_json = {"ids": ids_list, "context": context}
             
             params = {
-                'bundleids': ids_str,
-                'cc': self.config.COUNTRY_CODE,
-                'l': self.config.LANGUAGE
+                'key': self.config.API_KEY,
+                'input_json': str(input_json).replace("'", '"')
             }
             
             try:
@@ -60,9 +61,13 @@ class BundleDiscovery:
                     if response.status == 200:
                         data = await response.json()
                         
+                        # API v1 retorna formato diferente
+                        response_data = data.get('response', {})
+                        store_items = response_data.get('store_items', [])
+                        
                         # Extrai IDs válidos
-                        for bundle in data:
-                            bundle_id = bundle.get('bundleid')
+                        for bundle in store_items:
+                            bundle_id = bundle.get('id')
                             if bundle_id and bundle.get('name'):  # Válido se tem nome
                                 valid_ids.append(bundle_id)
                                 self.discovered_ids.add(bundle_id)
