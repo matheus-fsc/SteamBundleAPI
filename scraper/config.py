@@ -11,8 +11,10 @@ class ScrapingConfig:
     # URLs da Steam
     BUNDLE_URL_TEMPLATE = "https://store.steampowered.com/bundle/{bundle_id}/"
     
-    # APIs oficiais da Steam
-    BUNDLE_API_URL = "https://store.steampowered.com/actions/ajaxresolvebundles"
+    # API Partner v1 (oficial)
+    BUNDLE_API_URL = "https://api.steampowered.com/IStoreBrowseService/GetItems/v1/"
+    
+    # APIs públicas (deprecated)
     FEATURED_API_URL = "https://store.steampowered.com/api/featured"
     FEATURED_CATEGORIES_API_URL = "https://store.steampowered.com/api/featuredcategories"
     STORE_SEARCH_API_URL = "https://store.steampowered.com/api/storesearch"
