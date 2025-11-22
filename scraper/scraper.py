@@ -149,6 +149,14 @@ class BundleScraper:
                             self.logger.warning(f"Bundle {bundle_id}: SEM PREÇO (fantasma) - ignorado")
                             return None
                         
+                        # 🔞 DETECÇÃO: Verifica se é conteúdo NSFW/+18
+                        # Steam API retorna content_descriptorids com ID 3 para conteúdo adulto
+                        content_descriptors = bundle_data.get('content_descriptorids', [])
+                        is_nsfw = 3 in content_descriptors  # ID 3 = Adult Only Sexual Content
+                        
+                        if is_nsfw:
+                            self.logger.info(f"Bundle {bundle_id}: Detectado conteúdo +18/NSFW")
+                        
                         # Calcula desconto percentual
                         if original_price_cents > 0:
                             discount_pct = round(((original_price_cents - final_price_cents) / original_price_cents) * 100)
@@ -160,6 +168,7 @@ class BundleScraper:
                             'id': str(bundle_data.get('id')),
                             'name': bundle_data.get('name'),
                             'url': f"https://store.steampowered.com/{bundle_data.get('store_url_path', f'bundle/{bundle_id}/')}",
+                            'is_nsfw': is_nsfw,  # Conteúdo +18/adulto
                             'price': {
                                 'final': final_price_cents / 100,  # Centavos → Reais
                                 'original': original_price_cents / 100,

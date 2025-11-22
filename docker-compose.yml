@@ -37,17 +37,12 @@ services:
       postgres:
         condition: service_healthy
     environment:
+      # Sobrescreve apenas o necessário
       DATABASE_URL: postgresql+asyncpg://steam:${DB_PASSWORD:-changeme}@postgres/steam_bundles
       DOCKER_ENV: "true"
       DISABLE_FILE_LOGS: "true"
       PYTHONUNBUFFERED: "1"
       TZ: America/Sao_Paulo
-      
-      # Supabase
-      ENABLE_SUPABASE_SYNC: ${ENABLE_SUPABASE_SYNC:-false}
-      SUPABASE_URL: ${SUPABASE_URL:-}
-      SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY:-}
-      SUPABASE_DB_URL: ${SUPABASE_DB_URL:-}
     
     tmpfs:
       - /app/logs:size=50M

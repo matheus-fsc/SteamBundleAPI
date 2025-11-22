@@ -9,7 +9,7 @@ O sistema sincroniza automaticamente os bundles para o Supabase a cada 6 horas. 
 ### 1. Variáveis de Ambiente
 
 ```env
-NEXT_PUBLIC_SUPABASE_URL=https://seu-projeto.supabase.co
+NEXT_PUBLIC_SUPABASE_URL=https://hjespkvqdpalpsbcdzgq.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=sua_anon_key_publica_aqui
 ```
 
@@ -37,6 +37,7 @@ export interface Bundle {
   id: string
   name: string
   url: string
+  image_url: string | null
   final_price: number
   original_price: number
   discount: number
@@ -44,12 +45,21 @@ export interface Bundle {
   games: any[]
   games_count: number
   is_valid: boolean
+  is_nsfw: boolean  // 🔞 NOVO: Conteúdo +18/adulto
   is_discount_real: boolean
   discount_analysis: string
   price_history: PriceHistory[]
   first_seen: string
   last_updated: string
   synced_at: string
+}
+
+export interface BundleAnalytics {
+  bundle_id: string
+  view_count: number
+  total_clicks: number
+  last_viewed_at: string
+  first_tracked_at: string
 }
 
 export interface PriceHistory {
@@ -74,6 +84,7 @@ export async function GET() {
     .from('bundles')
     .select('*')
     .eq('is_valid', true)
+    .eq('is_nsfw', false)  // 🔞 Filtrar conteúdo adulto
     .gt('discount', 30)
     .order('discount', { ascending: false })
     .limit(50)
@@ -83,21 +94,60 @@ export async function GET() {
 }
 ```
 
-### 2. Bundles com Desconto Real
+### 2. Bundles Mais Visualizados (Trending)
 
 ```typescript
-// Apenas promoções legítimas (sem "metade do dobro")
-const { data } = await supabase
-  .from('bundles')
-  .select('*')
-  .eq('is_valid', true)
-  .eq('is_discount_real', true)
-  .gt('discount', 50)
-  .order('discount', { ascending: false })
-  .limit(20)
+// app/api/trending/route.ts
+export async function GET() {
+  // Query com JOIN entre bundles e analytics
+  const { data, error } = await supabase
+    .from('bundle_analytics')
+    .select(`
+      *,
+      bundles (
+        id, name, url, image_url, final_price, 
+        original_price, discount, currency, games_count, is_nsfw
+      )
+    `)
+    .order('view_count', { ascending: false })
+    .limit(20)
+  
+  if (error) return Response.json({ error }, { status: 500 })
+  return Response.json({ trending: data })
+}
 ```
 
-### 3. Busca por Nome
+### 3. Melhores Ofertas (Alto desconto + muitos jogos)
+
+```typescript
+// app/api/best-deals/route.ts
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url)
+  const minDiscount = parseInt(searchParams.get('min_discount') || '50')
+  const includeNSFW = searchParams.get('include_nsfw') === 'true'
+  
+  let query = supabase
+    .from('bundles')
+    .select('*')
+    .eq('is_valid', true)
+    .gte('discount', minDiscount)
+    .gt('games_count', 2)  // Pelo menos 3 jogos
+  
+  if (!includeNSFW) {
+    query = query.eq('is_nsfw', false)
+  }
+  
+  const { data, error } = await query
+    .order('discount', { ascending: false })
+    .order('games_count', { ascending: false })
+    .limit(30)
+  
+  if (error) return Response.json({ error }, { status: 500 })
+  return Response.json({ deals: data })
+}
+```
+
+### 4. Busca por Nome
 
 ```typescript
 // components/BundleSearch.tsx
@@ -174,6 +224,158 @@ const getStats = async () => {
     total: totalBundles,
     deals: dealsCount
   }
+}
+```
+
+## 📊 Analytics e Tracking
+
+### Incrementar Visualizações
+
+Chame esta função quando o usuário visualizar um bundle (página de detalhes):
+
+```typescript
+// app/bundle/[id]/page.tsx
+'use client'
+
+import { useEffect } from 'react'
+import { supabase } from '@/lib/supabase'
+
+export default function BundlePage({ params }: { params: { id: string } }) {
+  useEffect(() => {
+    // Incrementa view count
+    trackBundleView(params.id)
+  }, [params.id])
+  
+  const trackBundleView = async (bundleId: string) => {
+    // Busca analytics existente
+    const { data: existing } = await supabase
+      .from('bundle_analytics')
+      .select('*')
+      .eq('bundle_id', bundleId)
+      .single()
+    
+    if (existing) {
+      // Incrementa view_count
+      await supabase
+        .from('bundle_analytics')
+        .update({
+          view_count: existing.view_count + 1,
+          last_viewed_at: new Date().toISOString()
+        })
+        .eq('bundle_id', bundleId)
+    } else {
+      // Cria novo registro
+      await supabase
+        .from('bundle_analytics')
+        .insert({
+          bundle_id: bundleId,
+          view_count: 1,
+          last_viewed_at: new Date().toISOString(),
+          first_tracked_at: new Date().toISOString()
+        })
+    }
+  }
+  
+  // ... resto do componente
+}
+```
+
+### Incrementar Cliques (Link para Steam)
+
+Chame quando usuário clicar no botão "Ver na Steam":
+
+```typescript
+// components/BundleCard.tsx
+const handleSteamClick = async (bundleId: string, url: string) => {
+  // Incrementa click count
+  const { data: existing } = await supabase
+    .from('bundle_analytics')
+    .select('total_clicks')
+    .eq('bundle_id', bundleId)
+    .single()
+  
+  if (existing) {
+    await supabase
+      .from('bundle_analytics')
+      .update({ total_clicks: existing.total_clicks + 1 })
+      .eq('bundle_id', bundleId)
+  } else {
+    await supabase
+      .from('bundle_analytics')
+      .insert({
+        bundle_id: bundleId,
+        total_clicks: 1
+      })
+  }
+  
+  // Abre link
+  window.open(url, '_blank')
+}
+```
+
+### Query Bundles com Analytics
+
+Buscar bundles incluindo métricas:
+
+```typescript
+// app/api/bundles-with-stats/route.ts
+export async function GET() {
+  const { data, error } = await supabase
+    .from('bundles')
+    .select(`
+      *,
+      bundle_analytics (
+        view_count,
+        total_clicks,
+        last_viewed_at
+      )
+    `)
+    .eq('is_valid', true)
+    .order('last_updated', { ascending: false })
+    .limit(50)
+  
+  if (error) return Response.json({ error }, { status: 500 })
+  return Response.json({ bundles: data })
+}
+```
+
+### Filtro de Conteúdo +18/NSFW
+
+Adicione controle para exibir/ocultar conteúdo adulto:
+
+```typescript
+// components/SafeSearchToggle.tsx
+'use client'
+
+import { useState } from 'react'
+
+export default function SafeSearchToggle() {
+  const [showNSFW, setShowNSFW] = useState(false)
+  
+  const getBundles = async () => {
+    let query = supabase
+      .from('bundles')
+      .select('*')
+      .eq('is_valid', true)
+    
+    if (!showNSFW) {
+      query = query.eq('is_nsfw', false)
+    }
+    
+    const { data } = await query.limit(50)
+    return data
+  }
+  
+  return (
+    <label className="flex items-center gap-2">
+      <input
+        type="checkbox"
+        checked={showNSFW}
+        onChange={(e) => setShowNSFW(e.target.checked)}
+      />
+      <span>Exibir conteúdo +18</span>
+    </label>
+  )
 }
 ```
 

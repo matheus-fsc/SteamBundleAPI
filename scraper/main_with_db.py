@@ -178,13 +178,22 @@ async def main():
     finally:
         print("\n\n🔄🔄🔄 ENTRANDO NO BLOCO FINALLY! 🔄🔄🔄\n\n", flush=True)
         logger.info("🔄 ENTRANDO NO BLOCO FINALLY!")
-        # === FASE 3: Sincronização com Supabase (DIRECT PostgreSQL) ===
-        sync_enabled = os.getenv('ENABLE_SUPABASE_SYNC', 'false').lower()
-        logger.info(f"🔍 DEBUG: ENABLE_SUPABASE_SYNC raw value: '{os.getenv('ENABLE_SUPABASE_SYNC', 'NOT_SET')}'")
-        logger.info(f"🔍 DEBUG: After .lower(): '{sync_enabled}'")
-        logger.info(f"🔍 DEBUG: Comparison result: {sync_enabled == 'true'}")
         
-        if sync_enabled == 'true':
+        # === FASE 3: Sincronização com Supabase (DIRECT PostgreSQL) ===
+        # Debug completo das variáveis de ambiente
+        import os
+        all_env = {k: v for k, v in os.environ.items() if 'SUPABASE' in k or 'ENABLE' in k}
+        logger.info(f"🔍 DEBUG: Todas as variáveis relacionadas: {all_env}")
+        
+        sync_enabled_raw = os.getenv('ENABLE_SUPABASE_SYNC', 'NOT_SET')
+        sync_enabled = sync_enabled_raw.lower().strip()
+        
+        logger.info(f"🔍 DEBUG: ENABLE_SUPABASE_SYNC raw value: '{sync_enabled_raw}'")
+        logger.info(f"🔍 DEBUG: After .lower().strip(): '{sync_enabled}'")
+        logger.info(f"🔍 DEBUG: Comparison result (== 'true'): {sync_enabled == 'true'}")
+        logger.info(f"🔍 DEBUG: Comparison result (in ['true', '1', 'yes']): {sync_enabled in ['true', '1', 'yes']}")
+        
+        if sync_enabled in ['true', '1', 'yes']:
             logger.info("\n☁️  FASE 3: Sincronizando com Supabase...")
             
             try:

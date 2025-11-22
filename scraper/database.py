@@ -29,6 +29,7 @@ class BundleModel(Base):
     # Metadados
     games_count = Column(Integer, default=0)
     is_valid = Column(Boolean, default=True)
+    is_nsfw = Column(Boolean, default=False)  # Conteúdo +18/adulto
     needs_browser_scraping = Column(Boolean, default=False)  # Para preços dinâmicos
     
     # Timestamps
@@ -122,6 +123,24 @@ class GameModel(Base):
     
     __table_args__ = (
         Index('idx_game_name', 'name'),
+    )
+
+
+class BundleAnalyticsModel(Base):
+    """Modelo de métricas/analytics para bundles"""
+    __tablename__ = 'bundle_analytics'
+    
+    bundle_id = Column(String, ForeignKey('bundles.id'), primary_key=True)
+    view_count = Column(Integer, default=0)
+    last_viewed_at = Column(DateTime)
+    
+    # Métricas agregadas
+    total_clicks = Column(Integer, default=0)  # Cliques no link da Steam
+    first_tracked_at = Column(DateTime, default=datetime.datetime.utcnow)
+    
+    __table_args__ = (
+        Index('idx_view_count', 'view_count'),
+        Index('idx_last_viewed', 'last_viewed_at'),
     )
 
 
@@ -222,6 +241,7 @@ class Database:
                         games=bundle_data.get('games', []),
                         games_count=len(bundle_data.get('games', [])),
                         is_valid=bundle_data.get('is_valid', True),
+                        is_nsfw=bundle_data.get('is_nsfw', False),  # Conteúdo +18
                         needs_browser_scraping=bundle_data.get('needs_browser_scraping', False)
                     )
                 else:
@@ -238,6 +258,7 @@ class Database:
                     bundle.games = bundle_data.get('games', bundle.games)
                     bundle.games_count = len(bundle_data.get('games', []))
                     bundle.is_valid = bundle_data.get('is_valid', bundle.is_valid)
+                    bundle.is_nsfw = bundle_data.get('is_nsfw', bundle.is_nsfw)  # Atualiza NSFW
                     bundle.needs_browser_scraping = bundle_data.get('needs_browser_scraping', False)
                 
                 # Atualiza preços e adiciona ao histórico
@@ -294,6 +315,78 @@ class Database:
                 .where(BundleModel.is_valid == True)
                 .where(BundleModel.discount > 0)
                 .order_by(BundleModel.discount.desc())
+                .limit(limit)
+            )
+            return result.scalars().all()
+    
+    async def increment_bundle_view(self, bundle_id: str) -> BundleAnalyticsModel:
+        """Incrementa contador de visualizações de um bundle"""
+        async with self.async_session() as session:
+            async with session.begin():
+                # Busca ou cria analytics
+                analytics = await session.get(BundleAnalyticsModel, bundle_id)
+                
+                if analytics is None:
+                    analytics = BundleAnalyticsModel(
+                        bundle_id=bundle_id,
+                        view_count=1,
+                        last_viewed_at=datetime.datetime.utcnow()
+                    )
+                else:
+                    analytics.view_count += 1
+                    analytics.last_viewed_at = datetime.datetime.utcnow()
+                
+                session.add(analytics)
+            
+            await session.refresh(analytics)
+            return analytics
+    
+    async def increment_bundle_click(self, bundle_id: str) -> BundleAnalyticsModel:
+        """Incrementa contador de cliques em um bundle"""
+        async with self.async_session() as session:
+            async with session.begin():
+                analytics = await session.get(BundleAnalyticsModel, bundle_id)
+                
+                if analytics is None:
+                    analytics = BundleAnalyticsModel(
+                        bundle_id=bundle_id,
+                        total_clicks=1
+                    )
+                else:
+                    analytics.total_clicks += 1
+                
+                session.add(analytics)
+            
+            await session.refresh(analytics)
+            return analytics
+    
+    async def get_top_viewed_bundles(self, limit: int = 10) -> List[tuple]:
+        """Retorna bundles mais visualizados com seus dados"""
+        async with self.async_session() as session:
+            from sqlalchemy import select
+            
+            result = await session.execute(
+                select(BundleModel, BundleAnalyticsModel)
+                .join(BundleAnalyticsModel, BundleModel.id == BundleAnalyticsModel.bundle_id)
+                .where(BundleModel.is_valid == True)
+                .order_by(BundleAnalyticsModel.view_count.desc())
+                .limit(limit)
+            )
+            return result.all()
+    
+    async def get_best_deals(self, limit: int = 10, min_discount: int = 50) -> List[BundleModel]:
+        """Retorna melhores ofertas (alto desconto + bom preço)"""
+        async with self.async_session() as session:
+            from sqlalchemy import select
+            
+            result = await session.execute(
+                select(BundleModel)
+                .where(BundleModel.is_valid == True)
+                .where(BundleModel.discount >= min_discount)
+                .where(BundleModel.final_price > 0)
+                .order_by(
+                    (BundleModel.discount * BundleModel.games_count).desc()  # Score: desconto * qtd jogos
+                )
                 .limit(limit)
             )
             return result.scalars().all()
