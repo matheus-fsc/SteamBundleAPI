@@ -111,13 +111,13 @@ class BundleScraper:
                     # Verifica bloqueio da Steam
                     if response.status == 429:  # Too Many Requests
                         retry_after = int(response.headers.get('Retry-After', 60))
-                        self.logger.error(f"🚫 BLOQUEADO pela Steam! Aguardando {retry_after}s...")
+                        self.logger.error(f" BLOQUEADO pela Steam! Aguardando {retry_after}s...")
                         self.blocked_until = time.time() + retry_after
                         await asyncio.sleep(retry_after)
                         return None
                     
                     elif response.status == 403:  # Forbidden
-                        self.logger.error(f"🚫 ACESSO NEGADO pela Steam! Aguardando 120s...")
+                        self.logger.error(f" ACESSO NEGADO pela Steam! Aguardando 120s...")
                         self.blocked_until = time.time() + 120
                         await asyncio.sleep(120)
                         return None
@@ -144,12 +144,12 @@ class BundleScraper:
                         final_price_cents = int(purchase_option.get('final_price_in_cents', 0))
                         original_price_cents = int(purchase_option.get('price_before_bundle_discount', final_price_cents))
                         
-                        # 🔥 FILTRO: Rejeita bundles sem preço (fantasmas)
+                        #  FILTRO: Rejeita bundles sem preço (fantasmas)
                         if final_price_cents == 0 and original_price_cents == 0:
                             self.logger.warning(f"Bundle {bundle_id}: SEM PREÇO (fantasma) - ignorado")
                             return None
                         
-                        # 🔞 DETECÇÃO: Verifica se é conteúdo NSFW/+18
+                        #  DETECÇÃO: Verifica se é conteúdo NSFW/+18
                         # Steam API retorna content_descriptorids com ID 3 para conteúdo adulto
                         content_descriptors = bundle_data.get('content_descriptorids', [])
                         is_nsfw = 3 in content_descriptors  # ID 3 = Adult Only Sexual Content
@@ -243,14 +243,14 @@ class BundleScraper:
                     if response.status == 429:  # Too Many Requests
                         import time
                         retry_after = int(response.headers.get('Retry-After', 60))
-                        self.logger.error(f"🚫 BLOQUEADO pela Steam (batch)! Aguardando {retry_after}s...")
+                        self.logger.error(f" BLOQUEADO pela Steam (batch)! Aguardando {retry_after}s...")
                         self.blocked_until = time.time() + retry_after
                         await asyncio.sleep(retry_after)
                         return []
                     
                     elif response.status == 403:  # Forbidden
                         import time
-                        self.logger.error(f"🚫 ACESSO NEGADO pela Steam (batch)! Aguardando 120s...")
+                        self.logger.error(f" ACESSO NEGADO pela Steam (batch)! Aguardando 120s...")
                         self.blocked_until = time.time() + 120
                         await asyncio.sleep(120)
                         return []
