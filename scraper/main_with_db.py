@@ -13,6 +13,11 @@ from .logger import Logger
 from .database import Database, BundleModel, ScrapingLogModel
 import datetime
 
+# Captura variáveis de ambiente NO INÍCIO (antes do asyncio)
+ENABLE_SUPABASE_SYNC = os.getenv('ENABLE_SUPABASE_SYNC', 'false').lower().strip()
+SUPABASE_URL = os.getenv('SUPABASE_URL', '')
+SUPABASE_SERVICE_KEY = os.getenv('SUPABASE_SERVICE_KEY', '')
+
 
 async def main():
     """Execução completa com banco de dados e retry híbrido"""
@@ -180,20 +185,13 @@ async def main():
         logger.info("🔄 ENTRANDO NO BLOCO FINALLY!")
         
         # === FASE 3: Sincronização com Supabase (DIRECT PostgreSQL) ===
-        # Debug completo das variáveis de ambiente
-        import os
-        all_env = {k: v for k, v in os.environ.items() if 'SUPABASE' in k or 'ENABLE' in k}
-        logger.info(f"🔍 DEBUG: Todas as variáveis relacionadas: {all_env}")
+        # Usa variáveis capturadas no início do módulo
+        logger.info(f"🔍 DEBUG: ENABLE_SUPABASE_SYNC value: '{ENABLE_SUPABASE_SYNC}'")
+        logger.info(f"🔍 DEBUG: SUPABASE_URL: '{SUPABASE_URL[:50]}...' (truncated)")
+        logger.info(f"🔍 DEBUG: SUPABASE_SERVICE_KEY: {'SET' if SUPABASE_SERVICE_KEY else 'NOT SET'}")
+        logger.info(f"🔍 DEBUG: Will sync? {ENABLE_SUPABASE_SYNC in ['true', '1', 'yes']}")
         
-        sync_enabled_raw = os.getenv('ENABLE_SUPABASE_SYNC', 'NOT_SET')
-        sync_enabled = sync_enabled_raw.lower().strip()
-        
-        logger.info(f"🔍 DEBUG: ENABLE_SUPABASE_SYNC raw value: '{sync_enabled_raw}'")
-        logger.info(f"🔍 DEBUG: After .lower().strip(): '{sync_enabled}'")
-        logger.info(f"🔍 DEBUG: Comparison result (== 'true'): {sync_enabled == 'true'}")
-        logger.info(f"🔍 DEBUG: Comparison result (in ['true', '1', 'yes']): {sync_enabled in ['true', '1', 'yes']}")
-        
-        if sync_enabled in ['true', '1', 'yes']:
+        if ENABLE_SUPABASE_SYNC in ['true', '1', 'yes']:
             logger.info("\n☁️  FASE 3: Sincronizando com Supabase...")
             
             try:
