@@ -31,6 +31,7 @@ class BundleScraper:
             headers=self.config.HEADERS
         )
         self._semaphore = asyncio.Semaphore(self.config.MAX_CONCURRENT_REQUESTS)
+        self.blocked_until = 0  # Timestamp para controle de bloqueio
         return self
     
     async def __aexit__(self, exc_type, exc_val, exc_tb):
@@ -87,6 +88,14 @@ class BundleScraper:
         Returns:
             Dicionário com dados estruturados do bundle ou None se falhar
         """
+        # Verifica se estamos bloqueados
+        import time
+        if hasattr(self, 'blocked_until') and time.time() < self.blocked_until:
+            remaining = int(self.blocked_until - time.time())
+            self.logger.warning(f"⏳ Aguardando fim do bloqueio ({remaining}s restantes)")
+            await asyncio.sleep(min(5, remaining))
+            return None
+        
         # Usa API oficial da Steam
         params = {
             'bundleids': str(bundle_id),
@@ -99,7 +108,21 @@ class BundleScraper:
         try:
             async with self._semaphore:
                 async with self.session.get(self.config.BUNDLE_API_URL, params=params) as response:
-                    if response.status == 200:
+                    # Verifica bloqueio da Steam
+                    if response.status == 429:  # Too Many Requests
+                        retry_after = int(response.headers.get('Retry-After', 60))
+                        self.logger.error(f"🚫 BLOQUEADO pela Steam! Aguardando {retry_after}s...")
+                        self.blocked_until = time.time() + retry_after
+                        await asyncio.sleep(retry_after)
+                        return None
+                    
+                    elif response.status == 403:  # Forbidden
+                        self.logger.error(f"🚫 ACESSO NEGADO pela Steam! Aguardando 120s...")
+                        self.blocked_until = time.time() + 120
+                        await asyncio.sleep(120)
+                        return None
+                    
+                    elif response.status == 200:
                         data = await response.json()
                         
                         # Nova estrutura da API v1
@@ -120,6 +143,11 @@ class BundleScraper:
                         purchase_option = bundle_data.get('best_purchase_option', {})
                         final_price_cents = int(purchase_option.get('final_price_in_cents', 0))
                         original_price_cents = int(purchase_option.get('price_before_bundle_discount', final_price_cents))
+                        
+                        # 🔥 FILTRO: Rejeita bundles sem preço (fantasmas)
+                        if final_price_cents == 0 and original_price_cents == 0:
+                            self.logger.warning(f"Bundle {bundle_id}: SEM PREÇO (fantasma) - ignorado")
+                            return None
                         
                         # Calcula desconto percentual
                         if original_price_cents > 0:
@@ -202,7 +230,23 @@ class BundleScraper:
         try:
             async with self._semaphore:
                 async with self.session.get(self.config.BUNDLE_API_URL, params=params) as response:
-                    if response.status == 200:
+                    # Verifica bloqueio da Steam
+                    if response.status == 429:  # Too Many Requests
+                        import time
+                        retry_after = int(response.headers.get('Retry-After', 60))
+                        self.logger.error(f"🚫 BLOQUEADO pela Steam (batch)! Aguardando {retry_after}s...")
+                        self.blocked_until = time.time() + retry_after
+                        await asyncio.sleep(retry_after)
+                        return []
+                    
+                    elif response.status == 403:  # Forbidden
+                        import time
+                        self.logger.error(f"🚫 ACESSO NEGADO pela Steam (batch)! Aguardando 120s...")
+                        self.blocked_until = time.time() + 120
+                        await asyncio.sleep(120)
+                        return []
+                    
+                    elif response.status == 200:
                         data = await response.json()
                         
                         response_data = data.get('response', {})
@@ -219,6 +263,10 @@ class BundleScraper:
                             purchase_option = bundle_data.get('best_purchase_option', {})
                             final_price_cents = int(purchase_option.get('final_price_in_cents', 0))
                             original_price_cents = int(purchase_option.get('price_before_bundle_discount', final_price_cents))
+                            
+                            # 🔥 FILTRO: Rejeita bundles sem preço (fantasmas)
+                            if final_price_cents == 0 and original_price_cents == 0:
+                                continue
                             
                             # Calcula desconto
                             if original_price_cents > 0:

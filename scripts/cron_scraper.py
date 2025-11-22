@@ -81,11 +81,22 @@ async def check_and_run():
         # Agora executa o scraping normal
         logger.info("🚀 Iniciando scraping completo...")
         
+        # Executa e GARANTE que espera terminar completamente
+        import time
+        start_time = time.time()
+        
         scraping_result = subprocess.run(
             [sys.executable, '-m', 'scraper.main_with_db'],
             cwd='/app',
             capture_output=False  # Output vai direto para stdout (logs do docker)
         )
+        
+        elapsed = time.time() - start_time
+        logger.info(f"⏱️  Scraping levou {elapsed:.1f} segundos")
+        
+        # Aguarda um pouco para garantir que finally executou
+        logger.info("⏳ Aguardando 5s para garantir sync...")
+        time.sleep(5)
         
         if scraping_result.returncode != 0:
             logger.error("❌ Erro no scraping")

@@ -161,6 +161,7 @@ async def main():
         scraping_log.success = True
         
         logger.end_operation("Execução do scraper", success=True)
+        logger.info("🔄 Chegando ao fim da função main()...")
         
         return scraping_log
     
@@ -175,18 +176,25 @@ async def main():
         raise
     
     finally:
+        print("\n\n🔄🔄🔄 ENTRANDO NO BLOCO FINALLY! 🔄🔄🔄\n\n", flush=True)
+        logger.info("🔄 ENTRANDO NO BLOCO FINALLY!")
         # === FASE 3: Sincronização com Supabase (DIRECT PostgreSQL) ===
-        if os.getenv('ENABLE_SUPABASE_SYNC', 'false').lower() == 'true':
+        sync_enabled = os.getenv('ENABLE_SUPABASE_SYNC', 'false').lower()
+        logger.info(f"🔍 DEBUG: ENABLE_SUPABASE_SYNC raw value: '{os.getenv('ENABLE_SUPABASE_SYNC', 'NOT_SET')}'")
+        logger.info(f"🔍 DEBUG: After .lower(): '{sync_enabled}'")
+        logger.info(f"🔍 DEBUG: Comparison result: {sync_enabled == 'true'}")
+        
+        if sync_enabled == 'true':
             logger.info("\n☁️  FASE 3: Sincronizando com Supabase...")
             
             try:
-                # Usa sync direto via PostgreSQL (mais confiável que SDK)
+                # Usa sync via REST API (mais confiável que PostgreSQL direto)
                 import subprocess
                 import sys
                 
-                # Executa o script de sync direto
+                # Executa o script de sync REST
                 result = subprocess.run(
-                    [sys.executable, '/app/scripts/sync_supabase_direct.py'],
+                    [sys.executable, '/app/scripts/sync_supabase_rest.py'],
                     capture_output=True,
                     text=True,
                     timeout=1800  # 30 minutos timeout
@@ -204,7 +212,7 @@ async def main():
             except subprocess.TimeoutExpired:
                 logger.error("❌ Sync timeout (>30min)")
             except FileNotFoundError:
-                logger.warning("⚠️  Script sync_supabase_direct.py não encontrado")
+                logger.warning("⚠️  Script sync_supabase_rest.py não encontrado")
             except Exception as e:
                 logger.error(f"Erro na sincronização Supabase: {e}")
                 logger.info("Continuando mesmo sem sync...")
@@ -258,7 +266,19 @@ async def analyze_bundle_history(bundle_id: str):
 
 if __name__ == "__main__":
     # Execução principal
-    asyncio.run(main())
+    print("🚀 INICIANDO ASYNCIO.RUN()...", flush=True)
+    result = asyncio.run(main())
+    print(f"✅ ASYNCIO.RUN() COMPLETOU! Result: {result}", flush=True)
+    print("🔍 Verificando se chegou aqui...", flush=True)
+    
+    # Força flush e espera um pouco
+    import sys
+    import time
+    sys.stdout.flush()
+    sys.stderr.flush()
+    time.sleep(2)
+    
+    print("🎉 Script finalizado com sucesso!", flush=True)
     
     # Ou analisar bundle específico
     # asyncio.run(analyze_bundle_history('28631'))
