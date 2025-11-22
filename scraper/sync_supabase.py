@@ -176,10 +176,11 @@ class SupabaseSync:
             batch_data = [self.bundle_to_dict(b) for b in batch]
             
             try:
-                # Upsert no Supabase (insere ou atualiza)
+                # Upsert no Supabase (insere ou atualiza se já existe)
+                # O método upsert do Supabase automaticamente detecta conflitos na PRIMARY KEY
                 response = self.supabase.table('bundles').upsert(
                     batch_data,
-                    on_conflict='id'  # Usa ID como chave única
+                    returning='minimal'  # Não retorna dados, melhora performance
                 ).execute()
                 
                 stats['success'] += len(batch)

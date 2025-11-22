@@ -233,11 +233,18 @@ class Database:
                 
                 if bundle is None:
                     # Novo bundle
+                    # Extrai image_url de images.header OU diretamente
+                    image_url = None
+                    if isinstance(bundle_data.get('images'), dict):
+                        image_url = bundle_data['images'].get('header')
+                    elif 'image_url' in bundle_data:
+                        image_url = bundle_data['image_url']
+                    
                     bundle = BundleModel(
                         id=bundle_data['id'],
                         name=bundle_data.get('name'),
                         url=bundle_data.get('url'),
-                        image_url=bundle_data.get('images', {}).get('header') if isinstance(bundle_data.get('images'), dict) else None,
+                        image_url=image_url,
                         games=bundle_data.get('games', []),
                         games_count=len(bundle_data.get('games', [])),
                         is_valid=bundle_data.get('is_valid', True),
@@ -249,11 +256,13 @@ class Database:
                     bundle.name = bundle_data.get('name', bundle.name)
                     bundle.url = bundle_data.get('url', bundle.url)
                     
-                    # Atualiza image_url se disponível
+                    # Atualiza image_url se disponível (de images.header OU image_url direto)
                     if isinstance(bundle_data.get('images'), dict):
                         image_url = bundle_data['images'].get('header')
                         if image_url:
                             bundle.image_url = image_url
+                    elif 'image_url' in bundle_data and bundle_data['image_url']:
+                        bundle.image_url = bundle_data['image_url']
                     
                     bundle.games = bundle_data.get('games', bundle.games)
                     bundle.games_count = len(bundle_data.get('games', []))
