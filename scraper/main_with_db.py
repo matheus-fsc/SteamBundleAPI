@@ -56,6 +56,11 @@ async def main():
                 # Scrape do batch
                 batch_bundles = await scraper.scrape_bundles_batch(batch_ids)
                 
+                # Validar retorno
+                if batch_bundles is None:
+                    logger.warning(f"⚠️  Batch {batch_num} retornou None, pulando...")
+                    continue
+                
                 # Aplica filtros
                 batch_bundles = filter_service.filter_valid(batch_bundles)
                 

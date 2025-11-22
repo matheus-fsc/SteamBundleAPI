@@ -262,8 +262,13 @@ class BundleScraper:
                             bundles.append(result)
                         
                         return bundles
+                    else:
+                        self.logger.warning(f"API retornou status {response.status}")
+                        return []
         except Exception as e:
             self.logger.error(f"Erro ao buscar batch: {e}")
+            import traceback
+            self.logger.error(traceback.format_exc())
             return []
     
     async def scrape_all_bundles(self, bundle_ids: Optional[List[str]] = None) -> List[Dict]:
