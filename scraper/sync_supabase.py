@@ -120,6 +120,8 @@ class SupabaseSync:
             'is_valid': bundle.is_valid,
             'is_discount_real': discount_analysis.get('is_real', True),
             'discount_analysis': discount_analysis.get('reason', ''),
+            'image_url': bundle.image_url or '',  # URL da imagem header
+            'is_nsfw': bundle.is_nsfw or False,  # Conteúdo +18/adulto
             
             # Histórico simplificado (últimos 30 dias)
             'price_history': self._get_recent_history(bundle.price_history),

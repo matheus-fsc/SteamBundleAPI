@@ -266,7 +266,7 @@ class Database:
                 if isinstance(price_data, dict):
                     final = price_data.get('final')
                     original = price_data.get('original')
-                    discount = bundle_data.get('discount', 0)
+                    discount = price_data.get('discount', 0)  # Discount está dentro de price!
                     currency = price_data.get('currency', 'BRL')
                     
                     # Só adiciona ao histórico se preço mudou
