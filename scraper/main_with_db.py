@@ -61,8 +61,19 @@ async def main():
                     logger.warning(f"⚠️  Batch {batch_num} retornou None, pulando...")
                     continue
                 
+                logger.info(f"🔍 DEBUG: Batch {batch_num} scraped {len(batch_bundles)} bundles antes do filtro")
+                if len(batch_bundles) > 0:
+                    logger.info(f"🔍 DEBUG: Primeiro bundle: {batch_bundles[0].get('name', 'N/A')}")
+                
                 # Aplica filtros
-                batch_bundles = filter_service.filter_valid(batch_bundles)
+                batch_bundles_filtered = filter_service.filter_valid(batch_bundles)
+                logger.info(f"🔍 DEBUG: Após filtro restaram {len(batch_bundles_filtered)} bundles")
+                
+                if len(batch_bundles) > 0 and len(batch_bundles_filtered) == 0:
+                    logger.warning(f"⚠️  Todos os bundles foram filtrados! Exemplo de bundle rejeitado:")
+                    logger.warning(f"     {batch_bundles[0]}")
+                
+                batch_bundles = batch_bundles_filtered
                 
                 # Salva no banco IMEDIATAMENTE
                 logger.info(f"💾 Salvando batch {batch_num} no banco...")
