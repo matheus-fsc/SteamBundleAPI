@@ -1,0 +1,18 @@
+FROM alpine:latest
+
+# Instalar ferramentas de monitoramento
+RUN apk add --no-cache \
+    bash \
+    curl \
+    jq \
+    postgresql-client \
+    python3
+
+# Script de monitoramento
+COPY scripts/monitor.sh /monitor.sh
+RUN chmod +x /monitor.sh
+
+# Diretório de logs
+RUN mkdir -p /logs
+
+CMD ["/monitor.sh"]

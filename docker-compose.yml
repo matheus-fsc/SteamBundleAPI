@@ -75,6 +75,23 @@ services:
     restart: unless-stopped
     command: tunnel --no-autoupdate run --token ${TUNNEL_TOKEN}
 
+  # Monitor temporário para debug (REMOVER EM PRODUÇÃO)
+  monitor:
+    build:
+      context: .
+      dockerfile: Dockerfile.monitor
+    container_name: steam_monitor
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./logs/monitor:/logs
+      - ./scripts/monitor.sh:/monitor.sh:ro
+    depends_on:
+      - scraper
+      - postgres
+    environment:
+      TZ: America/Sao_Paulo
+
 volumes:
   # Volume Docker gerenciado (melhor performance que bind mount no SD)
   postgres_data:
