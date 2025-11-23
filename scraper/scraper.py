@@ -287,6 +287,7 @@ class BundleScraper:
                                 'id': str(bundle_id),
                                 'name': bundle_data.get('name'),
                                 'url': f"https://store.steampowered.com/{bundle_data.get('store_url_path', f'bundle/{bundle_id}/')}",
+                                'is_nsfw': False,  # ⚠️ API v1 batch NÃO retorna content_descriptors
                                 'price': {
                                     'final': final_price_cents / 100,
                                     'original': original_price_cents / 100,
