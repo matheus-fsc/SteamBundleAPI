@@ -34,5 +34,5 @@ class ScrapingConfig:
         'Connection': 'keep-alive',
     }
     
-    MAX_CONCURRENT_REQUESTS = 5
+    MAX_CONCURRENT_REQUESTS = 10  # Aumentado para single mode paralelizado
     BATCH_SIZE = 100  # API aceita até 100 IDs por request

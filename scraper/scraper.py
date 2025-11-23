@@ -384,3 +384,61 @@ class BundleScraper:
             Dados do bundle ou None
         """
         return await self.scrape_bundle_details(bundle_id)
+    
+    async def scrape_bundles_parallel(self, bundle_ids: List[str], batch_size: int = 50) -> List[Dict]:
+        """
+        Scrape bundles em paralelo usando single mode (COM imagens e NSFW)
+        
+        IMPORTANTE: Single mode é mais lento mas retorna dados completos:
+        - ✅ Imagens (assets.header)
+        - ✅ NSFW detection (content_descriptorids)
+        - ✅ Detalhes completos de included_items
+        
+        Args:
+            bundle_ids: Lista de IDs
+            batch_size: Quantos bundles processar em paralelo (default: 50)
+            
+        Returns:
+            Lista de bundles com dados completos
+        """
+        if not bundle_ids:
+            return []
+        
+        self.logger.info(f"🔄 Scraping PARALELO de {len(bundle_ids)} bundles (single mode)")
+        self.logger.info(f"   Concorrência: {self.config.MAX_CONCURRENT_REQUESTS} requests simultâneas")
+        self.logger.info(f"   Batch size: {batch_size} bundles por grupo")
+        
+        all_bundles = []
+        
+        # Processa em grupos para não criar muitas tasks de uma vez
+        for i in range(0, len(bundle_ids), batch_size):
+            batch = bundle_ids[i:i + batch_size]
+            batch_num = i//batch_size + 1
+            total_batches = (len(bundle_ids) + batch_size - 1) // batch_size
+            
+            self.logger.info(f"📦 Grupo {batch_num}/{total_batches}: Processando {len(batch)} bundles...")
+            
+            # Cria tasks para todos os bundles do grupo
+            tasks = [self.fetch_single_bundle(bid) for bid in batch]
+            
+            # Executa em paralelo (semaphore limita concorrência)
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            
+            # Filtra resultados válidos
+            valid_bundles = []
+            for result in results:
+                if isinstance(result, dict):  # Bundle válido
+                    valid_bundles.append(result)
+                elif isinstance(result, Exception):  # Erro
+                    self.logger.error(f"Erro em bundle: {result}")
+            
+            all_bundles.extend(valid_bundles)
+            
+            self.logger.success(f"✅ Grupo {batch_num}: {len(valid_bundles)}/{len(batch)} bundles válidos")
+            
+            # Pequena pausa entre grupos
+            if i + batch_size < len(bundle_ids):
+                await asyncio.sleep(1)
+        
+        self.logger.success(f"🎉 Total scraped: {len(all_bundles)}/{len(bundle_ids)} bundles com dados completos")
+        return all_bundles

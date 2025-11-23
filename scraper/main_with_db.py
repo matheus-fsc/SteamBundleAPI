@@ -58,8 +58,8 @@ async def main():
                 
                 logger.info(f"📦 Processando batch {batch_num} ({len(batch_ids)} bundles)...")
                 
-                # Scrape do batch
-                batch_bundles = await scraper.scrape_bundles_batch(batch_ids)
+                # 🔄 USA SINGLE MODE PARALELIZADO (com imagens e NSFW)
+                batch_bundles = await scraper.scrape_bundles_parallel(batch_ids, batch_size=50)
                 
                 # Validar retorno
                 if batch_bundles is None:
@@ -69,6 +69,8 @@ async def main():
                 logger.info(f"🔍 DEBUG: Batch {batch_num} scraped {len(batch_bundles)} bundles antes do filtro")
                 if len(batch_bundles) > 0:
                     logger.info(f"🔍 DEBUG: Primeiro bundle: {batch_bundles[0].get('name', 'N/A')}")
+                    logger.info(f"   image_url: {batch_bundles[0].get('images', {}).get('header', 'VAZIO')}")
+                    logger.info(f"   is_nsfw: {batch_bundles[0].get('is_nsfw', False)}")
                 
                 # Aplica filtros
                 batch_bundles_filtered = filter_service.filter_valid(batch_bundles)
