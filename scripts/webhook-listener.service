@@ -1,0 +1,17 @@
+[Unit]
+Description=GitHub Webhook Listener - Auto Deploy Steam Bundle API
+After=network.target docker.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/SteamBundleAPI
+Environment="GITHUB_WEBHOOK_SECRET=seu_secret_aqui_mude"
+ExecStart=/usr/bin/python3 /root/SteamBundleAPI/scripts/webhook_listener.py
+Restart=always
+RestartSec=10
+StandardOutput=append:/var/log/webhook-listener.log
+StandardError=append:/var/log/webhook-listener.log
+
+[Install]
+WantedBy=multi-user.target

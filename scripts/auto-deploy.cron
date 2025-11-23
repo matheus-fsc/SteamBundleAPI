@@ -1,0 +1,4 @@
+# Auto-deploy via polling - Verifica atualizações a cada 5 minutos
+# Para instalar: sudo crontab -e (como root) e adicione esta linha:
+
+*/5 * * * * /root/SteamBundleAPI/scripts/auto_deploy_poll.sh >> /var/log/auto-deploy.log 2>&1
