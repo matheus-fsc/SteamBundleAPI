@@ -419,7 +419,7 @@ class BundleScraper:
             self.logger.info(f"📦 Grupo {batch_num}/{total_batches}: Processando {len(batch)} bundles...")
             
             # Cria tasks para todos os bundles do grupo
-            tasks = [self.fetch_single_bundle(bid) for bid in batch]
+            tasks = [self.scrape_single_bundle(bid) for bid in batch]
             
             # Executa em paralelo (semaphore limita concorrência)
             results = await asyncio.gather(*tasks, return_exceptions=True)
